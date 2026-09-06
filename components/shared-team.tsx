@@ -1,0 +1,119 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { BookOpen, Copy, Download, LockKeyhole } from 'lucide-react';
+import { PokemonDetails, downloadText } from './vault-ui';
+import {
+  dateLabel,
+  formatLabel,
+  withNotes,
+  type TeamRecord,
+} from '@/lib/domain';
+export default function SharedTeam({ token }: { token: string }) {
+  const [team, setTeam] = useState<TeamRecord | null>(null),
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState('');
+  useEffect(() => {
+    const params = new URL(window.location.href).searchParams;
+    fetch(
+      '/api/share/' +
+        token +
+        (params.has('version')
+          ? '?version=' + encodeURIComponent(params.get('version')!)
+          : ''),
+      { cache: 'no-store' },
+    )
+      .then(async (r) => {
+        const d: any = await r.json();
+        if (!r.ok) throw Error(d.error);
+        setTeam(d);
+      })
+      .catch((e) => setError(e.message));
+  }, [token]);
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice('Copied to clipboard.');
+    } catch {
+      setNotice('Clipboard is unavailable. Use Download export instead.');
+    }
+  }
+  return (
+    <main className="shared-page">
+      <header>
+        <a href="/" className="brand">
+          <span className="brand-icon">
+            <BookOpen size={20} />
+          </span>
+          teamvault.
+        </a>
+        <span className="private-label">
+          <LockKeyhole size={13} />
+          Read-only shared team
+        </span>
+      </header>
+      {error ? (
+        <div className="empty-state">
+          <h1>Team unavailable</h1>
+          <p>{error}</p>
+          <a href="/" className="button">
+            Open TeamVault
+          </a>
+        </div>
+      ) : team ? (
+        <div className="shared-content">
+          <div className="page-heading detail-heading">
+            <div>
+              <span className="format">{formatLabel(team.format)}</span>
+              <h1>{team.title}</h1>
+              <p>
+                v{team.version.version_number} · {team.version.version_comment}
+              </p>
+              <p className="muted">Team date · {dateLabel(team)}</p>
+              <div className="tags">
+                {team.tags.map((t) => (
+                  <span className="tag" key={t}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="detail-actions">
+              <button
+                className="button primary"
+                onClick={() => copy(team.version.showdown_text)}
+              >
+                <Copy size={15} />
+                Copy Showdown export
+              </button>
+              <button className="button" onClick={() => copy(withNotes(team))}>
+                Copy team + notes
+              </button>
+              <button
+                className="button"
+                onClick={() =>
+                  downloadText(team.version.showdown_text, team.title)
+                }
+              >
+                <Download size={15} />
+                Download export
+              </button>
+            </div>
+          </div>
+          {notice && (
+            <p role="status" className="notice">
+              {notice}
+            </p>
+          )}
+          <PokemonDetails team={team} />
+          <footer className="shared-footer">
+            A living team document, shared with TeamVault.
+          </footer>
+        </div>
+      ) : (
+        <div className="boot">
+          <p>Opening shared team…</p>
+        </div>
+      )}
+    </main>
+  );
+}

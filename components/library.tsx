@@ -1,0 +1,1501 @@
+'use client';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Archive,
+  ArrowLeft,
+  BookOpen,
+  Check,
+  ChevronDown,
+  Clock3,
+  Copy,
+  Download,
+  FolderClosed,
+  Grid2X2,
+  History,
+  List,
+  LockKeyhole,
+  Plus,
+  Search,
+  Settings2,
+  Share2,
+  Shield,
+  Sparkles,
+  Star,
+  Tags,
+  Upload,
+  X,
+} from 'lucide-react';
+import {
+  Sidebar,
+  SidebarProvider,
+  SidebarContent,
+  SidebarHeader,
+  SidebarFooter,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { api, browserAuth } from '@/lib/client';
+import {
+  dateLabel,
+  formatLabel,
+  withNotes,
+  type TeamRecord,
+  type Snapshot,
+  emptyDraft,
+  sourceTypes,
+} from '@/lib/domain';
+import { backupText } from '@/lib/showdown';
+import {
+  Modal,
+  Field,
+  Pick,
+  TagEditor,
+  PokemonLine,
+  PokemonDetails,
+  downloadText,
+} from './vault-ui';
+import { TeamEditor, ImportTeams } from './team-editor';
+type Facets = {
+  formats: string[];
+  sources: string[];
+  years: string[];
+  tags: string[];
+  all: number;
+  favourites: number;
+  archived: number;
+};
+const blank: Facets = {
+  formats: [],
+  sources: [],
+  years: [],
+  tags: [],
+  all: 0,
+  favourites: 0,
+  archived: 0,
+};
+const sortOptions: [string, string][] = [
+  ['modified_desc', 'Recently modified'],
+  ['modified_asc', 'Least recently modified'],
+  ['title_asc', 'Team name A–Z'],
+  ['title_desc', 'Team name Z–A'],
+  ['created_desc', 'Newest created'],
+  ['created_asc', 'Oldest created'],
+  ['date_desc', 'Team date: newest'],
+  ['date_asc', 'Team date: oldest'],
+  ['format', 'Format'],
+  ['source', 'Source'],
+];
+export default function Library() {
+  const [config, setConfig] = useState<any>(null),
+    [signed, setSigned] = useState(false),
+    [email, setEmail] = useState(''),
+    [authNotice, setAuthNotice] = useState('');
+  const [teams, setTeams] = useState<TeamRecord[]>([]),
+    [total, setTotal] = useState(0),
+    [facets, setFacets] = useState<Facets>(blank),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState('');
+  const [section, setSection] = useState('All teams'),
+    [query, setQuery] = useState(''),
+    [sort, setSort] = useState('modified_desc'),
+    [page, setPage] = useState(0),
+    [view, setView] = useState('grid'),
+    [filters, setFilters] = useState({
+      format: '',
+      tag: '',
+      year: '',
+      source: '',
+    }),
+    [selected, setSelected] = useState<string[]>([]);
+  const [detail, setDetail] = useState<TeamRecord | null>(null),
+    [detailLoading, setDetailLoading] = useState(false),
+    [tab, setTab] = useState('team'),
+    [modal, setModal] = useState<
+      | null
+      | 'new'
+      | 'import'
+      | 'version'
+      | 'metadata'
+      | 'settings'
+      | 'share'
+      | 'bulk'
+    >(null),
+    [organise, setOrganise] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((c: any) => {
+        setConfig(c);
+        if (c.demo) {
+          setSigned(!!c.user);
+          setLoading(false);
+        } else {
+          const auth = browserAuth(c.supabase_url, c.supabase_key);
+          auth.auth.getSession().then(({ data }) => {
+            setSigned(!!data.session);
+            setLoading(false);
+          });
+          const { data } = auth.auth.onAuthStateChange((_, session) =>
+            setSigned(!!session),
+          );
+          unsub = () => data.subscription.unsubscribe();
+        }
+      })
+      .catch(() => {
+        setError('Could not connect. Reload to try again.');
+        setLoading(false);
+      });
+    return () => unsub?.();
+  }, []);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!signed) return;
+      setLoading(true);
+      setError('');
+      try {
+        const result = await api(
+          'list',
+          {
+            query,
+            sort,
+            page,
+            ...filters,
+            archived: section === 'Archived',
+            favourite: section === 'Favourites',
+          },
+          signal,
+        );
+        setTeams(result.teams);
+        setTotal(result.total);
+        const f = await api('facets', {}, signal);
+        setFacets(f);
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setError((e as Error).message);
+      } finally {
+        if (!signal?.aborted) setLoading(false);
+      }
+    },
+    [signed, query, sort, page, filters, section],
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => refresh(controller.signal), query ? 250 : 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [refresh]);
+  async function openTeam(id: string, version?: number) {
+    setDetailLoading(true);
+    setError('');
+    try {
+      const t = await api('get', { id });
+      if (version) {
+        const v = t.history.find((x: Snapshot) => x.version_number === version);
+        if (v) t.version = v;
+      }
+      setDetail(t);
+      setTab('team');
+      const u = new URL(window.location.href);
+      u.searchParams.set('team', id);
+      if (version) u.searchParams.set('version', String(version));
+      else u.searchParams.delete('version');
+      window.history.replaceState({}, '', u);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+  useEffect(() => {
+    if (signed) {
+      const u = new URL(window.location.href);
+      const id = u.searchParams.get('team');
+      if (id)
+        void openTeam(id, Number(u.searchParams.get('version')) || undefined);
+    }
+  }, [signed]);
+  useEffect(() => {
+    function key(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        closeDetail();
+        searchRef.current?.focus();
+      }
+      if (e.key === 'Escape' && !modal) closeDetail();
+    }
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }, [modal]);
+  useEffect(() => {
+    const stored = localStorage.getItem('teamvault-view');
+    if (stored === 'list') setView('list');
+  }, []);
+  useEffect(() => {
+    const context = (document as any).modelContext;
+    if (!context?.registerTool || !signed) return;
+    const lifecycle = new AbortController();
+    for (const tool of [
+      {
+        name: 'search_teams',
+        title: 'Search your team library',
+        description:
+          'Search the signed-in library with same-Pokémon matching and show the results.',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string', maxLength: 400 } },
+          required: ['query'],
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: true, untrustedContentHint: true },
+        execute: async (input: any) => {
+          if (typeof input?.query !== 'string' || input.query.length > 400)
+            throw Error('Provide a query of at most 400 characters.');
+          const r = await api('list', {
+            query: input.query,
+            sort: 'modified_desc',
+            page: 0,
+          });
+          setQuery(input.query);
+          setPage(0);
+          setTeams(r.teams);
+          setTotal(r.total);
+          closeDetail();
+          return {
+            total: r.total,
+            teams: r.teams.map((t: TeamRecord) => ({
+              id: t.id,
+              title: t.title,
+              version: t.version.version_number,
+            })),
+          };
+        },
+      },
+      {
+        name: 'import_showdown_teams',
+        title: 'Import Showdown teams',
+        description:
+          'Save a Showdown backup into the signed-in library with Unknown historical dates. This completes an import.',
+        inputSchema: {
+          type: 'object',
+          properties: { text: { type: 'string', maxLength: 5000000 } },
+          required: ['text'],
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: false, untrustedContentHint: true },
+        execute: async (input: any) => {
+          if (
+            typeof input?.text !== 'string' ||
+            !input.text.trim() ||
+            input.text.length > 5000000
+          )
+            throw Error('Provide Showdown text up to 5 MB.');
+          const parsed = await api('parse', {
+            text: input.text,
+            format: 'unknown',
+          });
+          const result = await api('import', {
+            drafts: parsed.map((p: any) => p.draft),
+          });
+          await refresh();
+          return result;
+        },
+      },
+    ]) {
+      try {
+        Promise.resolve(
+          context.registerTool(tool, { signal: lifecycle.signal }),
+        ).catch(() => {});
+      } catch {}
+    }
+    return () => lifecycle.abort();
+  }, [signed, refresh]);
+  function closeDetail() {
+    setDetail(null);
+    if (typeof window !== 'undefined') window.history.replaceState({}, '', '/');
+  }
+  function chooseSection(s: string) {
+    setSection(s);
+    setPage(0);
+    setSelected([]);
+    closeDetail();
+    if (s === 'Recent') setSort('modified_desc');
+  }
+  function filter(k: string, v: string) {
+    setFilters((p) => ({ ...p, [k]: v }));
+    setPage(0);
+    setSelected([]);
+    closeDetail();
+  }
+  async function toggleStar(t: TeamRecord) {
+    try {
+      const r = await api('patch', {
+        id: t.id,
+        patch: { favourite: !t.favourite },
+      });
+      setTeams((ts) => ts.map((x) => (x.id === t.id ? r : x)));
+      if (detail?.id === t.id) setDetail({ ...detail, favourite: r.favourite });
+      void refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function saved(id?: string) {
+    setModal(null);
+    setNotice('Saved to your library.');
+    await refresh();
+    if (id) await openTeam(id);
+  }
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice('Copied to clipboard.');
+    } catch {
+      setError(
+        'Clipboard access was unavailable. Use Download export instead.',
+      );
+    }
+  }
+  async function archive(t: TeamRecord) {
+    try {
+      await api('patch', { id: t.id, patch: { archived: !t.archived } });
+      setNotice(
+        t.archived
+          ? 'Team restored to the library.'
+          : 'Team archived. You can restore it from Archived.',
+      );
+      closeDetail();
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function signIn() {
+    setAuthNotice('Sending…');
+    try {
+      const { error } = await browserAuth(
+        config.supabase_url,
+        config.supabase_key,
+      ).auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.origin + '/' },
+      });
+      if (error) throw error;
+      setAuthNotice('Check your email for a secure sign-in link.');
+    } catch (e) {
+      setAuthNotice((e as Error).message);
+    }
+  }
+  if (!config)
+    return (
+      <div className="boot">
+        <BookOpen size={28} />
+        <h1>TeamVault</h1>
+        <p>{error || 'Opening your workspace…'}</p>
+      </div>
+    );
+  if (!signed)
+    return (
+      <div className="login">
+        <div className="brand">
+          <span className="brand-icon">
+            <BookOpen size={20} />
+          </span>
+          teamvault.
+        </div>
+        <h1>Your teams, together.</h1>
+        <p>Sign in to your private team library.</p>
+        {config.demo ? (
+          <a
+            className="button primary"
+            href="/signin-with-chatgpt?return_to=%2F"
+            target="_top"
+          >
+            Sign in with ChatGPT
+          </a>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void signIn();
+            }}
+          >
+            <Field label="Email address">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </Field>
+            <button className="button primary" type="submit">
+              Email me a sign-in link
+            </button>
+          </form>
+        )}
+        {authNotice && <p role="status">{authNotice}</p>}
+        <p className="muted">
+          <LockKeyhole size={13} /> Teams are private by default.
+        </p>
+      </div>
+    );
+  const heading = detail ? detail.title : section;
+  const isHistory = detail && detail.version.id !== detail.current_version_id;
+  return (
+    <SidebarProvider
+      style={{ '--sidebar-width': '232px' } as React.CSSProperties}
+    >
+      <Sidebar className="vault-sidebar">
+        <SidebarHeader>
+          <a href="/" className="brand">
+            <span className="brand-icon">
+              <BookOpen size={20} />
+            </span>
+            teamvault<span className="brand-dot">.</span>
+          </a>
+          <button className="workspace" onClick={() => setModal('settings')}>
+            <span className="workspace-icon">P</span>
+            <span>
+              Personal workspace
+              <small>{config.demo ? 'Demo library' : 'Private library'}</small>
+            </span>
+            <ChevronDown size={14} />
+          </button>
+        </SidebarHeader>
+        <SidebarContent>
+          <div className="nav-section">LIBRARY</div>
+          {[
+            [FolderClosed, 'All teams', facets.all],
+            [Star, 'Favourites', facets.favourites],
+            [Clock3, 'Recent', ''],
+            [Archive, 'Archived', facets.archived || ''],
+          ].map(([Icon, label, count]: any) => (
+            <button
+              key={label}
+              className={
+                'nav-item ' + (section === label && !detail ? 'active' : '')
+              }
+              onClick={() => chooseSection(label)}
+            >
+              <Icon size={17} />
+              {label}
+              <span>{count}</span>
+            </button>
+          ))}
+          <div className="nav-section">ORGANISE</div>
+          {[
+            [Tags, 'Tags', 'tag', facets.tags],
+            [Shield, 'Formats', 'format', facets.formats],
+            [Clock3, 'Years', 'year', [...facets.years, 'unknown']],
+            [FolderClosed, 'Sources', 'source', facets.sources],
+          ].map(([Icon, label, key, values]: any) => (
+            <div key={key}>
+              <button
+                className="nav-item nav-wide"
+                aria-expanded={organise === key}
+                onClick={() => setOrganise(organise === key ? '' : key)}
+              >
+                <Icon size={17} />
+                {label}
+                <ChevronDown size={13} />
+              </button>
+              {organise === key && (
+                <div className="nav-values">
+                  {values.length ? (
+                    values.map((v: string) => (
+                      <button
+                        className={
+                          filters[key as keyof typeof filters] === v ? 'on' : ''
+                        }
+                        key={v}
+                        onClick={() =>
+                          filter(
+                            key,
+                            filters[key as keyof typeof filters] === v ? '' : v,
+                          )
+                        }
+                      >
+                        {v === 'unknown'
+                          ? 'Unknown'
+                          : key === 'format'
+                            ? formatLabel(v)
+                            : v}
+                      </button>
+                    ))
+                  ) : (
+                    <small>No {label.toLowerCase()} yet</small>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="sidebar-note">
+            <LockKeyhole size={17} />
+            <p>
+              Your teams. Your space.
+              <small>Everything is private until you share it.</small>
+            </p>
+          </div>
+        </SidebarContent>
+        <SidebarFooter>
+          <button className="nav-item" onClick={() => setModal('settings')}>
+            <Settings2 size={17} />
+            Settings
+          </button>
+          <div className="account">
+            <span className="avatar">P</span>
+            <span>
+              {config.user?.name || 'Personal library'}
+              <small>
+                {config.demo ? 'Demo workspace' : 'Connected to Supabase'}
+              </small>
+            </span>
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+      <main className="main-shell">
+        <header className="topbar">
+          <div>
+            <SidebarTrigger />
+            <span>Workspace</span>
+            <span className="slash">/</span>
+            <button onClick={closeDetail}>{section}</button>
+            {detail && (
+              <>
+                <span className="slash">/</span>
+                <strong>{detail.title}</strong>
+              </>
+            )}
+          </div>
+          <span className="private-label">
+            <LockKeyhole size={13} />
+            {config.demo ? 'Private demo workspace' : 'Private workspace'}
+          </span>
+        </header>
+        <div className="library-body">
+          {notice && (
+            <div role="status" className="notice">
+              <Check size={15} />
+              {notice}
+              <button
+                aria-label="Dismiss notification"
+                onClick={() => setNotice('')}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {error && (
+            <div className="error" role="alert">
+              {error}
+              <button onClick={() => refresh()}>Retry</button>
+            </div>
+          )}
+          {detailLoading ? (
+            <Skeleton className="h-80 w-full" />
+          ) : detail ? (
+            <>
+              <button className="back-link" onClick={closeDetail}>
+                <ArrowLeft size={15} />
+                Back to library
+              </button>
+              <div className="page-heading detail-heading">
+                <div>
+                  <span className="format">{formatLabel(detail.format)}</span>
+                  <h1>{detail.title}</h1>
+                  <div className="detail-meta">
+                    <span>Team date · {dateLabel(detail)}</span>
+                    <span>v{detail.version.version_number}</span>
+                    <button
+                      className={
+                        'star ' + (detail.favourite ? 'is-starred' : '')
+                      }
+                      aria-label="Toggle favourite"
+                      onClick={() => toggleStar(detail)}
+                    >
+                      <Star
+                        size={16}
+                        fill={detail.favourite ? 'currentColor' : 'none'}
+                      />
+                    </button>
+                  </div>
+                  <div className="tags">
+                    {detail.tags.map((t, i) => (
+                      <button
+                        key={t}
+                        className={'tag tag-' + (i % 4)}
+                        onClick={() => filter('tag', t)}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="detail-actions">
+                  <button className="button" onClick={() => setModal('share')}>
+                    <Share2 size={15} />
+                    Share
+                  </button>
+                  <button
+                    className="button"
+                    onClick={() =>
+                      downloadText(
+                        detail.version.showdown_text,
+                        detail.title + '-v' + detail.version.version_number,
+                      )
+                    }
+                  >
+                    <Download size={15} />
+                    Export
+                  </button>
+                  <button
+                    className="button"
+                    onClick={() => setModal('metadata')}
+                  >
+                    <Settings2 size={15} />
+                    Edit details
+                  </button>
+                  <button
+                    className="button primary"
+                    onClick={() => setModal('version')}
+                  >
+                    <Plus size={15} />
+                    {isHistory
+                      ? 'Restore as new version'
+                      : 'Create New Version'}
+                  </button>
+                </div>
+              </div>
+              {isHistory && (
+                <div className="callout">
+                  <History size={16} />
+                  Viewing historical snapshot v{detail.version.version_number}.
+                  Restore it as a new version to make changes.
+                  <button
+                    className="text-link"
+                    onClick={() => openTeam(detail.id)}
+                  >
+                    View current
+                  </button>
+                </div>
+              )}
+              <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
+                <TabsList variant="line" className="detail-tabs">
+                  <TabsTrigger value="team">Team & notes</TabsTrigger>
+                  <TabsTrigger value="history">
+                    Version history <span>{detail.history?.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="export">Showdown text</TabsTrigger>
+                </TabsList>
+                <TabsContent value="team">
+                  <PokemonDetails team={detail} />
+                </TabsContent>
+                <TabsContent value="history">
+                  <div className="history-panel">
+                    <h2>One team. Every iteration.</h2>
+                    <p className="muted">
+                      Previous versions are preserved as snapshots.
+                    </p>
+                    {detail.history?.map((v) => (
+                      <div
+                        className={
+                          'history-row ' +
+                          (v.id === detail.version.id ? 'viewing' : '')
+                        }
+                        key={v.id}
+                      >
+                        <span className="history-dot" />
+                        <div>
+                          <strong>v{v.version_number}</strong>{' '}
+                          {v.id === detail.current_version_id && (
+                            <span className="tag">Current</span>
+                          )}
+                          <h3>{v.version_comment}</h3>
+                          <p>
+                            {new Date(v.created_at).toLocaleString('en-AU')}
+                          </p>
+                        </div>
+                        <button
+                          className="button"
+                          onClick={() => {
+                            setDetail({ ...detail, version: v });
+                            setTab('team');
+                          }}
+                        >
+                          View snapshot
+                        </button>
+                        <button
+                          className="button ghost"
+                          onClick={() => {
+                            setDetail({ ...detail, version: v });
+                            setModal('version');
+                          }}
+                        >
+                          Restore as new version
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+                <TabsContent value="export">
+                  <div className="export-actions">
+                    <button
+                      className="button"
+                      onClick={() => copy(detail.version.showdown_text)}
+                    >
+                      <Copy size={15} />
+                      Copy Showdown export
+                    </button>
+                    <button
+                      className="button"
+                      onClick={() => copy(withNotes(detail))}
+                    >
+                      Copy team + notes
+                    </button>
+                    <button
+                      className="button"
+                      onClick={() =>
+                        downloadText(
+                          detail.version.original_text,
+                          detail.title + '-original',
+                        )
+                      }
+                    >
+                      Download original
+                    </button>
+                  </div>
+                  <pre className="export-text">
+                    {detail.version.showdown_text}
+                  </pre>
+                </TabsContent>
+              </Tabs>
+              <footer className="detail-footer">
+                <span>
+                  Created{' '}
+                  {new Date(detail.created_at).toLocaleDateString('en-AU')}
+                  {detail.imported_at
+                    ? ' · Imported ' +
+                      new Date(detail.imported_at).toLocaleDateString('en-AU')
+                    : ''}
+                </span>
+                <button
+                  className="button ghost"
+                  onClick={() => archive(detail)}
+                >
+                  <Archive size={14} />
+                  {detail.archived ? 'Restore to library' : 'Archive team'}
+                </button>
+              </footer>
+            </>
+          ) : (
+            <>
+              <div className="page-heading">
+                <div>
+                  <div className="eyebrow">YOUR COMPETITIVE PLAYBOOK</div>
+                  <h1>
+                    {heading} <span>{total}</span>
+                  </h1>
+                  <p>Every team, every iteration. Right where you left it.</p>
+                </div>
+                <div className="heading-actions">
+                  <button className="button" onClick={() => setModal('import')}>
+                    <Upload size={16} />
+                    Import teams
+                  </button>
+                  <button
+                    className="button primary"
+                    onClick={() => setModal('new')}
+                  >
+                    <Plus size={17} />
+                    New team
+                  </button>
+                </div>
+              </div>
+              {config.demo && (
+                <div className="demo-banner">
+                  <Sparkles size={16} />
+                  <span>
+                    Explore your demo library{' '}
+                    <span className="muted">
+                      — changes save to your private demo workspace.
+                    </span>
+                  </span>
+                  <button
+                    className="demo-badge"
+                    onClick={() => setModal('settings')}
+                  >
+                    DEMO
+                  </button>
+                </div>
+              )}
+              <div className="searchbar">
+                <Search size={19} />
+                <input
+                  ref={searchRef}
+                  aria-label="Search teams"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(0);
+                    setSelected([]);
+                  }}
+                  placeholder="Find a team, Pokémon, move, tag, or anything you remember…"
+                />
+                {query ? (
+                  <button
+                    aria-label="Clear search"
+                    onClick={() => setQuery('')}
+                  >
+                    <X size={16} />
+                  </button>
+                ) : (
+                  <kbd>⌘ K</kbd>
+                )}
+              </div>
+              <div className="toolbar">
+                <div className="filters">
+                  <Pick
+                    label="All formats"
+                    value={filters.format}
+                    onChange={(v) => filter('format', v)}
+                    options={[
+                      ['', 'All formats'],
+                      ...facets.formats.map(
+                        (f) => [f, formatLabel(f)] as [string, string],
+                      ),
+                    ]}
+                  />
+                  <Pick
+                    label="Tags"
+                    value={filters.tag}
+                    onChange={(v) => filter('tag', v)}
+                    options={[['', 'All tags'], ...facets.tags]}
+                  />
+                  <Pick
+                    label="Team year"
+                    value={filters.year}
+                    onChange={(v) => filter('year', v)}
+                    options={[
+                      ['', 'All years'],
+                      ...facets.years,
+                      ['unknown', 'Unknown'],
+                    ]}
+                  />
+                  <Pick
+                    label="Source"
+                    value={filters.source}
+                    onChange={(v) => filter('source', v)}
+                    options={[['', 'All sources'], ...facets.sources]}
+                  />
+                  {Object.values(filters).some(Boolean) && (
+                    <button
+                      className="text-link"
+                      onClick={() => {
+                        setFilters({
+                          format: '',
+                          tag: '',
+                          year: '',
+                          source: '',
+                        });
+                        setPage(0);
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+                <div className="view-controls">
+                  <Pick
+                    label="Sort teams"
+                    value={sort}
+                    onChange={(v) => {
+                      setSort(v);
+                      setPage(0);
+                    }}
+                    options={sortOptions}
+                  />
+                  <div className="view-toggle">
+                    {[
+                      ['grid', Grid2X2],
+                      ['list', List],
+                    ].map(([v, Icon]: any) => (
+                      <button
+                        key={v}
+                        aria-label={v + ' view'}
+                        className={view === v ? 'selected' : ''}
+                        onClick={() => {
+                          setView(v);
+                          localStorage.setItem('teamvault-view', v);
+                        }}
+                      >
+                        <Icon size={16} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="results-heading">
+                <label className="select-page">
+                  <Checkbox
+                    aria-label="Select all teams on this page"
+                    checked={
+                      teams.length > 0 &&
+                      teams.every((t) => selected.includes(t.id))
+                    }
+                    onCheckedChange={(v) =>
+                      setSelected(v ? teams.map((t) => t.id) : [])
+                    }
+                  />
+                  {selected.length
+                    ? selected.length + ' selected'
+                    : total + ' teams'}
+                </label>
+                {selected.length ? (
+                  <div className="bulk-controls">
+                    <button
+                      className="text-link"
+                      onClick={() => setModal('bulk')}
+                    >
+                      Apply tags & metadata
+                    </button>
+                    <button
+                      className="text-link"
+                      onClick={async () => {
+                        try {
+                          const ts = await Promise.all(
+                            selected.map((id) => api('get', { id })),
+                          );
+                          downloadText(backupText(ts), 'teamvault-backup');
+                        } catch (e) {
+                          setError((e as Error).message);
+                        }
+                      }}
+                    >
+                      Export selected
+                    </button>
+                    <button
+                      className="text-link"
+                      onClick={() => setSelected([])}
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                ) : (
+                  <span>One team. Every version.</span>
+                )}
+              </div>
+              {loading ? (
+                <div className="team-grid">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <Skeleton key={i} className="h-72 rounded-lg" />
+                  ))}
+                </div>
+              ) : teams.length ? (
+                <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
+                  {teams.map((t, i) => (
+                    <article className="team-card" key={t.id}>
+                      <div className="card-top">
+                        <span
+                          className={
+                            'format format-' +
+                            (t.format.includes('vgc')
+                              ? 1
+                              : t.format.includes('ubers') ||
+                                  t.format.includes('anythinggoes')
+                                ? 2
+                                : 0)
+                          }
+                        >
+                          {formatLabel(t.format)}
+                        </span>
+                        <div className="card-select">
+                          <Checkbox
+                            aria-label={'Select ' + t.title}
+                            checked={selected.includes(t.id)}
+                            onCheckedChange={(v) =>
+                              setSelected((s) =>
+                                v
+                                  ? [...s, t.id]
+                                  : s.filter((id) => id !== t.id),
+                              )
+                            }
+                          />
+                          <button
+                            aria-label={'Favourite ' + t.title}
+                            className={
+                              'star ' + (t.favourite ? 'is-starred' : '')
+                            }
+                            onClick={() => toggleStar(t)}
+                          >
+                            <Star
+                              size={16}
+                              fill={t.favourite ? 'currentColor' : 'none'}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        className="card-open"
+                        onClick={() => openTeam(t.id)}
+                      >
+                        <h2>{t.title}</h2>
+                        <PokemonLine sets={t.version.parsed_team} />
+                      </button>
+                      <div className="tags">
+                        {t.tags.map((tag, j) => (
+                          <button
+                            onClick={() => filter('tag', tag)}
+                            className={'tag tag-' + ((i + j) % 4)}
+                            key={tag}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        className="card-source"
+                        onClick={() =>
+                          t.source_name && filter('source', t.source_name)
+                        }
+                      >
+                        <FolderClosed size={13} />
+                        {t.source_type}
+                        {t.source_name ? ' ' + t.source_name : ''}
+                      </button>
+                      <footer>
+                        <span title="Historical team date">
+                          <Clock3 size={13} />
+                          {dateLabel(t)}
+                        </span>
+                        <span>
+                          <button
+                            className="version-chip"
+                            onClick={() =>
+                              openTeam(t.id).then(() => setTab('history'))
+                            }
+                          >
+                            v{t.version.version_number}
+                          </button>
+                          <span
+                            title={
+                              'Modified ' +
+                              new Date(t.updated_at).toLocaleString('en-AU')
+                            }
+                          >
+                            {new Date(t.updated_at).toLocaleDateString(
+                              'en-AU',
+                              { month: 'short', day: 'numeric' },
+                            )}
+                          </span>
+                        </span>
+                      </footer>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <FolderClosed size={35} />
+                  <h2>
+                    {query || Object.values(filters).some(Boolean)
+                      ? 'No teams match this search.'
+                      : section === 'Archived'
+                        ? 'No archived teams.'
+                        : 'Your team library is empty.'}
+                  </h2>
+                  <p>
+                    {query
+                      ? 'Try a Pokémon, source name, tag, or historical year.'
+                      : 'Import your Showdown teams to search, tag, version and share them.'}
+                  </p>
+                  <div className="heading-actions">
+                    <button
+                      className="button primary"
+                      onClick={() => setModal('import')}
+                    >
+                      Import Pokémon Showdown Teams
+                    </button>
+                    <button className="button" onClick={() => setModal('new')}>
+                      Create New Team
+                    </button>
+                  </div>
+                </div>
+              )}
+              {total > 30 && (
+                <nav className="page-controls" aria-label="Library pages">
+                  <button
+                    className="button"
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    Previous
+                  </button>
+                  <span>
+                    Page {page + 1} of {Math.ceil(total / 30)}
+                  </span>
+                  <button
+                    className="button"
+                    disabled={(page + 1) * 30 >= total}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </button>
+                </nav>
+              )}
+              <p className="search-tip">
+                <Search size={13} />
+                Try{' '}
+                <button
+                  onClick={() => {
+                    setQuery('Darkrai Ice Beam');
+                    setPage(0);
+                  }}
+                >
+                  Darkrai Ice Beam
+                </button>{' '}
+                to find the move on the right Pokémon.
+              </p>
+            </>
+          )}
+        </div>
+      </main>
+      {(modal === 'new' || modal === 'metadata' || modal === 'version') && (
+        <TeamEditor
+          mode={modal}
+          team={detail || undefined}
+          tags={facets.tags}
+          onClose={() => setModal(null)}
+          onSaved={saved}
+        />
+      )}
+      {modal === 'import' && (
+        <ImportTeams
+          tags={facets.tags}
+          onClose={() => setModal(null)}
+          onSaved={() => saved()}
+        />
+      )}
+      {modal === 'share' && detail && (
+        <ShareDialog
+          team={detail}
+          demo={config.demo}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === 'bulk' && (
+        <BulkDialog
+          ids={selected}
+          tags={facets.tags}
+          onClose={() => setModal(null)}
+          onSaved={() => {
+            setSelected([]);
+            void saved();
+          }}
+        />
+      )}
+      {modal === 'settings' && (
+        <Modal
+          title="Workspace settings"
+          description="Your account, storage, and library tools."
+          onClose={() => setModal(null)}
+        >
+          <div className="settings-section">
+            <h3>
+              {config.demo ? 'Private demo workspace' : 'Supabase connected'}
+            </h3>
+            <p>
+              {config.demo
+                ? 'Your demo teams save on the server under your signed-in account. Your production Supabase library is separate and will start empty.'
+                : 'Your teams are stored in PostgreSQL. Row Level Security protects each account’s library.'}
+            </p>
+            {config.demo && (
+              <p>
+                The project includes a Supabase migration, an environment
+                template, and setup instructions in the README. Configure
+                SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to activate email
+                sign-in.
+              </p>
+            )}
+            <div className="callout">
+              Share links grant read-only access to the team and its versions.
+              This private Sites preview also requires access to the site
+              itself.
+            </div>
+          </div>
+          <div className="settings-section">
+            <h3>Search examples</h3>
+            <div className="query-examples">
+              {[
+                'Darkrai Ice Beam',
+                'Focus Sash Rayquaza',
+                'Tournament Grade Kyogre',
+                'source:"Strange Name"',
+                'year:2022',
+                'format:gen9ou',
+              ].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => {
+                    setQuery(q);
+                    setPage(0);
+                    closeDetail();
+                    setModal(null);
+                  }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            className="button"
+            onClick={async () => {
+              try {
+                await api('seed');
+                await saved();
+              } catch (e) {
+                setError((e as Error).message);
+              }
+            }}
+          >
+            Add example teams
+          </button>
+          <p className="muted small">
+            Pokémon imagery from Pokémon Showdown. TeamVault is an independent
+            fan project, not affiliated with Nintendo or The Pokémon Company.
+            Parsing does not check format legality.
+          </p>
+          {config.demo ? (
+            <a
+              className="text-link"
+              href="/signout-with-chatgpt?return_to=%2F"
+              target="_top"
+            >
+              Sign out
+            </a>
+          ) : (
+            <button
+              className="text-link"
+              onClick={() =>
+                browserAuth(
+                  config.supabase_url,
+                  config.supabase_key,
+                ).auth.signOut()
+              }
+            >
+              Sign out
+            </button>
+          )}
+        </Modal>
+      )}
+    </SidebarProvider>
+  );
+}
+function ShareDialog({
+  team,
+  demo,
+  onClose,
+}: {
+  team: TeamRecord;
+  demo: boolean;
+  onClose: () => void;
+}) {
+  const [url, setUrl] = useState(''),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState('');
+  async function action(revoke = false) {
+    setBusy(true);
+    try {
+      const r = await api(revoke ? 'revoke' : 'share', { id: team.id });
+      setUrl(revoke ? '' : window.location.origin + '/share/' + r.token);
+      setMessage(
+        revoke
+          ? 'All previous links have been revoked.'
+          : 'Link created. Previous links have been revoked.',
+      );
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal
+      title="Share this team"
+      description="A living, read-only team document. The same link follows the current version."
+      onClose={onClose}
+    >
+      <div className="share-intro">
+        <Share2 size={28} />
+        <h3>{team.title}</h3>
+        <p>
+          Includes tags, source, historical date, team notes, and Pokémon notes.
+        </p>
+      </div>
+      {demo && (
+        <div className="callout">
+          This demo is hosted privately. Recipients also need access to the
+          site.
+        </div>
+      )}
+      {url ? (
+        <>
+          <Field label="Living team link">
+            <input readOnly value={url} onFocus={(e) => e.target.select()} />
+          </Field>
+          <div className="heading-actions">
+            <button
+              className="button primary"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(url);
+                  setMessage('Link copied.');
+                } catch {
+                  setMessage('Select the link above and copy it.');
+                }
+              }}
+            >
+              <Copy size={15} />
+              Copy link
+            </button>
+            <a
+              className="button"
+              target="_blank"
+              rel="noopener noreferrer"
+              href={url}
+            >
+              Open shared team
+            </a>
+          </div>
+          <Field label={'Link displaying v' + team.version.version_number}>
+            <input
+              readOnly
+              value={url + '?version=' + team.version.version_number}
+              onFocus={(e) => e.target.select()}
+            />
+          </Field>
+          <p className="muted small">
+            The version link stays on this snapshot. Anyone with either link can
+            view the team’s other versions by changing the version number.
+          </p>
+        </>
+      ) : (
+        <p>
+          Generate a link to share this team. If a link already exists,
+          generating a new one replaces it.
+        </p>
+      )}
+      <div className="modal-actions">
+        <button
+          className="button danger"
+          disabled={busy}
+          onClick={() => action(true)}
+        >
+          Revoke links
+        </button>
+        <button
+          className="button primary"
+          disabled={busy}
+          onClick={() => action()}
+        >
+          {busy ? 'Updating…' : url ? 'Regenerate link' : 'Create share link'}
+        </button>
+      </div>
+      {message && <p role="status">{message}</p>}
+    </Modal>
+  );
+}
+function BulkDialog({
+  ids,
+  tags,
+  onClose,
+  onSaved,
+}: {
+  ids: string[];
+  tags: string[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [values, setValues] = useState<string[]>([]),
+    [source, setSource] = useState(''),
+    [name, setName] = useState(''),
+    [year, setYear] = useState(''),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  async function apply(archived?: boolean) {
+    setBusy(true);
+    try {
+      if (year && !/^\d{4}$/.test(year))
+        throw Error('Enter a four-digit year.');
+      const patch: any = {};
+      if (values.length) patch.tags = values;
+      if (source) {
+        patch.source_type = source;
+        patch.source_name = name;
+      }
+      if (year) {
+        patch.team_date = year;
+        patch.team_date_precision = 'year';
+      }
+      if (archived !== undefined) patch.archived = archived;
+      await api('bulk', { ids, patch });
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal
+      title={'Update ' + ids.length + ' teams'}
+      description="Add shared tags or replace source and historical year. Blank fields keep existing values."
+      onClose={onClose}
+    >
+      <Field label="Add tags">
+        <TagEditor tags={values} suggestions={tags} onChange={setValues} />
+      </Field>
+      <div className="field-row">
+        <Field label="Replace source type">
+          <Pick
+            value={source}
+            onChange={setSource}
+            label="Keep existing"
+            options={[['', 'Keep existing'], ...sourceTypes]}
+          />
+        </Field>
+        <Field label="Source name">
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+      </div>
+      <Field label="Set historical year">
+        <input
+          value={year}
+          placeholder="Keep existing"
+          onChange={(e) => setYear(e.target.value)}
+        />
+      </Field>
+      {error && <p className="error">{error}</p>}
+      <div className="modal-actions">
+        <button className="button" disabled={busy} onClick={() => apply(true)}>
+          Archive selected
+        </button>
+        <button className="button" disabled={busy} onClick={() => apply(false)}>
+          Unarchive selected
+        </button>
+        <button
+          className="button primary"
+          disabled={busy}
+          onClick={() => apply()}
+        >
+          {busy ? 'Saving…' : 'Apply changes'}
+        </button>
+      </div>
+    </Modal>
+  );
+}

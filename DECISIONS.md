@@ -1,0 +1,22 @@
+# Product and technical decisions
+
+- **Conceptual teams stay stable.** Version creation adds an immutable snapshot, then advances the team's current pointer. Restore creates another version, preserving all newer history. parent_version_id leaves room for branching.
+- **Edits are explicit snapshots.** Editing Showdown text or notes goes through Create New Version. Metadata editing changes tags, name, provenance and historical date across the conceptual team.
+- **Original data is authoritative.** @pkmn/sets parses with the detected generation's Dex. Save original text plus full structured Pokémon set JSON. Retain unknown fields in export text and show warnings.
+- **Bulk boundaries are explicit.** Recognize official === [format] folder/title === Showdown backup headers. A raw unheaded paste is one team. Do not guess ambiguous team boundaries or silently discard content.
+- **Historical date is not import time.** Imported dates default to Unknown. Newly authored teams default to today in the user's local timezone. Exact/month/year precision is explicit; Unknown sorts last.
+- **Same-set search is relational.** Pokémon-level constraints share version and slot. Metadata has its own index entries; current set records are not flattened into one six-Pokémon blob. Token indexes use B-trees; no expensive JSON scan or library-wide browser search.
+- **Normal text comes first.** Maintained Dex names identify species, moves, items, abilities and natures. Explicit operators disambiguate. Species plus set attributes stay strict; species-only mentions can match notes/title. Advanced Boolean syntax and typo correction are future work.
+- **Two explicit storage modes.** User confirmed no Supabase project exists yet. The connected-production adapter uses Supabase Auth/PostgreSQL/RLS. A clearly labelled, persistent, owner-scoped D1 demo makes the app usable before configuration. Configuring Supabase switches to a separate empty production library.
+- **Runtime choice.** The required Sites scaffold uses React/Next App Router conventions via Vinext to emit a Cloudflare Worker. Its pinned runtime is currently beta. Production rollout should include a runtime stability review; this is disclosed rather than calling the scaffold stable Next.js.
+- **Auth provider boundary.** The demo uses Sites/ChatGPT sign-in. Supabase uses magic-link email; future providers can use the same Supabase client without changing storage ownership. No service-role key is accepted or required by the app.
+- **Database authorization.** All production tables have RLS; direct application-role writes are revoked. The authenticated RPC is SECURITY DEFINER with an empty search_path, explicit auth.uid checks, and private non-public helper functions. An anonymous token resolver returns a fixed shareable projection.
+- **Concurrent edits.** Version saves compare the current version pointer and serialize on the PostgreSQL team row. D1 relies on atomic batches and a unique team/version-number constraint. Metadata writes reject stale database state; favourite/archive-only changes preserve current metadata.
+- **Sharing is team-scoped.** Random 256-bit capability tokens authorize the conceptual team. The live link follows current; ?version=N keeps displaying a snapshot but does not restrict access to that snapshot alone. Tokens are hashed at rest and old tokens are revoked on rotation. Shared notes are escaped plain text.
+- **Private deployment first.** Sites access stays owner-only. A public share audience requires an explicit later site-access change. App-level privacy remains enforced by Supabase even if the site becomes public.
+- **Snapshot note storage.** Team notes and per-slot set notes live inside each immutable snapshot. They copy into versions/restores. No separate manual Pokémon labels.
+- **Tags.** Normalized reusable concepts prevent case duplicates; display names retain chosen casing. Bulk application adds tags to existing tags.
+- **Bounded operations.** 30 teams/page, 200 teams/import, 5 MB/request and 24 sets/team. These bound resource use without hardcoding six slots.
+- **Scope.** Archive is reversible. No permanent delete, graphical teambuilder, simulator, legality checker, public feed or undocumented PokéPaste integration.
+- **Verification boundary.** Automated PostgreSQL tests exercise roles/RLS/RPCs with a local Auth shim. Live Supabase sign-in/email needs the user's project. Optional WebMCP registrations have no supported validation context. No browser interaction QA was requested or performed.
+
