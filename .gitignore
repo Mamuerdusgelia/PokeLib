@@ -30,6 +30,7 @@ yarn-error.log*
 .env*
 !.env.example
 /.test-build/
+/.artifacts/
 *.tsbuildinfo
 *.tar.gz
 
