@@ -17,6 +17,6 @@
 - **Snapshot note storage.** Team notes and per-slot set notes live inside each immutable snapshot. They copy into versions/restores. No separate manual Pokémon labels.
 - **Tags.** Normalized reusable concepts prevent case duplicates; display names retain chosen casing. Bulk application adds tags to existing tags.
 - **Bounded operations.** 30 teams/page, 200 teams/import, 5 MB/request and 24 sets/team. These bound resource use without hardcoding six slots.
-- **Scope.** Archive is reversible. No permanent delete, graphical teambuilder, simulator, legality checker, public feed or undocumented PokéPaste integration.
+- **Deletion.** Archive is reversible. Permanent team deletion has a named confirmation with Cancel focused initially. The delete predicate checks the owner in the database; existing foreign keys atomically cascade to every version, search entry, tag association and share link. Reusable account tags are retained. PostgreSQL exposes a narrowly scoped authenticated delete_team RPC through an incremental migration.
+- **Scope.** No graphical teambuilder, simulator, legality checker, public feed or undocumented PokéPaste integration.
 - **Verification boundary.** Automated PostgreSQL tests exercise roles/RLS/RPCs with a local Auth shim. Live Supabase sign-in/email needs the user's project. Optional WebMCP registrations have no supported validation context. No browser interaction QA was requested or performed.
-

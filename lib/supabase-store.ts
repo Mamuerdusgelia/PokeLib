@@ -78,6 +78,11 @@ export class SupabaseStore {
   async bulk(ids: string[], p: any) {
     return this.call('bulk', { ids, patch: p });
   }
+  async delete(id: string) {
+    const { data, error } = await this.client.rpc('delete_team', { p_id: id });
+    if (error) throw Error(error.message);
+    return data;
+  }
   async share(id: string, revoke = false) {
     if (revoke) return this.call('revoke', { id });
     const token = [...crypto.getRandomValues(new Uint8Array(32))]

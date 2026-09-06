@@ -3,60 +3,55 @@ const origin = 'http://localhost:3000';
 async function req(action, payload = {}, cookie = '') {
   const r = await fetch(origin + '/api/vault', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Origin: origin,
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
+    headers: { 'Content-Type': 'application/json', Origin: origin, ...(cookie ? { Cookie: cookie } : {}) },
     body: JSON.stringify({ action, payload }),
   });
-  const d = await r.json();
-  return { status: r.status, data: d };
+  return { status: r.status, data: await r.json() };
 }
+let cookie, disposable;
 try {
-  const anonymous = await req('list');
-  assert.equal(anonymous.status, 401);
-  const sign = await fetch(origin + '/signin-with-chatgpt?return_to=%2F', {
-    redirect: 'manual',
-  });
-  const cookie = sign.headers.get('set-cookie')?.split(';')[0];
+  assert.equal((await req('list')).status, 401);
+  const sign = await fetch(origin + '/signin-with-chatgpt?return_to=%2F', { redirect: 'manual' });
+  cookie = sign.headers.get('set-cookie')?.split(';')[0];
   assert.ok(cookie);
-  const c = await (
-    await fetch(origin + '/api/config', { headers: { Cookie: cookie } })
-  ).json();
-  assert.ok(c.user);
-  const list = await req('list', {}, cookie);
-  if (list.status !== 200) throw Error(JSON.stringify(list));
-  assert.ok(list.data.total >= 6);
-  const search = await req('list', { query: 'Darkrai Ice Beam' }, cookie);
+  const config = await (await fetch(origin + '/api/config', { headers: { Cookie: cookie } })).json();
+  assert.ok(config.user);
+  assert.equal((await req('list', {}, cookie)).status, 200);
+  const parsed = await req('parse', { text: 'Darkrai @ Life Orb\nAbility: Bad Dreams\nTimid Nature\n- Dark Pulse\n- Ice Beam\n- Nasty Plot\n- Sludge Bomb', format: 'gen9ou' }, cookie);
+  assert.equal(parsed.status, 200);
+  const title = 'HTTP deletion ' + crypto.randomUUID();
+  const imported = await req('import', { drafts: [{ ...parsed.data[0].draft, title }] }, cookie);
+  assert.equal(imported.status, 200);
+  disposable = imported.data.ids[0];
+  const search = await req('list', { query: 'team:"' + title + '" Darkrai Ice Beam' }, cookie);
   assert.equal(search.status, 200);
-  assert.ok(search.data.total >= 1);
-  const id = search.data.teams[0].id;
-  const detail = await req('get', { id }, cookie);
-  assert.ok(detail.data.history.length >= 1);
-  const share = await req('share', { id }, cookie);
-  assert.match(share.data.token, /^[a-f0-9]{64}$/);
-  const shared = await fetch(origin + '/api/share/' + share.data.token);
-  assert.equal(shared.status, 200);
-  await req('revoke', { id }, cookie);
-  assert.equal(
-    (await fetch(origin + '/api/share/' + share.data.token)).status,
-    404,
-  );
+  assert.equal(search.data.teams[0].id, disposable);
+  const detail = await req('get', { id: disposable }, cookie);
+  assert.equal(detail.data.history.length, 1);
+  assert.equal((await req('delete', { id: disposable })).status, 401);
   const cross = await fetch(origin + '/api/vault', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Origin: 'https://unrelated.example',
-      Cookie: cookie,
-    },
-    body: JSON.stringify({ action: 'get', payload: { id } }),
+    headers: { 'Content-Type': 'application/json', Origin: 'https://unrelated.example', Cookie: cookie },
+    body: JSON.stringify({ action: 'delete', payload: { id: disposable } }),
   });
   assert.ok([400, 403].includes(cross.status));
-  console.log(
-    'HTTP integration: anonymous rejection, local sign-in, persistent library, same-set search, history, anonymous sharing, revocation, and origin checks passed.',
-  );
+  assert.equal((await req('get', { id: disposable }, cookie)).status, 200);
+  let link = await req('share', { id: disposable }, cookie);
+  assert.equal(link.status, 200);
+  assert.equal((await fetch(origin + '/api/share/' + link.data.token)).status, 200);
+  await req('revoke', { id: disposable }, cookie);
+  assert.equal((await fetch(origin + '/api/share/' + link.data.token)).status, 404);
+  link = await req('share', { id: disposable }, cookie);
+  const deleted = await req('delete', { id: disposable }, cookie);
+  assert.equal(deleted.status, 200);
+  assert.equal(deleted.data.deleted, true);
+  assert.equal((await req('get', { id: disposable }, cookie)).status, 400);
+  assert.equal((await fetch(origin + '/api/share/' + link.data.token)).status, 404);
+  assert.equal((await fetch(origin + '/api/share/' + link.data.token + '?version=1')).status, 404);
+  console.log('HTTP integration: authentication, persistence, search, history, sharing, revocation, origin checks, and permanent deletion passed.');
 } catch (e) {
-  console.error(e.message);
+  console.error(e.stack);
   process.exitCode = 1;
+} finally {
+  if (cookie && disposable) await req('delete', { id: disposable }, cookie);
 }

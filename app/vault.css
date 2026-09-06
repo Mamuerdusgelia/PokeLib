@@ -453,6 +453,8 @@ h1 > span {
 }
 .card-top {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
 }
@@ -489,6 +491,26 @@ h1 > span {
   letter-spacing: -0.2px;
   margin: 14px 0 5px;
   color: #e1e6e9;
+}
+.card-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 6px;
+  color: #efa3a3;
+  border-radius: 5px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.card-delete:hover {
+  background: #452c31;
+  color: #ffd1d1;
+}
+.card-delete:focus-visible {
+  outline: 2px solid #efa3a3;
+  outline-offset: 2px;
 }
 .pokemon-line {
   display: flex;

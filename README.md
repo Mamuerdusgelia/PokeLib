@@ -32,7 +32,7 @@ Production demo authentication trusts Sites' dispatcher-injected identity header
 
 ## Connect Supabase
 1. Create a Supabase project.
-2. Apply supabase/migrations/202609060001_teamvault.sql once through the SQL editor, or use Supabase CLI migrations with supabase db push.
+2. Apply every SQL file in supabase/migrations in filename order through the SQL editor, or use Supabase CLI migrations with supabase db push. Existing projects should apply only migrations they have not run yet; 202609070001_delete_team.sql adds permanent deletion.
 3. In Authentication → URL Configuration, set the site URL to your deployed TeamVault origin. Add that origin's / route and http://localhost:3000/ to the allowed redirect URLs used during development.
 4. Enable Email authentication. Magic-link sign-in is implemented. Configure production SMTP and review Auth rate limits before opening registration broadly.
 5. Copy .env.example to .env for local development and supply SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. The publishable (or legacy anon) key is public by design; **never use a service-role key**.
@@ -86,12 +86,12 @@ Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A l
 A private Sites deployment restricts access to the site itself. To let arbitrary people open links, first configure Supabase and deliberately change the site's audience. The application still keeps libraries private through RLS and token checks.
 
 ## Tests
-- pnpm test: 36 domain/SQLite behavior checks and 19 PostgreSQL migration/RLS/RPC checks.
+- pnpm test: 39 domain/SQLite behavior checks and 22 PostgreSQL migration/RLS/RPC checks, including permanent deletion and ownership protection.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
 
-PostgreSQL tests use PGlite with a minimal auth.uid() shim and real anon/authenticated roles. They do not test Supabase's email provider or live hosted policies. Test databases are ephemeral and isolated. HTTP tests modify share links for a local demo team, then revoke them.
+PostgreSQL tests use PGlite with a minimal auth.uid() shim and real anon/authenticated roles. They do not test Supabase's email provider or live hosted policies. Test databases are ephemeral and isolated. HTTP tests create a disposable team, exercise its share links, then delete it.
 
 WebMCP search_teams and import_showdown_teams are registered when the browser supports document.modelContext. No supported WebMCP validation context was available; the optional agent tools are not claimed as verified. No browser screenshot/click QA was performed; validation covers types, domain/database behavior, and HTTP integration.
 
@@ -106,7 +106,7 @@ Use the Sites workflow for the existing project_id in .openai/hosting.json:
 Sites provisions the D1 binding and applies packaged migrations. Do not commit credentials, .env files, local databases, build artifacts or temporary archives. .env.example is intentionally tracked.
 
 ## MVP boundaries
-No battle simulator, full legality checker, EV archetype inference, PokéPaste scraping, AI team analysis or collaborative editing. Imports are bounded to 200 teams/5 MB and 24 sets per team. PostgreSQL bulk changes are atomic; D1 bulk metadata updates preflight ownership and apply per team, so a storage failure partway through requires reviewing the affected selection before retrying. Persistent deletion is intentionally absent; archive is reversible.
+No battle simulator, full legality checker, EV archetype inference, PokéPaste scraping, AI team analysis or collaborative editing. Imports are bounded to 200 teams/5 MB and 24 sets per team. PostgreSQL bulk changes are atomic; D1 bulk metadata updates preflight ownership and apply per team, so a storage failure partway through requires reviewing the affected selection before retrying. Archive is reversible. Delete is available directly on every library card and list row, and at the bottom of an owned team's detail page. It requires confirmation. It permanently removes all versions, notes, search entries, and share links in one database transaction; reusable account tags and other teams remain intact.
 
 ## Asset attribution
 Sprites are loaded from Pokémon Showdown's public static sprite directory:

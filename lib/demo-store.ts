@@ -402,6 +402,15 @@ export class DemoStore {
       archived: rows.results.filter((t) => t.archived).length,
     };
   }
+  async delete(id: string) {
+    const result = await this.stmt(
+      'DELETE FROM teams WHERE id=? AND owner_id=?',
+      id,
+      this.owner,
+    ).run();
+    if (!result.meta.changes) throw Error('Team not found.');
+    return { deleted: true };
+  }
   async share(id: string, revoke = false) {
     await this.get(id);
     if (revoke) {

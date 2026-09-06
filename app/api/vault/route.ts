@@ -45,6 +45,9 @@ export async function POST(request: Request) {
       case 'bulk':
         result = await store.bulk(p.ids, p.patch);
         break;
+      case 'delete':
+        result = await store.delete(p.id);
+        break;
       case 'share':
         result = await store.share(p.id);
         break;

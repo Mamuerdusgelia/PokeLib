@@ -309,4 +309,32 @@ await check('search lookup has indexed query plan', () => {
     .all();
   assert.match(JSON.stringify(p), /terms_lookup/);
 });
+let deletionTeam = await a.get((await a.import([{ ...demoDrafts[0], title: 'Delete this team' }])).ids[0]);
+const keptTeam = await a.get(id);
+for (let i = 0; i < 2; i++) {
+  deletionTeam = await a.version(deletionTeam.id, { ...deletionTeam, ...deletionTeam.version }, deletionTeam.current_version_id, deletionTeam.history.at(-1).id);
+}
+const deletionToken = (await a.share(deletionTeam.id)).token;
+await check('deletion rejects another owner without changing the team', async () => {
+  await assert.rejects(() => b.delete(deletionTeam.id), /not found/);
+  assert.equal((await a.get(deletionTeam.id)).history.length, 3);
+  assert.ok(await resolveDemoShare(d1, deletionToken));
+});
+await check('deletion cascades all history and links while preserving other teams', async () => {
+  assert.deepEqual(await a.delete(deletionTeam.id), { deleted: true });
+  await assert.rejects(() => a.get(deletionTeam.id), /not found/);
+  for (const table of ['team_versions', 'search_terms', 'team_tags', 'share_links']) {
+    assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table} WHERE team_id=?`).get(deletionTeam.id).n, 0);
+  }
+  await assert.rejects(() => resolveDemoShare(d1, deletionToken));
+  await assert.rejects(() => resolveDemoShare(d1, deletionToken, 1));
+  assert.deepEqual(await a.get(id), keptTeam);
+  assert.ok((await a.facets()).tags.includes('Tournament Grade'));
+});
+await check('archived teams can be deleted and repeated deletion is rejected', async () => {
+  const archivedId = (await a.import([{ ...demoDrafts[0], title: 'Archived deletion' }])).ids[0];
+  await a.patch(archivedId, { archived: true });
+  assert.deepEqual(await a.delete(archivedId), { deleted: true });
+  await assert.rejects(() => a.delete(archivedId), /not found/);
+});
 console.log('SQLite + domain: ' + passed + ' checks passed.');

@@ -22,6 +22,7 @@ import {
   Sparkles,
   Star,
   Tags,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
@@ -35,6 +36,16 @@ import {
 } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { api, browserAuth } from '@/lib/client';
 import {
@@ -111,6 +122,7 @@ export default function Library() {
     }),
     [selected, setSelected] = useState<string[]>([]);
   const [detail, setDetail] = useState<TeamRecord | null>(null),
+    [deleteTarget, setDeleteTarget] = useState<TeamRecord | null>(null),
     [detailLoading, setDetailLoading] = useState(false),
     [tab, setTab] = useState('team'),
     [modal, setModal] = useState<
@@ -784,13 +796,19 @@ export default function Library() {
                       new Date(detail.imported_at).toLocaleDateString('en-AU')
                     : ''}
                 </span>
-                <button
-                  className="button ghost"
-                  onClick={() => archive(detail)}
-                >
-                  <Archive size={14} />
-                  {detail.archived ? 'Restore to library' : 'Archive team'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="button ghost"
+                    onClick={() => archive(detail)}
+                  >
+                    <Archive size={14} />
+                    {detail.archived ? 'Restore to library' : 'Archive team'}
+                  </button>
+                  <button className="button danger" onClick={() => setDeleteTarget(detail)}>
+                    <Trash2 size={14} />
+                    Delete team
+                  </button>
+                </div>
               </footer>
             </>
           ) : (
@@ -1015,6 +1033,14 @@ export default function Library() {
                           {formatLabel(t.format)}
                         </span>
                         <div className="card-select">
+                          <button
+                            className="card-delete"
+                            aria-label={'Delete ' + t.title}
+                            onClick={() => setDeleteTarget(t)}
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
                           <Checkbox
                             aria-label={'Select ' + t.title}
                             checked={selected.includes(t.id)}
@@ -1187,6 +1213,20 @@ export default function Library() {
           onClose={() => setModal(null)}
         />
       )}
+      {deleteTarget && (
+        <DeleteTeamDialog
+          team={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={() => {
+            setSelected((ids) => ids.filter((id) => id !== deleteTarget.id));
+            setDeleteTarget(null);
+            if (detail?.id === deleteTarget.id) closeDetail();
+            setNotice('Team permanently deleted.');
+            if (page > 0) setPage(0);
+            else void refresh();
+          }}
+        />
+      )}
       {modal === 'bulk' && (
         <BulkDialog
           ids={selected}
@@ -1294,6 +1334,48 @@ export default function Library() {
         </Modal>
       )}
     </SidebarProvider>
+  );
+}
+function DeleteTeamDialog({ team, onClose, onDeleted }: {
+  team: TeamRecord;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  async function remove() {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api('delete', { id: team.id });
+      onDeleted();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  }
+  return (
+    <AlertDialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
+      <AlertDialogContent initialFocus={cancelRef} className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="break-words">Delete “{team.title}”?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently deletes the team, all saved versions, and their notes.
+            Its share links will stop working. This can’t be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error && <p className="error" role="alert">{error}</p>}
+        <AlertDialogFooter>
+          <AlertDialogCancel ref={cancelRef} disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" disabled={busy} onClick={() => void remove()}>
+            <Trash2 size={15} />
+            {busy ? 'Deleting…' : 'Delete permanently'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 function ShareDialog({
