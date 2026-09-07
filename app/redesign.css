@@ -1,0 +1,541 @@
+.tag-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 36px;
+}
+.tag-picker .applied-tag {
+  font-size: 14px;
+  gap: 6px;
+  padding: 5px 9px;
+}
+.applied-tag button {
+  display: inline-flex;
+  padding: 3px;
+}
+.add-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px dashed #69755f;
+  border-radius: 5px;
+  color: #c2d1a3;
+  font-size: 14px;
+}
+.add-tag:hover {
+  background: #2c3529;
+}
+.tag-picker-input {
+  width: 245px;
+  max-width: 100%;
+}
+.picker-hint {
+  padding: 12px;
+  color: #a5afb7;
+  font-size: 14px;
+}
+.tag-suggestions {
+  min-width: 260px;
+}
+.unified-search {
+  border: 1px solid #56634c;
+  background: #181d20;
+  border-radius: 9px;
+  padding: 8px 12px;
+  box-shadow: 0 0 0 3px #7588610c;
+}
+.unified-search:focus-within {
+  border-color: #b4cb92;
+  box-shadow: 0 0 0 3px #b4cb9215;
+}
+.search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.search-chips:not(:empty) {
+  padding: 3px 0 8px;
+}
+.search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  flex-wrap: wrap;
+  border: 1px solid #4b5f41;
+  border-radius: 5px;
+  padding: 4px 7px;
+  background: #2b3727;
+  color: #d5e2c0;
+  font-size: 14px;
+}
+.search-chip b {
+  color: #aebf95;
+  font-weight: 500;
+}
+.search-chip button {
+  display: inline-flex;
+  padding: 3px;
+}
+.search-input-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #b3c69b;
+  min-height: 37px;
+}
+.search-input-line > [data-slot='input-group'] {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.search-input-line input {
+  font-size: 16px;
+  color: #e4e9df;
+  padding-left: 0;
+}
+.search-input-line > button {
+  padding: 6px;
+  color: #a3ada6;
+}
+.search-suggestions {
+  min-width: min(520px, calc(100vw - 40px));
+}
+.search-suggestions [data-slot='combobox-item'] {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 14px;
+  padding: 10px 12px;
+}
+.search-suggestions small {
+  margin-left: auto;
+  color: #a8b199;
+}
+.suggestion-heading {
+  padding: 11px 12px;
+  border-bottom: 1px solid #3a423b;
+  font-size: 13px;
+  color: #9ca994;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+.compact-toolbar {
+  justify-content: flex-end;
+  margin-top: 11px;
+  margin-bottom: 4px;
+}
+.format-navigator {
+  margin-top: 12px;
+  font-size: 14px;
+}
+.format-navigator details {
+  margin: 3px 0;
+}
+.format-navigator summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  color: #c3cdbb;
+  font-weight: 550;
+}
+.format-navigator summary::-webkit-details-marker {
+  display: none;
+}
+.format-navigator details[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.format-category {
+  margin-left: 13px !important;
+  border-left: 1px solid #364033;
+}
+.format-category > summary {
+  font-size: 13px;
+  color: #8fa17e;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.format-category button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 11px 6px 27px;
+  color: #abb3b5;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.format-category button:hover {
+  background: #272f25;
+  color: #dbe7ce;
+}
+.format-category button.active {
+  background: #303e29;
+  color: #d6e6bb;
+  box-shadow: inset 2px 0 #b8cb96;
+}
+.visual-team-workspace {
+  display: grid;
+  gap: 16px;
+}
+.editor-team-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 15px;
+}
+.editor-team-header .field > span {
+  font-size: 13px;
+  color: #a4b09b;
+}
+.editor-team-header input {
+  font-size: 17px;
+  font-weight: 550;
+}
+.editor-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 14px;
+  color: #9fac98;
+}
+.editor-mode-tabs {
+  height: 39px !important;
+}
+.editor-mode-tabs button {
+  padding: 7px 16px;
+  font-size: 14px;
+}
+.pokemon-slot-bar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.extra-slot-add {
+  grid-column: 1 / -1;
+  justify-self: start;
+  font-size: 14px;
+}
+@media (min-width: 761px) {
+  .pokemon-slot-bar {
+    position: sticky;
+    top: 0;
+    background: #1c2024;
+    z-index: 3;
+    padding-block: 8px;
+  }
+}
+.pokemon-slot {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 116px;
+  padding: 6px;
+  border-radius: 7px;
+  border: 1px solid #3a4545;
+  background: #20272b;
+  color: #b9c4c9;
+  position: relative;
+}
+.pokemon-slot img {
+  height: 54px;
+  width: 74px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.pokemon-slot strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 550;
+}
+.pokemon-slot small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #9caba1;
+}
+.pokemon-slot.active {
+  border-color: #b9d292;
+  background: #303e2a;
+  box-shadow: inset 0 3px #b9d292;
+  color: #e3efce;
+}
+.pokemon-slot:hover {
+  border-color: #93aa7e;
+}
+.empty-slot {
+  border-style: dashed;
+  background: #1c2224;
+  color: #788776;
+  gap: 10px;
+  font-size: 13px;
+}
+.pokemon-set-editor {
+  background: #171d20;
+  border: 1px solid #384449;
+  border-radius: 8px;
+  padding: 20px;
+  display: grid;
+  gap: 19px;
+}
+.set-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.set-editor-heading h3 {
+  font-size: 23px;
+  margin: 3px 0 0;
+}
+.slot-actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.slot-actions .button {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.set-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 13px;
+}
+.set-fields .field,
+.move-fields .field {
+  min-width: 0;
+  gap: 6px;
+}
+.set-fields .field > span,
+.move-fields .field > span {
+  font-size: 14px;
+}
+.set-fields input,
+.move-fields input {
+  font-size: 15px;
+}
+.set-fields [data-slot='input-group'],
+.move-fields [data-slot='input-group'] {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #414c54;
+  background: #20272c;
+}
+.set-fields [data-slot='input-group'] input,
+.move-fields [data-slot='input-group'] input {
+  border: none;
+  background: transparent;
+  padding: 7px 9px;
+  height: 36px;
+  box-shadow: none;
+}
+.set-lower {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 26px;
+  align-items: start;
+}
+.set-lower h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.spread-heading {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.stat-inputs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.stat-inputs label {
+  min-width: 0;
+  text-align: center;
+  color: #a5b6bf;
+  font-size: 13px;
+}
+.stat-inputs input {
+  width: 100%;
+  background: #202a30;
+  border: 1px solid #43515a;
+  border-radius: 5px;
+  padding: 7px 3px;
+  text-align: center;
+  margin-top: 6px;
+  font-size: 14px;
+}
+.iv-editor,
+.extra-set-fields {
+  margin-top: 17px;
+  font-size: 14px;
+}
+.iv-editor summary,
+.extra-set-fields summary {
+  cursor: pointer;
+  color: #a9b7a0;
+  margin-bottom: 11px;
+}
+.extra-set-fields .set-fields {
+  grid-template-columns: 1fr 1fr;
+}
+.extra-set-fields .muted {
+  font-size: 13px;
+  margin-top: 9px;
+}
+.set-shiny {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.move-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.move-fields h4 {
+  grid-column: 1/-1;
+  margin-bottom: 0;
+}
+.visual-empty {
+  padding: 25px;
+  text-align: center;
+  color: #9aa98e;
+  border: 1px dashed #3c4a35;
+  border-radius: 7px;
+}
+.visual-empty svg {
+  margin: auto;
+}
+.visual-empty h3 {
+  color: #d3dec9;
+  margin-top: 10px;
+}
+.visual-empty p {
+  margin: 6px 0;
+  font-size: 14px;
+}
+.team-metadata-panel {
+  border: 1px solid #39443c;
+  border-radius: 7px;
+  padding: 12px 15px;
+}
+.team-metadata-panel > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 15px;
+  color: #c1cdb8;
+  list-style: none;
+}
+.team-metadata-panel > summary span {
+  margin-left: auto;
+  font-size: 13px;
+  color: #94a089;
+}
+.team-metadata-panel[open] > summary {
+  margin-bottom: 15px;
+}
+.team-metadata-panel .meta-fields {
+  grid-template-columns: 1fr 1fr;
+  display: grid;
+  gap: 15px;
+}
+.team-metadata-panel .metadata-more {
+  grid-column: 1/-1;
+}
+.editor-save {
+  position: sticky;
+  bottom: -26px;
+  background: #1c2024;
+  padding-bottom: 16px;
+  margin-bottom: -16px;
+  z-index: 5;
+}
+.raw-team-mode .muted {
+  font-size: 14px;
+  margin-top: 9px;
+}
+.orphan-notes {
+  border: 1px solid #b89953;
+  padding: 14px;
+  border-radius: 7px;
+  color: #dacaa7;
+}
+.orphan-notes > div {
+  border-top: 1px solid #665936;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.orphan-notes p {
+  white-space: pre-wrap;
+  font-size: 14px;
+  margin: 8px 0;
+}
+@media (max-width: 760px) {
+  .pokemon-slot-bar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .set-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .set-lower {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .pokemon-set-editor {
+    padding: 14px;
+  }
+  .slot-actions .button {
+    font-size: 12px;
+  }
+  .team-metadata-panel .meta-fields {
+    display: block;
+  }
+  .team-metadata-panel > summary span {
+    display: none;
+  }
+  .editor-tag-row {
+    align-items: flex-start;
+  }
+}
+@media (max-width: 430px) {
+  .set-editor-heading {
+    flex-wrap: wrap;
+  }
+  .editor-team-header {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .pokemon-slot {
+    min-height: 105px;
+  }
+  .pokemon-slot strong {
+    font-size: 13px;
+  }
+  .set-fields {
+    gap: 9px;
+  }
+  .move-fields {
+    grid-template-columns: 1fr;
+  }
+  .unified-search {
+    padding: 6px 8px;
+  }
+}

@@ -18,10 +18,8 @@ import {
   Search,
   Settings2,
   Share2,
-  Shield,
   Sparkles,
   Star,
-  Tags,
   Trash2,
   Upload,
   X,
@@ -54,7 +52,6 @@ import {
   withNotes,
   type TeamRecord,
   type Snapshot,
-  emptyDraft,
   sourceTypes,
 } from '@/lib/domain';
 import { backupText } from '@/lib/showdown';
@@ -63,11 +60,19 @@ import {
   Field,
   Pick,
   TagEditor,
-  PokemonLine,
   PokemonDetails,
   downloadText,
 } from './vault-ui';
 import { TeamEditor, ImportTeams } from './team-editor';
+import { SearchFilters } from './search-filters';
+import { FormatNavigator } from './format-navigator';
+import { TeamCard } from './team-card';
+import {
+  addSearchChip,
+  queryWithFilters,
+  type SearchChip,
+  type SearchField,
+} from '@/lib/search-filters';
 type Facets = {
   formats: string[];
   sources: string[];
@@ -114,12 +119,7 @@ export default function Library() {
     [sort, setSort] = useState('modified_desc'),
     [page, setPage] = useState(0),
     [view, setView] = useState('grid'),
-    [filters, setFilters] = useState({
-      format: '',
-      tag: '',
-      year: '',
-      source: '',
-    }),
+    [chips, setChips] = useState<SearchChip[]>([]),
     [selected, setSelected] = useState<string[]>([]);
   const [detail, setDetail] = useState<TeamRecord | null>(null),
     [deleteTarget, setDeleteTarget] = useState<TeamRecord | null>(null),
@@ -134,8 +134,7 @@ export default function Library() {
       | 'settings'
       | 'share'
       | 'bulk'
-    >(null),
-    [organise, setOrganise] = useState('');
+    >(null);
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -173,10 +172,12 @@ export default function Library() {
         const result = await api(
           'list',
           {
-            query,
+            query: queryWithFilters(chips, query),
             sort,
             page,
-            ...filters,
+            year: chips.some((c) => c.field === 'year' && c.value === 'unknown')
+              ? 'unknown'
+              : '',
             archived: section === 'Archived',
             favourite: section === 'Favourites',
           },
@@ -192,7 +193,7 @@ export default function Library() {
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [signed, query, sort, page, filters, section],
+    [signed, query, sort, page, chips, section],
   );
   useEffect(() => {
     const controller = new AbortController();
@@ -273,6 +274,7 @@ export default function Library() {
             sort: 'modified_desc',
             page: 0,
           });
+          setChips([]);
           setQuery(input.query);
           setPage(0);
           setTeams(r.teams);
@@ -338,8 +340,9 @@ export default function Library() {
     closeDetail();
     if (s === 'Recent') setSort('modified_desc');
   }
-  function filter(k: string, v: string) {
-    setFilters((p) => ({ ...p, [k]: v }));
+  function filter(k: string, value: string) {
+    const field = (k === 'source' ? 'from' : k) as SearchField;
+    setChips((old) => addSearchChip(old, { field, value }));
     setPage(0);
     setSelected([]);
     closeDetail();
@@ -500,53 +503,11 @@ export default function Library() {
               <span>{count}</span>
             </button>
           ))}
-          <div className="nav-section">ORGANISE</div>
-          {[
-            [Tags, 'Tags', 'tag', facets.tags],
-            [Shield, 'Formats', 'format', facets.formats],
-            [Clock3, 'Years', 'year', [...facets.years, 'unknown']],
-            [FolderClosed, 'Sources', 'source', facets.sources],
-          ].map(([Icon, label, key, values]: any) => (
-            <div key={key}>
-              <button
-                className="nav-item nav-wide"
-                aria-expanded={organise === key}
-                onClick={() => setOrganise(organise === key ? '' : key)}
-              >
-                <Icon size={17} />
-                {label}
-                <ChevronDown size={13} />
-              </button>
-              {organise === key && (
-                <div className="nav-values">
-                  {values.length ? (
-                    values.map((v: string) => (
-                      <button
-                        className={
-                          filters[key as keyof typeof filters] === v ? 'on' : ''
-                        }
-                        key={v}
-                        onClick={() =>
-                          filter(
-                            key,
-                            filters[key as keyof typeof filters] === v ? '' : v,
-                          )
-                        }
-                      >
-                        {v === 'unknown'
-                          ? 'Unknown'
-                          : key === 'format'
-                            ? formatLabel(v)
-                            : v}
-                      </button>
-                    ))
-                  ) : (
-                    <small>No {label.toLowerCase()} yet</small>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+          <FormatNavigator
+            formats={facets.formats}
+            selected={chips.find((c) => c.field === 'format')?.value}
+            onSelect={(value) => filter('format', value)}
+          />
           <div className="sidebar-note">
             <LockKeyhole size={17} />
             <p>
@@ -804,7 +765,10 @@ export default function Library() {
                     <Archive size={14} />
                     {detail.archived ? 'Restore to library' : 'Archive team'}
                   </button>
-                  <button className="button danger" onClick={() => setDeleteTarget(detail)}>
+                  <button
+                    className="button danger"
+                    onClick={() => setDeleteTarget(detail)}
+                  >
                     <Trash2 size={14} />
                     Delete team
                   </button>
@@ -852,82 +816,27 @@ export default function Library() {
                   </button>
                 </div>
               )}
-              <div className="searchbar">
-                <Search size={19} />
-                <input
-                  ref={searchRef}
-                  aria-label="Search teams"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setPage(0);
-                    setSelected([]);
-                  }}
-                  placeholder="Find a team, Pokémon, move, tag, or anything you remember…"
-                />
-                {query ? (
-                  <button
-                    aria-label="Clear search"
-                    onClick={() => setQuery('')}
-                  >
-                    <X size={16} />
-                  </button>
-                ) : (
-                  <kbd>⌘ K</kbd>
-                )}
-              </div>
-              <div className="toolbar">
-                <div className="filters">
-                  <Pick
-                    label="All formats"
-                    value={filters.format}
-                    onChange={(v) => filter('format', v)}
-                    options={[
-                      ['', 'All formats'],
-                      ...facets.formats.map(
-                        (f) => [f, formatLabel(f)] as [string, string],
-                      ),
-                    ]}
-                  />
-                  <Pick
-                    label="Tags"
-                    value={filters.tag}
-                    onChange={(v) => filter('tag', v)}
-                    options={[['', 'All tags'], ...facets.tags]}
-                  />
-                  <Pick
-                    label="Team year"
-                    value={filters.year}
-                    onChange={(v) => filter('year', v)}
-                    options={[
-                      ['', 'All years'],
-                      ...facets.years,
-                      ['unknown', 'Unknown'],
-                    ]}
-                  />
-                  <Pick
-                    label="Source"
-                    value={filters.source}
-                    onChange={(v) => filter('source', v)}
-                    options={[['', 'All sources'], ...facets.sources]}
-                  />
-                  {Object.values(filters).some(Boolean) && (
-                    <button
-                      className="text-link"
-                      onClick={() => {
-                        setFilters({
-                          format: '',
-                          tag: '',
-                          year: '',
-                          source: '',
-                        });
-                        setPage(0);
-                      }}
-                    >
-                      Clear filters
-                    </button>
-                  )}
-                </div>
+              <SearchFilters
+                text={query}
+                chips={chips}
+                facets={facets}
+                inputRef={searchRef}
+                onText={(text) => {
+                  setQuery(text);
+                  setPage(0);
+                }}
+                onAdd={(chip) => filter(chip.field, chip.value)}
+                onRemove={(i) => {
+                  setChips((old) => old.filter((_, j) => j !== i));
+                  setPage(0);
+                }}
+                onClear={() => {
+                  setQuery('');
+                  setChips([]);
+                  setPage(0);
+                }}
+              />
+              <div className="toolbar compact-toolbar">
                 <div className="view-controls">
                   <Pick
                     label="Sort teams"
@@ -1017,118 +926,31 @@ export default function Library() {
               ) : teams.length ? (
                 <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
                   {teams.map((t, i) => (
-                    <article className="team-card" key={t.id}>
-                      <div className="card-top">
-                        <span
-                          className={
-                            'format format-' +
-                            (t.format.includes('vgc')
-                              ? 1
-                              : t.format.includes('ubers') ||
-                                  t.format.includes('anythinggoes')
-                                ? 2
-                                : 0)
-                          }
-                        >
-                          {formatLabel(t.format)}
-                        </span>
-                        <div className="card-select">
-                          <button
-                            className="card-delete"
-                            aria-label={'Delete ' + t.title}
-                            onClick={() => setDeleteTarget(t)}
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
-                          <Checkbox
-                            aria-label={'Select ' + t.title}
-                            checked={selected.includes(t.id)}
-                            onCheckedChange={(v) =>
-                              setSelected((s) =>
-                                v
-                                  ? [...s, t.id]
-                                  : s.filter((id) => id !== t.id),
-                              )
-                            }
-                          />
-                          <button
-                            aria-label={'Favourite ' + t.title}
-                            className={
-                              'star ' + (t.favourite ? 'is-starred' : '')
-                            }
-                            onClick={() => toggleStar(t)}
-                          >
-                            <Star
-                              size={16}
-                              fill={t.favourite ? 'currentColor' : 'none'}
-                            />
-                          </button>
-                        </div>
-                      </div>
-                      <button
-                        className="card-open"
-                        onClick={() => openTeam(t.id)}
-                      >
-                        <h2>{t.title}</h2>
-                        <PokemonLine sets={t.version.parsed_team} />
-                      </button>
-                      <div className="tags">
-                        {t.tags.map((tag, j) => (
-                          <button
-                            onClick={() => filter('tag', tag)}
-                            className={'tag tag-' + ((i + j) % 4)}
-                            key={tag}
-                          >
-                            {tag}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        className="card-source"
-                        onClick={() =>
-                          t.source_name && filter('source', t.source_name)
-                        }
-                      >
-                        <FolderClosed size={13} />
-                        {t.source_type}
-                        {t.source_name ? ' ' + t.source_name : ''}
-                      </button>
-                      <footer>
-                        <span title="Historical team date">
-                          <Clock3 size={13} />
-                          {dateLabel(t)}
-                        </span>
-                        <span>
-                          <button
-                            className="version-chip"
-                            onClick={() =>
-                              openTeam(t.id).then(() => setTab('history'))
-                            }
-                          >
-                            v{t.version.version_number}
-                          </button>
-                          <span
-                            title={
-                              'Modified ' +
-                              new Date(t.updated_at).toLocaleString('en-AU')
-                            }
-                          >
-                            {new Date(t.updated_at).toLocaleDateString(
-                              'en-AU',
-                              { month: 'short', day: 'numeric' },
-                            )}
-                          </span>
-                        </span>
-                      </footer>
-                    </article>
+                    <TeamCard
+                      key={t.id}
+                      team={t}
+                      index={i}
+                      selected={selected.includes(t.id)}
+                      onSelect={(v) =>
+                        setSelected((s) =>
+                          v ? [...s, t.id] : s.filter((id) => id !== t.id),
+                        )
+                      }
+                      onDelete={() => setDeleteTarget(t)}
+                      onFavourite={() => void toggleStar(t)}
+                      onOpen={() => void openTeam(t.id)}
+                      onHistory={() =>
+                        void openTeam(t.id).then(() => setTab('history'))
+                      }
+                      onFilter={filter}
+                    />
                   ))}
                 </div>
               ) : (
                 <div className="empty-state">
                   <FolderClosed size={35} />
                   <h2>
-                    {query || Object.values(filters).some(Boolean)
+                    {query || chips.length > 0
                       ? 'No teams match this search.'
                       : section === 'Archived'
                         ? 'No archived teams.'
@@ -1336,7 +1158,11 @@ export default function Library() {
     </SidebarProvider>
   );
 }
-function DeleteTeamDialog({ team, onClose, onDeleted }: {
+function DeleteTeamDialog({
+  team,
+  onClose,
+  onDeleted,
+}: {
   team: TeamRecord;
   onClose: () => void;
   onDeleted: () => void;
@@ -1357,19 +1183,39 @@ function DeleteTeamDialog({ team, onClose, onDeleted }: {
     }
   }
   return (
-    <AlertDialog open onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
-      <AlertDialogContent initialFocus={cancelRef} className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !busy) onClose();
+      }}
+    >
+      <AlertDialogContent
+        initialFocus={cancelRef}
+        className="max-w-[calc(100vw-2rem)] sm:max-w-md"
+      >
         <AlertDialogHeader>
-          <AlertDialogTitle className="break-words">Delete “{team.title}”?</AlertDialogTitle>
+          <AlertDialogTitle className="break-words">
+            Delete “{team.title}”?
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes the team, all saved versions, and their notes.
-            Its share links will stop working. This can’t be undone.
+            This permanently deletes the team, all saved versions, and their
+            notes. Its share links will stop working. This can’t be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && <p className="error" role="alert">{error}</p>}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
         <AlertDialogFooter>
-          <AlertDialogCancel ref={cancelRef} disabled={busy}>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" disabled={busy} onClick={() => void remove()}>
+          <AlertDialogCancel ref={cancelRef} disabled={busy}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={busy}
+            onClick={() => void remove()}
+          >
             <Trash2 size={15} />
             {busy ? 'Deleting…' : 'Delete permanently'}
           </AlertDialogAction>

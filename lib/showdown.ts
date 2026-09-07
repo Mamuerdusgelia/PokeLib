@@ -7,7 +7,9 @@ export function parseShowdown(text: string, format = 'gen9ou') {
   if (text.length > 150000) throw Error('Keep each team below 150 KB.');
   const gen = Number(format.match(/^gen(\d+)/)?.[1] ?? 9);
   const parsed = Team.import(
-    text,
+    !text.trim().includes('\n') && !text.includes('|')
+      ? text.trim() + '\n\n'
+      : text,
     Dex.forGen(Math.max(1, Math.min(9, gen)) as any),
   );
   if (!parsed?.team.length)
@@ -19,6 +21,7 @@ export function parseShowdown(text: string, format = 'gen9ou') {
   const sets = JSON.parse(JSON.stringify(parsed.team)) as PokemonSet[];
   const warnings: string[] = [];
   for (const p of sets) {
+    p.moves ??= [];
     if (!Dex.species.get(p.species).exists)
       warnings.push(
         'Unrecognised species ' + p.species + ' — original text is preserved.',

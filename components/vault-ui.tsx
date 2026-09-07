@@ -1,6 +1,6 @@
 'use client';
 import { useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { TagPicker } from './tag-picker';
 import {
   Dialog,
   DialogContent,
@@ -15,14 +15,6 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import {
-  Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-} from '@/components/ui/combobox';
-import {
-  normalizeTags,
   type PokemonSet,
   type TeamRecord,
   dateLabel,
@@ -107,69 +99,11 @@ export function TagEditor({
   suggestions = [],
 }: {
   tags: string[];
-  onChange: (t: string[]) => void;
+  onChange: (tags: string[]) => void;
   suggestions?: string[];
 }) {
-  const [value, setValue] = useState('');
-  const add = (s: string) => {
-    if (!s.trim()) return;
-    onChange(
-      normalizeTags([
-        ...tags,
-        suggestions.find((t) => t.toLowerCase() === s.toLowerCase()) || s,
-      ]),
-    );
-    setValue('');
-  };
   return (
-    <div className="tag-editor">
-      <div className="tags">
-        {tags.map((t) => (
-          <span className="tag" key={t}>
-            {t}
-            <button
-              type="button"
-              aria-label={'Remove ' + t}
-              onClick={() => onChange(tags.filter((x) => x !== t))}
-            >
-              <X size={11} />
-            </button>
-          </span>
-        ))}
-      </div>
-      <Combobox
-        items={[
-          ...new Set([
-            ...suggestions.filter((t) => !tags.includes(t)),
-            ...(value.trim() ? [value.trim()] : []),
-          ]),
-        ]}
-        value={null}
-        inputValue={value}
-        onInputValueChange={setValue}
-        onValueChange={(v) => v && add(v as string)}
-      >
-        <ComboboxInput
-          placeholder="Add a tag…"
-          aria-label="Add a tag"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && value) {
-              e.preventDefault();
-              add(value);
-            }
-          }}
-        />
-        <ComboboxContent>
-          <ComboboxList>
-            {(item: string) => (
-              <ComboboxItem key={item} value={item}>
-                {suggestions.includes(item) ? item : 'Create “' + item + '”'}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
-    </div>
+    <TagPicker tags={tags} suggestions={suggestions} onChange={onChange} />
   );
 }
 const special: Record<string, string> = {

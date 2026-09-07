@@ -28,9 +28,9 @@ export function planQuery(q: string): QueryPlan {
   if (q.length > 400) throw Error('Keep search below 400 characters.');
   const plan: QueryPlan = { meta: [], set: [], free: [] };
   const explicit =
-    /\b(team|pokemon|move|item|ability|nature|tera|tag|source|year|format|note):(?:"([^"]+)"|([^\s]+))/gi;
+    /\b(team|pokemon|move|item|ability|nature|tera|tag|source|from|year|format|note):(?:"([^"]+)"|([^\s]+))/gi;
   const rest = q.replace(explicit, (_, field, quoted, single) => {
-    field = field.toLowerCase();
+    field = field.toLowerCase() === 'from' ? 'source' : field.toLowerCase();
     const value = quoted ?? single;
     const set = [
       'pokemon',

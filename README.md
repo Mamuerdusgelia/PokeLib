@@ -7,6 +7,9 @@ The Sites deployment uses an account-isolated, persistent Cloudflare D1 **demo w
 The complete PostgreSQL/Supabase adapter and migration are included. No Supabase project was available during implementation. The migration and RLS/RPC behavior are tested against embedded PostgreSQL (PGlite), but real Supabase email delivery and hosted Supabase connectivity must be checked after you connect your project.
 
 ## Architecture
+- Visual editor: six Pokémon slots, structured set controls and secondary Showdown Text mode. Tags use Add tag → suggestions / Create; team date, provenance and notes are in compact metadata panels. Versions still use the existing immutable-snapshot API.
+- components/visual-team-editor.tsx coordinates editor state; pokemon-set-editor.tsx renders slots and fields; lib/visual-team.ts preserves raw lines and stable draft note identities. Raw reorder/replacement reconciles notes; ambiguous notes must be reassigned or explicitly discarded.
+- SearchFilters, FormatNavigator, TagPicker, TeamCard, ImportTeams and MetaFields are separate components. The library still owns navigation, fetching and existing detail/history/share flows; it remains a candidate for a later focused extraction.
 - TypeScript, React, Tailwind, accessible Shadcn/Base UI primitives.
 - Next.js App Router source conventions, built for Cloudflare Workers through the Sites scaffold's Vinext adapter. The scaffold currently pins Vinext 1.0.0-beta.5; it is a beta runtime, a relevant production rollout consideration.
 - app/api/vault: authenticated HTTP boundary, input limits, same-origin mutations, server-side Showdown parsing and query planning.
@@ -51,6 +54,10 @@ Supabase migrations are separately managed PostgreSQL migrations. They enable RL
 Normalized search_terms records are indexed on field/value/team/version/slot. The primary key also supports per-team correlated lookups. Teams have owner/modified, owner/title and owner/historical-date indexes. Search uses exact words and known Pokémon entity names; typo tolerance, Boolean grouping and arbitrary substring matching are not included.
 
 ## Search
+The unified search bar offers From, Tag, Year, Format, Pokémon, Move, Item and Ability suggestions. Choose values to create removable chips, then keep typing ordinary text. `from:` is an alias for `source:`. Source/year/format/Pokémon/item/ability chips replace their previous value; tags and moves can combine. Year means historical Team Date; Unknown is an explicit date filter.
+
+The collapsible format navigator derives generation/game and format-family groups from stored identifiers. Selecting a format updates the same search chips. Custom or unfamiliar formats remain available under a fallback; no separate format tags are created. Per-format counts and an upstream live format registry are not included.
+
 Free text examples:
 - Darkrai Ice Beam
 - Focus Sash Rayquaza
@@ -69,6 +76,7 @@ Power syntax:
 - tera:Grass
 - tag:"Tournament Grade"
 - source:"Strange Name"
+- from:"Strange Name"
 - year:2022
 - format:gen9ou
 - note:"Trick Room"
@@ -80,20 +88,24 @@ New teams default to the browser's local date. Imported teams default to Unknown
 
 Normal export returns the stored Showdown body, including unrecognised lines. Download original returns the original source attached to the snapshot. Canonical parsing/export is tested, but saving does not silently replace the user's text with a potentially lossy canonical representation. Import preview is not a legality validator.
 
+Visual changes rewrite only the edited Showdown field lines; unknown lines and extra moves remain. Implied Hidden Power IVs and Frustration happiness are materialized when needed to preserve their effective values. Raw text with a layout the visual editor cannot safely split stays editable in text mode. Special imported fields without dedicated controls remain accessible there. No full legality checker or generation-filtered move suggestions are included.
+
 ## Sharing
 Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A living link resolves the team's current version; ?version=N pins the displayed snapshot. Tokens authorize the conceptual team and its versions, so a pinned URL is not a narrower access grant. The interface explains this. Regeneration and revocation invalidate previous links. Shared projections include notes, tags and source, but exclude owner account fields and full history.
 
 A private Sites deployment restricts access to the site itself. To let arbitrary people open links, first configure Supabase and deliberately change the site's audience. The application still keeps libraries private through RLS and token checks.
 
 ## Tests
-- pnpm test: 39 domain/SQLite behavior checks and 22 PostgreSQL migration/RLS/RPC checks, including permanent deletion and ownership protection.
+- pnpm test: 39 domain/SQLite checks, 22 PostgreSQL migration/RLS/RPC checks and 13 UX helper checks (74 total), including preservation, partial sets, inferred stats, note mapping, chips, and format grouping.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
 
 PostgreSQL tests use PGlite with a minimal auth.uid() shim and real anon/authenticated roles. They do not test Supabase's email provider or live hosted policies. Test databases are ephemeral and isolated. HTTP tests create a disposable team, exercise its share links, then delete it.
 
-WebMCP search_teams and import_showdown_teams are registered when the browser supports document.modelContext. No supported WebMCP validation context was available; the optional agent tools are not claimed as verified. No browser screenshot/click QA was performed; validation covers types, domain/database behavior, and HTTP integration.
+Browser QA for this redesign verified custom-tag creation in the editor; visual team creation and set changes; Visual/Text switching with exact unchanged text; preservation of an unknown field and set note; a new version; reopening/exporting its Showdown text; unchanged historical v1; source autocomplete; combined source + year + Pokémon + format chips with free text; and automatic format selection. Desktop and narrow preview layouts were inspected. The browser connection became unavailable during bulk-import preview, so the final bulk tag interaction and touch-device behavior remain unverified. The shared tag component is exercised in the editor; bulk import is covered by database tests. A local UX Review test team may remain in the demo workspace.
+
+WebMCP search_teams and import_showdown_teams are registered and were visible to the browser, but their calls were not exercised. Live Supabase authentication still requires external setup. Repository-wide lint currently reports pre-existing scaffold/application issues; a clean lint result is not claimed.
 
 ## Deployment
 Use the Sites workflow for the existing project_id in .openai/hosting.json:

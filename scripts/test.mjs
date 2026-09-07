@@ -12,6 +12,9 @@ for (const name of [
   'snapshot',
   'demo-store',
   'supabase-store',
+  'visual-team',
+  'format-groups',
+  'search-filters',
 ]) {
   const source = await fs.readFile(
     path.join(root, 'lib', name + '.ts'),
@@ -33,6 +36,7 @@ for (const name of [
 try {
   await import('./test-core.mjs');
   await import('./test-postgres.mjs');
+  await import('./test-ux.mjs');
 } catch (e) {
   console.error({
     message: e.message,
