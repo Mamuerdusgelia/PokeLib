@@ -1,12 +1,10 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Archive,
   ArrowLeft,
   BookOpen,
   Check,
   ChevronDown,
-  Clock3,
   Copy,
   Download,
   FolderClosed,
@@ -52,6 +50,7 @@ import {
   withNotes,
   type TeamRecord,
   type Snapshot,
+  type TeamMeta,
   sourceTypes,
 } from '@/lib/domain';
 import { backupText } from '@/lib/showdown';
@@ -67,6 +66,8 @@ import { TeamEditor, ImportTeams } from './team-editor';
 import { SearchFilters } from './search-filters';
 import { FormatNavigator } from './format-navigator';
 import { TeamCard } from './team-card';
+import type { SetEditTarget } from '@/lib/builder-data';
+import { InlineTeamMetadata } from './inline-team-metadata';
 import {
   addSearchChip,
   queryWithFilters,
@@ -118,7 +119,7 @@ export default function Library() {
     [query, setQuery] = useState(''),
     [sort, setSort] = useState('modified_desc'),
     [page, setPage] = useState(0),
-    [view, setView] = useState('grid'),
+    [view, setView] = useState('list'),
     [chips, setChips] = useState<SearchChip[]>([]),
     [selected, setSelected] = useState<string[]>([]);
   const [detail, setDetail] = useState<TeamRecord | null>(null),
@@ -136,6 +137,19 @@ export default function Library() {
       | 'bulk'
     >(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const invalidateLibrary = useCallback(
+    () => setRefreshTick((tick) => tick + 1),
+    [],
+  );
+  const [editTarget, setEditTarget] = useState<SetEditTarget | undefined>();
+  const metadataSaving = useRef(false);
+  const [metadataBusy, setMetadataBusy] = useState(false);
+  function editVersion(target?: SetEditTarget) {
+    if (metadataSaving.current) return;
+    setEditTarget(target);
+    setModal('version');
+  }
   useEffect(() => {
     let unsub: (() => void) | undefined;
     fetch('/api/config')
@@ -178,15 +192,21 @@ export default function Library() {
             year: chips.some((c) => c.field === 'year' && c.value === 'unknown')
               ? 'unknown'
               : '',
-            archived: section === 'Archived',
+            include_archived: true,
             favourite: section === 'Favourites',
           },
           signal,
         );
+        if (signal?.aborted) return;
+        const lastPage = Math.max(0, Math.ceil(result.total / 30) - 1);
+        if (page > lastPage) {
+          setPage(lastPage);
+          return;
+        }
         setTeams(result.teams);
         setTotal(result.total);
-        const f = await api('facets', {}, signal);
-        setFacets(f);
+        const f = await api('facets', { include_archived: true }, signal);
+        if (!signal?.aborted) setFacets(f);
       } catch (e) {
         if ((e as Error).name !== 'AbortError') setError((e as Error).message);
       } finally {
@@ -202,7 +222,7 @@ export default function Library() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [refresh]);
+  }, [refresh, query, refreshTick]);
   async function openTeam(id: string, version?: number) {
     setDetailLoading(true);
     setError('');
@@ -247,7 +267,7 @@ export default function Library() {
   }, [modal]);
   useEffect(() => {
     const stored = localStorage.getItem('teamvault-view');
-    if (stored === 'list') setView('list');
+    if (stored === 'list' || stored === 'grid') setView(stored);
   }, []);
   useEffect(() => {
     const context = (document as any).modelContext;
@@ -270,6 +290,7 @@ export default function Library() {
           if (typeof input?.query !== 'string' || input.query.length > 400)
             throw Error('Provide a query of at most 400 characters.');
           const r = await api('list', {
+            include_archived: true,
             query: input.query,
             sort: 'modified_desc',
             page: 0,
@@ -316,7 +337,7 @@ export default function Library() {
           const result = await api('import', {
             drafts: parsed.map((p: any) => p.draft),
           });
-          await refresh();
+          invalidateLibrary();
           return result;
         },
       },
@@ -328,7 +349,7 @@ export default function Library() {
       } catch {}
     }
     return () => lifecycle.abort();
-  }, [signed, refresh]);
+  }, [signed, invalidateLibrary]);
   function closeDetail() {
     setDetail(null);
     if (typeof window !== 'undefined') window.history.replaceState({}, '', '/');
@@ -353,9 +374,13 @@ export default function Library() {
         id: t.id,
         patch: { favourite: !t.favourite },
       });
-      setTeams((ts) => ts.map((x) => (x.id === t.id ? r : x)));
-      if (detail?.id === t.id) setDetail({ ...detail, favourite: r.favourite });
-      void refresh();
+      setTeams((ts) =>
+        ts.map((x) => (x.id === t.id ? { ...x, favourite: r.favourite } : x)),
+      );
+      setDetail((current) =>
+        current?.id === t.id ? { ...current, favourite: r.favourite } : current,
+      );
+      invalidateLibrary();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -363,8 +388,43 @@ export default function Library() {
   async function saved(id?: string) {
     setModal(null);
     setNotice('Saved to your library.');
-    await refresh();
+    invalidateLibrary();
     if (id) await openTeam(id);
+  }
+  async function saveMetadata(patch: Partial<TeamMeta>) {
+    if (!detail) return;
+    if (metadataSaving.current)
+      throw Error('Another detail is saving. Try again in a moment.');
+    metadataSaving.current = true;
+    setMetadataBusy(true);
+    const id = detail.id;
+    try {
+      const updated: TeamRecord = await api('patch', { id, patch });
+      const metadata = Object.fromEntries(
+        (Object.keys(patch) as (keyof TeamMeta)[]).map((key) => [
+          key,
+          updated[key],
+        ]),
+      );
+      const mergeMetadata = (current: TeamRecord) => ({
+        ...current,
+        ...metadata,
+        updated_at:
+          current.updated_at > updated.updated_at
+            ? current.updated_at
+            : updated.updated_at,
+      });
+      setDetail((current) =>
+        current?.id === id ? mergeMetadata(current) : current,
+      );
+      setTeams((current) =>
+        current.map((t) => (t.id === id ? mergeMetadata(t) : t)),
+      );
+      invalidateLibrary();
+    } finally {
+      metadataSaving.current = false;
+      setMetadataBusy(false);
+    }
   }
   async function copy(text: string) {
     try {
@@ -374,20 +434,6 @@ export default function Library() {
       setError(
         'Clipboard access was unavailable. Use Download export instead.',
       );
-    }
-  }
-  async function archive(t: TeamRecord) {
-    try {
-      await api('patch', { id: t.id, patch: { archived: !t.archived } });
-      setNotice(
-        t.archived
-          ? 'Team restored to the library.'
-          : 'Team archived. You can restore it from Archived.',
-      );
-      closeDetail();
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
     }
   }
   async function signIn() {
@@ -488,8 +534,6 @@ export default function Library() {
           {[
             [FolderClosed, 'All teams', facets.all],
             [Star, 'Favourites', facets.favourites],
-            [Clock3, 'Recent', ''],
-            [Archive, 'Archived', facets.archived || ''],
           ].map(([Icon, label, count]: any) => (
             <button
               key={label}
@@ -567,7 +611,7 @@ export default function Library() {
           {error && (
             <div className="error" role="alert">
               {error}
-              <button onClick={() => refresh()}>Retry</button>
+              <button onClick={invalidateLibrary}>Retry</button>
             </div>
           )}
           {detailLoading ? (
@@ -580,10 +624,31 @@ export default function Library() {
               </button>
               <div className="page-heading detail-heading">
                 <div>
-                  <span className="format">{formatLabel(detail.format)}</span>
-                  <h1>{detail.title}</h1>
+                  <InlineTeamMetadata
+                    key={detail.id + ':format'}
+                    team={detail}
+                    field="format"
+                    onSave={saveMetadata}
+                  >
+                    <span className="format">{formatLabel(detail.format)}</span>
+                  </InlineTeamMetadata>
+                  <InlineTeamMetadata
+                    key={detail.id + ':title'}
+                    team={detail}
+                    field="title"
+                    onSave={saveMetadata}
+                  >
+                    <span className="team-title">{detail.title}</span>
+                  </InlineTeamMetadata>
                   <div className="detail-meta">
-                    <span>Team date · {dateLabel(detail)}</span>
+                    <InlineTeamMetadata
+                      key={detail.id + ':date'}
+                      team={detail}
+                      field="date"
+                      onSave={saveMetadata}
+                    >
+                      Team date · {dateLabel(detail)}
+                    </InlineTeamMetadata>
                     <span>v{detail.version.version_number}</span>
                     <button
                       className={
@@ -598,17 +663,17 @@ export default function Library() {
                       />
                     </button>
                   </div>
-                  <div className="tags">
-                    {detail.tags.map((t, i) => (
-                      <button
-                        key={t}
-                        className={'tag tag-' + (i % 4)}
-                        onClick={() => filter('tag', t)}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
+                  <fieldset disabled={metadataBusy}>
+                    <TagEditor
+                      tags={detail.tags}
+                      suggestions={facets.tags}
+                      onChange={(tags) => {
+                        void saveMetadata({ tags }).catch((e) =>
+                          setError((e as Error).message),
+                        );
+                      }}
+                    />
+                  </fieldset>
                 </div>
                 <div className="detail-actions">
                   <button className="button" onClick={() => setModal('share')}>
@@ -628,15 +693,9 @@ export default function Library() {
                     Export
                   </button>
                   <button
-                    className="button"
-                    onClick={() => setModal('metadata')}
-                  >
-                    <Settings2 size={15} />
-                    Edit details
-                  </button>
-                  <button
                     className="button primary"
-                    onClick={() => setModal('version')}
+                    disabled={metadataBusy}
+                    onClick={() => editVersion()}
                   >
                     <Plus size={15} />
                     {isHistory
@@ -667,7 +726,54 @@ export default function Library() {
                   <TabsTrigger value="export">Showdown text</TabsTrigger>
                 </TabsList>
                 <TabsContent value="team">
-                  <PokemonDetails team={detail} />
+                  <PokemonDetails
+                    team={detail}
+                    onEditSet={metadataBusy ? undefined : editVersion}
+                    metadata={
+                      <section className="provenance-section">
+                        <div>
+                          <h2>Source & provenance</h2>
+                          <InlineTeamMetadata
+                            key={detail.id + ':source'}
+                            team={detail}
+                            field="source"
+                            onSave={saveMetadata}
+                          >
+                            {detail.source_type}
+                            {detail.source_name
+                              ? ' · ' + detail.source_name
+                              : ''}
+                          </InlineTeamMetadata>
+                          {detail.source_url && (
+                            <a
+                              className="text-link"
+                              href={detail.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {detail.source_url}
+                            </a>
+                          )}
+                          <p className="preserve muted">{detail.source_note}</p>
+                        </div>
+                        <div>
+                          <h2>Team date</h2>
+                          <InlineTeamMetadata
+                            key={detail.id + ':date-bottom'}
+                            team={detail}
+                            field="date"
+                            onSave={saveMetadata}
+                          >
+                            {dateLabel(detail)}
+                          </InlineTeamMetadata>
+                          <p className="metadata-caption">
+                            Historical build or use date · shared across
+                            versions.
+                          </p>
+                        </div>
+                      </section>
+                    }
+                  />
                 </TabsContent>
                 <TabsContent value="history">
                   <div className="history-panel">
@@ -705,9 +811,11 @@ export default function Library() {
                         </button>
                         <button
                           className="button ghost"
+                          disabled={metadataBusy}
                           onClick={() => {
+                            if (metadataSaving.current) return;
                             setDetail({ ...detail, version: v });
-                            setModal('version');
+                            editVersion();
                           }}
                         >
                           Restore as new version
@@ -758,13 +866,6 @@ export default function Library() {
                     : ''}
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    className="button ghost"
-                    onClick={() => archive(detail)}
-                  >
-                    <Archive size={14} />
-                    {detail.archived ? 'Restore to library' : 'Archive team'}
-                  </button>
                   <button
                     className="button danger"
                     onClick={() => setDeleteTarget(detail)}
@@ -918,9 +1019,14 @@ export default function Library() {
                 )}
               </div>
               {loading ? (
-                <div className="team-grid">
+                <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
                   {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <Skeleton key={i} className="h-72 rounded-lg" />
+                    <Skeleton
+                      key={i}
+                      className={
+                        view === 'grid' ? 'h-72 rounded-lg' : 'h-24 rounded-lg'
+                      }
+                    />
                   ))}
                 </div>
               ) : teams.length ? (
@@ -952,9 +1058,7 @@ export default function Library() {
                   <h2>
                     {query || chips.length > 0
                       ? 'No teams match this search.'
-                      : section === 'Archived'
-                        ? 'No archived teams.'
-                        : 'Your team library is empty.'}
+                      : 'Your team library is empty.'}
                   </h2>
                   <p>
                     {query
@@ -1017,8 +1121,22 @@ export default function Library() {
           mode={modal}
           team={detail || undefined}
           tags={facets.tags}
-          onClose={() => setModal(null)}
-          onSaved={saved}
+          initialFormat={
+            chips.find((c) => c.field === 'format')?.value ||
+            query
+              .match(/\bformat:(?:"([^"]+)"|(\S+))/i)
+              ?.slice(1)
+              .find(Boolean)
+          }
+          editTarget={modal === 'version' ? editTarget : undefined}
+          onClose={() => {
+            setModal(null);
+            setEditTarget(undefined);
+          }}
+          onSaved={(id) => {
+            setEditTarget(undefined);
+            void saved(id);
+          }}
         />
       )}
       {modal === 'import' && (
@@ -1045,7 +1163,7 @@ export default function Library() {
             if (detail?.id === deleteTarget.id) closeDetail();
             setNotice('Team permanently deleted.');
             if (page > 0) setPage(0);
-            else void refresh();
+            else invalidateLibrary();
           }}
         />
       )}
@@ -1355,7 +1473,7 @@ function BulkDialog({
     [year, setYear] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
-  async function apply(archived?: boolean) {
+  async function apply() {
     setBusy(true);
     try {
       if (year && !/^\d{4}$/.test(year))
@@ -1370,7 +1488,6 @@ function BulkDialog({
         patch.team_date = year;
         patch.team_date_precision = 'year';
       }
-      if (archived !== undefined) patch.archived = archived;
       await api('bulk', { ids, patch });
       onSaved();
     } catch (e) {
@@ -1410,12 +1527,6 @@ function BulkDialog({
       </Field>
       {error && <p className="error">{error}</p>}
       <div className="modal-actions">
-        <button className="button" disabled={busy} onClick={() => apply(true)}>
-          Archive selected
-        </button>
-        <button className="button" disabled={busy} onClick={() => apply(false)}>
-          Unarchive selected
-        </button>
         <button
           className="button primary"
           disabled={busy}

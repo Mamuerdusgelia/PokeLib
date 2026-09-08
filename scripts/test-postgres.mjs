@@ -8,7 +8,9 @@ const pg = new PGlite();
 await pg.exec(
   "CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; GRANT USAGE ON SCHEMA auth TO authenticated,anon; GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated,anon;",
 );
-for (const name of (await fs.readdir('supabase/migrations')).filter((n) => n.endsWith('.sql')).sort()) {
+for (const name of (await fs.readdir('supabase/migrations'))
+  .filter((n) => n.endsWith('.sql'))
+  .sort()) {
   await pg.exec(await fs.readFile('supabase/migrations/' + name, 'utf8'));
 }
 const a = '11111111-1111-4111-8111-111111111111',
@@ -32,9 +34,14 @@ const rpc = async (action, payload = {}) =>
 const client = {
   rpc: async (name, args) => {
     try {
-      const data = name === 'delete_team'
-        ? (await pg.query('SELECT public.delete_team($1) AS data', [args.p_id])).rows[0].data
-        : await rpc(args.action, args.payload);
+      const data =
+        name === 'delete_team'
+          ? (
+              await pg.query('SELECT public.delete_team($1) AS data', [
+                args.p_id,
+              ])
+            ).rows[0].data
+          : await rpc(args.action, args.payload);
       return { data, error: null };
     } catch (e) {
       return { data: null, error: { message: e.message } };
@@ -206,6 +213,74 @@ await check('malformed snapshot rollback is atomic', async () => {
   assert.equal((await store.list({ plan: planQuery('') })).total, before.total);
 });
 await check(
+  'inclusive archive list and facets retain filters, ownership and history',
+  async () => {
+    const before = await store.get(t.id),
+      active = await store.facets();
+    await store.patch(t.id, { archived: true, favourite: true });
+    const defaults = await store.list({ plan: planQuery('') });
+    const inclusive = await store.list({
+      plan: planQuery(''),
+      include_archived: true,
+    });
+    assert.equal(inclusive.total, defaults.total + 1);
+    assert.equal(
+      (await store.list({ plan: planQuery(''), include_archived: false }))
+        .total,
+      defaults.total,
+    );
+    assert.equal(
+      (await store.list({ plan: planQuery(''), include_archived: 'true' }))
+        .total,
+      defaults.total,
+    );
+    assert.equal(
+      (await store.list({ plan: planQuery(''), archived: true })).teams[0].id,
+      t.id,
+    );
+    assert.equal(
+      (
+        await store.list({
+          plan: planQuery(''),
+          include_archived: true,
+          archived: true,
+        })
+      ).total,
+      inclusive.total,
+    );
+    assert.ok(
+      (
+        await store.list({
+          plan: planQuery('Darkrai'),
+          include_archived: true,
+          favourite: true,
+        })
+      ).teams.some((x) => x.id === t.id),
+    );
+    const facets = await store.facets({ include_archived: true }),
+      defaultFacets = await store.facets();
+    assert.equal(facets.all, active.all);
+    assert.equal(facets.all, defaultFacets.all + 1);
+    assert.equal(facets.favourites, defaultFacets.favourites + 1);
+    assert.deepEqual(facets.formats, defaultFacets.formats);
+    assert.equal(facets.archived, defaultFacets.archived);
+    const after = await store.get(t.id);
+    assert.equal(after.archived, true);
+    assert.deepEqual(after.history, before.history);
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [b]);
+    assert.ok(
+      !(
+        await store.list({ plan: planQuery(''), include_archived: true })
+      ).teams.some((x) => x.id === t.id),
+    );
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [a]);
+    await store.patch(t.id, {
+      archived: before.archived,
+      favourite: before.favourite,
+    });
+  },
+);
+await check(
   'private helpers are not callable by authenticated clients',
   async () => {
     await assert.rejects(
@@ -220,40 +295,126 @@ await check('unknown dates sort last both directions', async () => {
     assert.equal(r.teams.at(-1).team_date, null);
   }
 });
-let deletionTeam = await store.get((await store.import([{ ...demoDrafts[0], title: 'Delete this team' }])).ids[0]);
+let deletionTeam = await store.get(
+  (await store.import([{ ...demoDrafts[0], title: 'Delete this team' }]))
+    .ids[0],
+);
 const keptTeam = await store.get(t.id);
 for (let i = 0; i < 2; i++) {
-  deletionTeam = await store.version(deletionTeam.id, { ...deletionTeam, ...deletionTeam.version }, deletionTeam.current_version_id, deletionTeam.history.at(-1).id);
+  deletionTeam = await store.version(
+    deletionTeam.id,
+    { ...deletionTeam, ...deletionTeam.version },
+    deletionTeam.current_version_id,
+    deletionTeam.history.at(-1).id,
+  );
 }
 const deletionToken = (await store.share(deletionTeam.id)).token;
-await check('delete RPC rejects other owners, anonymous access and direct writes', async () => {
-  await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [b]);
-  await assert.rejects(() => store.delete(deletionTeam.id), /not found/);
-  await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [a]);
-  await pg.exec('SET ROLE anon');
-  await assert.rejects(() => store.delete(deletionTeam.id), /permission denied/);
-  await pg.exec('SET ROLE authenticated');
-  await assert.rejects(() => pg.query('DELETE FROM public.teams WHERE id=$1', [deletionTeam.id]), /permission denied/);
-  assert.equal((await store.get(deletionTeam.id)).history.length, 3);
-});
-await check('deletion cascades restored history and invalidates live and pinned links', async () => {
-  assert.deepEqual(await store.delete(deletionTeam.id), { deleted: true });
-  await assert.rejects(() => store.get(deletionTeam.id), /not found/);
-  assert.equal(await resolve(deletionToken), null);
-  assert.equal(await resolve(deletionToken, 1), null);
-  await pg.exec('RESET ROLE');
-  for (const table of ['team_versions', 'search_terms', 'team_tags', 'share_links']) {
-    assert.equal(Number((await pg.query(`SELECT count(*) AS n FROM public.${table} WHERE team_id=$1`, [deletionTeam.id])).rows[0].n), 0);
-  }
-  await pg.exec('SET ROLE authenticated');
-  assert.deepEqual(await store.get(t.id), keptTeam);
-  assert.ok((await store.facets()).tags.includes('Tournament Grade'));
-});
-await check('archived deletion succeeds and repeated deletion is rejected', async () => {
-  const archivedId = (await store.import([{ ...demoDrafts[0], title: 'Archived deletion' }])).ids[0];
-  await store.patch(archivedId, { archived: true });
-  assert.deepEqual(await store.delete(archivedId), { deleted: true });
-  await assert.rejects(() => store.delete(archivedId), /not found/);
-});
+await check(
+  'delete RPC rejects other owners, anonymous access and direct writes',
+  async () => {
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [b]);
+    await assert.rejects(() => store.delete(deletionTeam.id), /not found/);
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [a]);
+    await pg.exec('SET ROLE anon');
+    await assert.rejects(
+      () => store.delete(deletionTeam.id),
+      /permission denied/,
+    );
+    await pg.exec('SET ROLE authenticated');
+    await assert.rejects(
+      () => pg.query('DELETE FROM public.teams WHERE id=$1', [deletionTeam.id]),
+      /permission denied/,
+    );
+    assert.equal((await store.get(deletionTeam.id)).history.length, 3);
+  },
+);
+await check(
+  'deletion cascades restored history and invalidates live and pinned links',
+  async () => {
+    assert.deepEqual(await store.delete(deletionTeam.id), { deleted: true });
+    await assert.rejects(() => store.get(deletionTeam.id), /not found/);
+    assert.equal(await resolve(deletionToken), null);
+    assert.equal(await resolve(deletionToken, 1), null);
+    await pg.exec('RESET ROLE');
+    for (const table of [
+      'team_versions',
+      'search_terms',
+      'team_tags',
+      'share_links',
+    ]) {
+      assert.equal(
+        Number(
+          (
+            await pg.query(
+              `SELECT count(*) AS n FROM public.${table} WHERE team_id=$1`,
+              [deletionTeam.id],
+            )
+          ).rows[0].n,
+        ),
+        0,
+      );
+    }
+    await pg.exec('SET ROLE authenticated');
+    assert.deepEqual(await store.get(t.id), keptTeam);
+    assert.ok((await store.facets()).tags.includes('Tournament Grade'));
+  },
+);
+await check(
+  'archived deletion succeeds and repeated deletion is rejected',
+  async () => {
+    const archivedId = (
+      await store.import([{ ...demoDrafts[0], title: 'Archived deletion' }])
+    ).ids[0];
+    await store.patch(archivedId, { archived: true });
+    assert.deepEqual(await store.delete(archivedId), { deleted: true });
+    await assert.rejects(() => store.delete(archivedId), /not found/);
+  },
+);
+await check(
+  'explicit note search includes only current notes and stays owner-scoped',
+  async () => {
+    const noteId = (
+      await store.import([
+        {
+          ...demoDrafts[0],
+          team_notes: 'Teamnotemarker',
+          set_notes: ['Setnotemarker retained'],
+        },
+      ])
+    ).ids[0];
+    let team = await store.get(noteId);
+    const originalVersion = team.version;
+    const find = async (query) =>
+      (await store.list({ plan: planQuery(query) })).teams.some(
+        (t) => t.id === noteId,
+      );
+    for (const q of [
+      'note:Teamnotemarker',
+      'note:"Setnotemarker retained"',
+      'Darkrai note:Setnotemarker',
+    ])
+      assert.ok(await find(q));
+    assert.equal(await find('source:Setnotemarker'), false);
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [b]);
+    assert.equal(await find('note:Setnotemarker'), false);
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [a]);
+    team = await store.version(
+      noteId,
+      { ...team, ...team.version, team_notes: '', set_notes: [] },
+      team.current_version_id,
+      team.current_version_id,
+    );
+    assert.equal(await find('note:Setnotemarker'), false);
+    assert.equal(await find('note:Teamnotemarker'), false);
+    await store.version(
+      noteId,
+      { ...team, ...originalVersion },
+      team.current_version_id,
+      originalVersion.id,
+    );
+    assert.ok(await find('note:Setnotemarker'));
+    await store.delete(noteId);
+  },
+);
 console.log('PostgreSQL: ' + passed + ' checks passed.');
 await pg.close();

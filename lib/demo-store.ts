@@ -279,10 +279,9 @@ export class DemoStore {
   async list(p: Row) {
     const plan = p.plan as QueryPlan;
     const args: any[] = [this.owner];
-    const clauses = [
-      't.owner_id=?',
-      't.archived=' + Number(p.archived === true),
-    ];
+    const clauses = ['t.owner_id=?'];
+    if (p.include_archived !== true)
+      clauses.push('t.archived=' + Number(p.archived === true));
     if (p.favourite) clauses.push('t.favourite=1');
     for (const [key, field] of [
       ['format', 'format'],
@@ -309,7 +308,11 @@ export class DemoStore {
     }
     for (const term of plan.meta) {
       clauses.push(
-        "EXISTS(SELECT 1 FROM search_terms m WHERE m.team_id=t.id AND m.version_id='' AND m.field=? AND m.value=?)",
+        'EXISTS(SELECT 1 FROM search_terms m WHERE m.team_id=t.id AND ' +
+          (term.field === 'note'
+            ? "(m.version_id='' OR m.version_id=t.current_version_id)"
+            : "m.version_id=''") +
+          ' AND m.field=? AND m.value=?)',
       );
       args.push(term.field, term.value);
     }
@@ -381,7 +384,7 @@ export class DemoStore {
       total: count?.n ?? 0,
     };
   }
-  async facets() {
+  async facets(p: Row = {}) {
     const rows = await this.stmt(
       'SELECT format,source_name,substr(team_date,1,4) AS year,archived,favourite FROM teams WHERE owner_id=?',
       this.owner,
@@ -397,8 +400,12 @@ export class DemoStore {
       sources: unique('source_name'),
       years: unique('year'),
       tags: tags.results.map((t) => t.display_name),
-      all: rows.results.filter((t) => !t.archived).length,
-      favourites: rows.results.filter((t) => t.favourite && !t.archived).length,
+      all: rows.results.filter(
+        (t) => p.include_archived === true || !t.archived,
+      ).length,
+      favourites: rows.results.filter(
+        (t) => t.favourite && (p.include_archived === true || !t.archived),
+      ).length,
       archived: rows.results.filter((t) => t.archived).length,
     };
   }

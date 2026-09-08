@@ -19,7 +19,9 @@ export async function POST(request: Request) {
         result = await store.list({ ...p, plan: planQuery(p.query || '') });
         break;
       case 'facets':
-        result = await store.facets();
+        result = await store.facets({
+          include_archived: p.include_archived === true,
+        });
         break;
       case 'get':
         result = await store.get(p.id);

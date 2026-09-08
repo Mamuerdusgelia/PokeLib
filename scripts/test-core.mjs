@@ -301,6 +301,66 @@ await check('historical date Unknown sorts last both ways', async () => {
     assert.equal(r.teams.at(-1).team_date, null);
   }
 });
+await check(
+  'inclusive archive list and facets retain flags, owner isolation and filters',
+  async () => {
+    const before = await a.get(id),
+      active = await a.facets();
+    await a.patch(id, { archived: true, favourite: true });
+    const defaults = await a.list({ plan: planQuery('') });
+    const inclusive = await a.list({
+      plan: planQuery(''),
+      include_archived: true,
+    });
+    assert.equal(inclusive.total, defaults.total + 1);
+    assert.equal(
+      (await a.list({ plan: planQuery(''), include_archived: false })).total,
+      defaults.total,
+    );
+    assert.equal(
+      (await a.list({ plan: planQuery(''), include_archived: 'true' })).total,
+      defaults.total,
+    );
+    assert.equal(
+      (
+        await a.list({
+          plan: planQuery(''),
+          include_archived: true,
+          archived: true,
+        })
+      ).total,
+      inclusive.total,
+    );
+    assert.equal(
+      (
+        await a.list({
+          plan: planQuery('Darkrai'),
+          include_archived: true,
+          favourite: true,
+        })
+      ).teams[0].id,
+      id,
+    );
+    assert.equal(
+      (await b.list({ plan: planQuery(''), include_archived: true })).total,
+      0,
+    );
+    const facets = await a.facets({ include_archived: true }),
+      defaultFacets = await a.facets();
+    assert.equal(facets.all, active.all);
+    assert.equal(facets.all, defaultFacets.all + 1);
+    assert.equal(facets.favourites, defaultFacets.favourites + 1);
+    assert.deepEqual(facets.formats, defaultFacets.formats);
+    assert.equal(facets.archived, defaultFacets.archived);
+    const after = await a.get(id);
+    assert.equal(after.archived, true);
+    assert.deepEqual(after.history, before.history);
+    await a.patch(id, {
+      archived: before.archived,
+      favourite: before.favourite,
+    });
+  },
+);
 await check('search lookup has indexed query plan', () => {
   const p = db
     .prepare(
@@ -309,32 +369,103 @@ await check('search lookup has indexed query plan', () => {
     .all();
   assert.match(JSON.stringify(p), /terms_lookup/);
 });
-let deletionTeam = await a.get((await a.import([{ ...demoDrafts[0], title: 'Delete this team' }])).ids[0]);
+let deletionTeam = await a.get(
+  (await a.import([{ ...demoDrafts[0], title: 'Delete this team' }])).ids[0],
+);
 const keptTeam = await a.get(id);
 for (let i = 0; i < 2; i++) {
-  deletionTeam = await a.version(deletionTeam.id, { ...deletionTeam, ...deletionTeam.version }, deletionTeam.current_version_id, deletionTeam.history.at(-1).id);
+  deletionTeam = await a.version(
+    deletionTeam.id,
+    { ...deletionTeam, ...deletionTeam.version },
+    deletionTeam.current_version_id,
+    deletionTeam.history.at(-1).id,
+  );
 }
 const deletionToken = (await a.share(deletionTeam.id)).token;
-await check('deletion rejects another owner without changing the team', async () => {
-  await assert.rejects(() => b.delete(deletionTeam.id), /not found/);
-  assert.equal((await a.get(deletionTeam.id)).history.length, 3);
-  assert.ok(await resolveDemoShare(d1, deletionToken));
-});
-await check('deletion cascades all history and links while preserving other teams', async () => {
-  assert.deepEqual(await a.delete(deletionTeam.id), { deleted: true });
-  await assert.rejects(() => a.get(deletionTeam.id), /not found/);
-  for (const table of ['team_versions', 'search_terms', 'team_tags', 'share_links']) {
-    assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table} WHERE team_id=?`).get(deletionTeam.id).n, 0);
-  }
-  await assert.rejects(() => resolveDemoShare(d1, deletionToken));
-  await assert.rejects(() => resolveDemoShare(d1, deletionToken, 1));
-  assert.deepEqual(await a.get(id), keptTeam);
-  assert.ok((await a.facets()).tags.includes('Tournament Grade'));
-});
-await check('archived teams can be deleted and repeated deletion is rejected', async () => {
-  const archivedId = (await a.import([{ ...demoDrafts[0], title: 'Archived deletion' }])).ids[0];
-  await a.patch(archivedId, { archived: true });
-  assert.deepEqual(await a.delete(archivedId), { deleted: true });
-  await assert.rejects(() => a.delete(archivedId), /not found/);
-});
+await check(
+  'deletion rejects another owner without changing the team',
+  async () => {
+    await assert.rejects(() => b.delete(deletionTeam.id), /not found/);
+    assert.equal((await a.get(deletionTeam.id)).history.length, 3);
+    assert.ok(await resolveDemoShare(d1, deletionToken));
+  },
+);
+await check(
+  'deletion cascades all history and links while preserving other teams',
+  async () => {
+    assert.deepEqual(await a.delete(deletionTeam.id), { deleted: true });
+    await assert.rejects(() => a.get(deletionTeam.id), /not found/);
+    for (const table of [
+      'team_versions',
+      'search_terms',
+      'team_tags',
+      'share_links',
+    ]) {
+      assert.equal(
+        db
+          .prepare(`SELECT count(*) AS n FROM ${table} WHERE team_id=?`)
+          .get(deletionTeam.id).n,
+        0,
+      );
+    }
+    await assert.rejects(() => resolveDemoShare(d1, deletionToken));
+    await assert.rejects(() => resolveDemoShare(d1, deletionToken, 1));
+    assert.deepEqual(await a.get(id), keptTeam);
+    assert.ok((await a.facets()).tags.includes('Tournament Grade'));
+  },
+);
+await check(
+  'archived teams can be deleted and repeated deletion is rejected',
+  async () => {
+    const archivedId = (
+      await a.import([{ ...demoDrafts[0], title: 'Archived deletion' }])
+    ).ids[0];
+    await a.patch(archivedId, { archived: true });
+    assert.deepEqual(await a.delete(archivedId), { deleted: true });
+    await assert.rejects(() => a.delete(archivedId), /not found/);
+  },
+);
+await check(
+  'explicit note search includes only current notes and stays owner-scoped',
+  async () => {
+    const draft = {
+      ...demoDrafts[0],
+      team_notes: 'Teamnotemarker',
+      set_notes: ['Setnotemarker retained'],
+    };
+    const noteId = (await a.import([draft])).ids[0];
+    let team = await a.get(noteId);
+    const originalVersion = team.version;
+    const find = async (query, store = a) =>
+      (await store.list({ plan: planQuery(query) })).teams.some(
+        (t) => t.id === noteId,
+      );
+    for (const q of [
+      'note:Teamnotemarker',
+      'note:"Setnotemarker retained"',
+      'Darkrai note:Setnotemarker',
+    ]) {
+      assert.ok(await find(q));
+      assert.ok(matchesPlan(indexTerms(team, team.version), planQuery(q)));
+      assert.equal(await find(q, b), false);
+    }
+    assert.equal(await find('source:Setnotemarker'), false);
+    team = await a.version(
+      noteId,
+      { ...team, ...team.version, team_notes: '', set_notes: [] },
+      team.current_version_id,
+      team.current_version_id,
+    );
+    assert.equal(await find('note:Setnotemarker'), false);
+    assert.equal(await find('note:Teamnotemarker'), false);
+    await a.version(
+      noteId,
+      { ...team, ...originalVersion },
+      team.current_version_id,
+      originalVersion.id,
+    );
+    assert.ok(await find('note:Setnotemarker'));
+    await a.delete(noteId);
+  },
+);
 console.log('SQLite + domain: ' + passed + ' checks passed.');

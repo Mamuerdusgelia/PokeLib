@@ -15,6 +15,7 @@ for (const name of [
   'visual-team',
   'format-groups',
   'search-filters',
+  'builder-data',
 ]) {
   const source = await fs.readFile(
     path.join(root, 'lib', name + '.ts'),
@@ -37,6 +38,7 @@ try {
   await import('./test-core.mjs');
   await import('./test-postgres.mjs');
   await import('./test-ux.mjs');
+  await import('./test-builder.mjs');
 } catch (e) {
   console.error({
     message: e.message,

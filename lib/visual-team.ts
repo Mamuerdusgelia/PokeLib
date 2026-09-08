@@ -131,6 +131,14 @@ export function patchVisualSlot(
     const matcher = lineFor[key];
     if (!matcher) continue;
     let replacement = canonical.slice(1).filter((s) => matcher.test(s.trim()));
+    // A missing EV line means maximum stat experience in Gen 1/2, not zero.
+    if (
+      key === 'evs' &&
+      ['hp', 'atk', 'def', 'spa', 'spd', 'spe'].every(
+        (stat) => set.evs?.[stat] === 0,
+      )
+    )
+      replacement = ['EVs: 0 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD / 0 Spe'];
     if (key === 'ivs' && set.ivs) {
       const names = {
         hp: 'HP',

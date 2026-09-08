@@ -104,6 +104,8 @@ export function localDate(d = new Date()) {
     String(d.getDate()).padStart(2, '0'),
   ].join('-');
 }
+export const generationFor = (format: string) =>
+  Math.min(9, Math.max(1, Number(format.trim().match(/^gen(\d+)/i)?.[1] || 9)));
 export function emptyDraft(imported = false): Draft {
   return {
     title: '',

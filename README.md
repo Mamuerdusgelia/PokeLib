@@ -7,7 +7,12 @@ The Sites deployment uses an account-isolated, persistent Cloudflare D1 **demo w
 The complete PostgreSQL/Supabase adapter and migration are included. No Supabase project was available during implementation. The migration and RLS/RPC behavior are tested against embedded PostgreSQL (PGlite), but real Supabase email delivery and hosted Supabase connectivity must be checked after you connect your project.
 
 ## Architecture
-- Visual editor: six Pokémon slots, structured set controls and secondary Showdown Text mode. Tags use Add tag → suggestions / Create; team date, provenance and notes are in compact metadata panels. Versions still use the existing immutable-snapshot API.
+- New Team opens an unsaved blank six-slot builder immediately, inheriting the active format filter. The first nonempty save creates the team; abandoning the draft creates no record.
+- Click displayed species, item, ability, nature, move or stats to edit that set in a new version. Generation-aware selectors show types, abilities, base stats, descriptions and move data. Species can be filtered by two types, ability and move, and sorted by each stat or total. Move learnset suggestions are approximate, not full competitive legality.
+- EV sliders and numeric inputs show ordinary actual stats, a 510 total/252 per-stat cap for modern generations, and nature plus/minus controls. Gen 1/2 use documented stat-experience equivalents without the modern total cap. Unsupported mechanics are hidden by generation while their imported raw fields remain preserved.
+- Click title, format, date and source in the team page to edit metadata inline. Tags retain Add tag → suggestions / Create. Metadata applies across versions and does not replace the displayed historical snapshot.
+- Compact list view is the default unless a saved grid/list preference exists. Navigation contains All Teams, Favourites and Formats. Archive controls are removed; normal lists and counts include legacy archived records without rewriting their flags. Delete remains directly available in the library.
+- Set notes are collapsed with an indicator. Export set copies/downloads the displayed snapshot's preserved raw block.
 - components/visual-team-editor.tsx coordinates editor state; pokemon-set-editor.tsx renders slots and fields; lib/visual-team.ts preserves raw lines and stable draft note identities. Raw reorder/replacement reconciles notes; ambiguous notes must be reassigned or explicitly discarded.
 - SearchFilters, FormatNavigator, TagPicker, TeamCard, ImportTeams and MetaFields are separate components. The library still owns navigation, fetching and existing detail/history/share flows; it remains a candidate for a later focused extraction.
 - TypeScript, React, Tailwind, accessible Shadcn/Base UI primitives.
@@ -35,7 +40,7 @@ Production demo authentication trusts Sites' dispatcher-injected identity header
 
 ## Connect Supabase
 1. Create a Supabase project.
-2. Apply every SQL file in supabase/migrations in filename order through the SQL editor, or use Supabase CLI migrations with supabase db push. Existing projects should apply only migrations they have not run yet; 202609070001_delete_team.sql adds permanent deletion.
+2. Apply every SQL file in supabase/migrations in filename order through the SQL editor, or use Supabase CLI migrations with supabase db push. Existing projects should apply only migrations they have not run yet: 202609070001_delete_team.sql adds permanent deletion, 202609080001_include_archived.sql preserves legacy archived visibility, and 202609080002_search_set_notes.sql fixes explicit note searches.
 3. In Authentication → URL Configuration, set the site URL to your deployed TeamVault origin. Add that origin's / route and http://localhost:3000/ to the allowed redirect URLs used during development.
 4. Enable Email authentication. Magic-link sign-in is implemented. Configure production SMTP and review Auth rate limits before opening registration broadly.
 5. Copy .env.example to .env for local development and supply SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. The publishable (or legacy anon) key is public by design; **never use a service-role key**.
@@ -81,14 +86,14 @@ Power syntax:
 - format:gen9ou
 - note:"Trick Room"
 
-Species + move/item/ability/nature/Tera constraints must match a single set. Species mentions can also match team metadata where that does not weaken this rule. Search targets current set data and notes; all historical version comments are indexed. The UI returns 30 teams per page.
+Species + move/item/ability/nature/Tera constraints must match a single set. Species mentions can also match team metadata where that does not weaken this rule. Search targets current set data and notes; all historical version comments are indexed. Explicit `note:` searches current team and set notes across the team; quoted note values are an AND of words, not an exact phrase. Historical set notes do not match current-library queries. The UI returns 30 teams per page.
 
 ## Dates and preservation
 New teams default to the browser's local date. Imported teams default to Unknown; imported_at records the real import time. Dates support exact, month, year and Unknown precision. Unknown values sort last in either direction. The historical date never derives from created_at/imported_at.
 
 Normal export returns the stored Showdown body, including unrecognised lines. Download original returns the original source attached to the snapshot. Canonical parsing/export is tested, but saving does not silently replace the user's text with a potentially lossy canonical representation. Import preview is not a legality validator.
 
-Visual changes rewrite only the edited Showdown field lines; unknown lines and extra moves remain. Implied Hidden Power IVs and Frustration happiness are materialized when needed to preserve their effective values. Raw text with a layout the visual editor cannot safely split stays editable in text mode. Special imported fields without dedicated controls remain accessible there. No full legality checker or generation-filtered move suggestions are included.
+Visual changes rewrite only the edited Showdown field lines; unknown lines and extra moves remain. Implied Hidden Power IVs and Frustration happiness are materialized when needed to preserve their effective values. Explicit zero stat experience survives Gen 1/2 save/reopen. Raw text with a layout the visual editor cannot safely split stays editable in text mode; per-set export asks for full-team export in that case. Special imported fields without dedicated controls remain accessible there. Generation-filtered move suggestions are included; a full legality checker is not.
 
 ## Sharing
 Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A living link resolves the team's current version; ?version=N pins the displayed snapshot. Tokens authorize the conceptual team and its versions, so a pinned URL is not a narrower access grant. The interface explains this. Regeneration and revocation invalidate previous links. Shared projections include notes, tags and source, but exclude owner account fields and full history.
@@ -96,14 +101,14 @@ Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A l
 A private Sites deployment restricts access to the site itself. To let arbitrary people open links, first configure Supabase and deliberately change the site's audience. The application still keeps libraries private through RLS and token checks.
 
 ## Tests
-- pnpm test: 39 domain/SQLite checks, 22 PostgreSQL migration/RLS/RPC checks and 13 UX helper checks (74 total), including preservation, partial sets, inferred stats, note mapping, chips, and format grouping.
+- pnpm test: 41 domain/SQLite, 24 PostgreSQL migration/RLS/RPC, 13 UX helper and 10 builder checks (88 total), including preservation, notes/search, archive inclusion, generation catalogs, learnset caching and stat calculation.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
 
 PostgreSQL tests use PGlite with a minimal auth.uid() shim and real anon/authenticated roles. They do not test Supabase's email provider or live hosted policies. Test databases are ephemeral and isolated. HTTP tests create a disposable team, exercise its share links, then delete it.
 
-Browser QA for this redesign verified custom-tag creation in the editor; visual team creation and set changes; Visual/Text switching with exact unchanged text; preservation of an unknown field and set note; a new version; reopening/exporting its Showdown text; unchanged historical v1; source autocomplete; combined source + year + Pokémon + format chips with free text; and automatic format selection. Desktop and narrow preview layouts were inspected. The browser connection became unavailable during bulk-import preview, so the final bulk tag interaction and touch-device behavior remain unverified. The shared tag component is exercised in the editor; bulk import is covered by database tests. A local UX Review test team may remain in the demo workspace.
+Browser QA verified blank/contextual creation, constructing a full set visually, each direct selector entry, keyboard selection, combined species filters/stat sorting, EV caps/nature updates, preserved raw fields/notes, per-set clipboard export, v2 editing and v1 restoration into v3. Inline title/source/year/tag edits preserved history; combined search, explicit set-note search and two-team bulk import with a reusable tag/Unknown dates passed. The inherited narrow desktop preview was visually inspected. Full-width desktop density and real phone/touch behavior still need a dedicated review. See PROGRESS.md for the detailed verification boundary. The older UX Review test team remains because the user has interacted with it.
 
 WebMCP search_teams and import_showdown_teams are registered and were visible to the browser, but their calls were not exercised. Live Supabase authentication still requires external setup. Repository-wide lint currently reports pre-existing scaffold/application issues; a clean lint result is not claimed.
 
@@ -118,7 +123,7 @@ Use the Sites workflow for the existing project_id in .openai/hosting.json:
 Sites provisions the D1 binding and applies packaged migrations. Do not commit credentials, .env files, local databases, build artifacts or temporary archives. .env.example is intentionally tracked.
 
 ## MVP boundaries
-No battle simulator, full legality checker, EV archetype inference, PokéPaste scraping, AI team analysis or collaborative editing. Imports are bounded to 200 teams/5 MB and 24 sets per team. PostgreSQL bulk changes are atomic; D1 bulk metadata updates preflight ownership and apply per team, so a storage failure partway through requires reviewing the affected selection before retrying. Archive is reversible. Delete is available directly on every library card and list row, and at the bottom of an owned team's detail page. It requires confirmation. It permanently removes all versions, notes, search entries, and share links in one database transaction; reusable account tags and other teams remain intact.
+No battle simulator, full legality checker, EV archetype inference, PokéPaste scraping, AI team analysis, folders or collaborative editing. Imports are bounded to 200 teams/5 MB and 24 sets per team. PostgreSQL bulk changes are atomic; D1 bulk metadata updates preflight ownership and apply per team, so a storage failure partway through requires reviewing the affected selection before retrying. Legacy archive flags remain internally; the UI includes those teams normally. Delete is available directly on every library card and list row, and at the bottom of an owned team's detail page. It requires confirmation. It permanently removes all versions, notes, search entries, and share links in one database transaction; reusable account tags and other teams remain intact.
 
 ## Asset attribution
 Sprites are loaded from Pokémon Showdown's public static sprite directory:

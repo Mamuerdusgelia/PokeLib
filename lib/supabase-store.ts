@@ -19,8 +19,8 @@ export class SupabaseStore {
   list(p: any) {
     return this.call('list', p);
   }
-  facets() {
-    return this.call('facets');
+  facets(p: { include_archived?: boolean } = {}) {
+    return this.call('facets', p);
   }
   async import(drafts: Draft[]) {
     return this.call('import', {

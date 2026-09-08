@@ -1,11 +1,16 @@
 import { Team, Teams } from '@pkmn/sets';
 import { Dex } from '@pkmn/dex';
-import { emptyDraft, type Draft, type PokemonSet } from './domain';
+import {
+  emptyDraft,
+  generationFor,
+  type Draft,
+  type PokemonSet,
+} from './domain';
 export function parseShowdown(text: string, format = 'gen9ou') {
   if (typeof text !== 'string' || !text.trim())
     throw Error('Paste a Pokémon Showdown team first.');
   if (text.length > 150000) throw Error('Keep each team below 150 KB.');
-  const gen = Number(format.match(/^gen(\d+)/)?.[1] ?? 9);
+  const gen = generationFor(format);
   const parsed = Team.import(
     !text.trim().includes('\n') && !text.includes('|')
       ? text.trim() + '\n\n'

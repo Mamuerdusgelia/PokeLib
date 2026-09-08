@@ -149,7 +149,9 @@ export function matchesPlan(terms: IndexedTerm[], plan: QueryPlan) {
   const metadata = terms.filter((t) => t.slot < 0);
   if (
     !plan.meta.every((q) =>
-      metadata.some((t) => t.field === q.field && t.value === q.value),
+      (q.field === 'note' ? terms : metadata).some(
+        (t) => t.field === q.field && t.value === q.value,
+      ),
     )
   )
     return false;

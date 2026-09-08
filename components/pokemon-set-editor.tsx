@@ -1,70 +1,18 @@
 'use client';
-import { useId, useMemo } from 'react';
-import { Dex } from '@pkmn/dex';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import type { PokemonSet } from '@/lib/domain';
 import type { EditorSlot } from '@/lib/visual-team';
-import { Field, PokemonSprite } from './vault-ui';
 import {
-  Combobox,
-  ComboboxInput,
-  ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-} from '@/components/ui/combobox';
-const stats = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'] as const;
-const statNames = ['HP', 'Atk', 'Def', 'SpA', 'SpD', 'Spe'];
-export function DexField({
-  label,
-  value,
-  choices,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  choices: string[];
-  onChange: (value: string) => void;
-}) {
-  const candidates = useMemo(
-    () =>
-      choices
-        .filter((s) => s.toLowerCase().includes(value.toLowerCase()))
-        .slice(0, 45),
-    [choices, value],
-  );
-  return (
-    <Field label={label}>
-      <Combobox
-        items={candidates}
-        filter={null}
-        value={value || null}
-        inputValue={value}
-        onInputValueChange={onChange}
-        onValueChange={(v) => v && onChange(v)}
-      >
-        <ComboboxInput
-          aria-label={label}
-          showTrigger={false}
-          placeholder={'Choose ' + label.toLowerCase()}
-        />
-        <ComboboxContent>
-          <ComboboxList>
-            {(item: string) => (
-              <ComboboxItem key={item} value={item}>
-                {item}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-          {!candidates.length && (
-            <p className="picker-hint">
-              Custom values are kept. No legality check.
-            </p>
-          )}
-        </ComboboxContent>
-      </Combobox>
-    </Field>
-  );
-}
+  dexFor,
+  generationFor,
+  type SelectorKind,
+  type SetEditTarget,
+} from '@/lib/builder-data';
+import { Field, PokemonSprite } from './vault-ui';
+import { PokemonSelector } from './pokemon-selector';
+import { EVEditor } from './ev-editor';
+
 export function PokemonSlotBar({
   slots,
   selected,
@@ -132,11 +80,13 @@ export function PokemonSlotBar({
     </fieldset>
   );
 }
+
 export function PokemonSetEditor({
   slot,
   index,
   count,
   format,
+  target,
   onPatch,
   onNote,
   onMove,
@@ -146,35 +96,92 @@ export function PokemonSetEditor({
   index: number;
   count: number;
   format: string;
+  target?: SetEditTarget;
   onPatch: (p: Partial<PokemonSet>) => void;
   onNote: (note: string) => void;
   onMove: (direction: number) => void;
   onRemove: () => void;
 }) {
-  const id = useId();
-  const species = Dex.species.get(slot.set.species);
-  const catalogs = useMemo(
-    () => ({
-      species: Dex.species.all().map((s) => s.name),
-      items: Dex.items.all().map((s) => s.name),
-      abilities: Dex.abilities.all().map((s) => s.name),
-      moves: Dex.moves.all().map((s) => s.name),
-      natures: Dex.natures.all().map((s) => s.name),
-      types: Dex.types.all().map((s) => s.name),
-    }),
-    [],
-  );
   const s = slot.set,
-    gen = Number(format.match(/gen(\d+)/i)?.[1] || 9);
-  const evTotal = Object.values(s.evs || {}).reduce((a, b) => a + b, 0);
+    gen = generationFor(format),
+    species = dexFor(format).species.get(s.species);
+  const [selection, setSelection] = useState<{
+    kind: SelectorKind;
+    moveIndex?: number;
+  } | null>(() =>
+    target && target.field !== 'stats'
+      ? { kind: target.field, moveIndex: target.moveIndex }
+      : !s.species
+        ? { kind: 'species' }
+        : null,
+  );
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (target?.field === 'stats') {
+      const stats =
+        panel.current?.querySelector<HTMLElement>('[data-edit-stats]');
+      stats?.focus();
+      stats?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [target]);
+  function field(
+    label: string,
+    kind: SelectorKind,
+    value: string,
+    moveIndex?: number,
+  ) {
+    return (
+      <div className="builder-value">
+        <span>{label}</span>
+        <button
+          type="button"
+          className={'edit-value ' + (!value ? 'unset' : '')}
+          aria-label={'Edit ' + label}
+          onClick={() => setSelection({ kind, moveIndex })}
+        >
+          {value || 'Choose ' + label.toLowerCase()}
+        </button>
+      </div>
+    );
+  }
+  const selectedValue = selection
+    ? selection.kind === 'moves'
+      ? s.moves[selection.moveIndex ?? 0] || ''
+      : String(s[selection.kind] || '')
+    : '';
   return (
-    <section className="pokemon-set-editor" aria-label="Selected Pokémon set">
+    <section
+      ref={panel}
+      className="pokemon-set-editor"
+      aria-label="Selected Pokémon set"
+    >
       <div className="set-editor-heading">
-        <div>
-          <span className="eyebrow">
-            POKÉMON {index + 1} / {count}
-          </span>
-          <h3>{s.species || 'Choose your Pokémon'}</h3>
+        <div className="builder-species">
+          {s.species && <PokemonSprite key={s.species} species={s.species} />}
+          <div>
+            <span className="eyebrow">
+              POKÉMON {index + 1} / {count}
+            </span>
+            <h3>
+              <button
+                className="edit-value"
+                type="button"
+                aria-label="Edit Pokémon species"
+                onClick={() => setSelection({ kind: 'species' })}
+              >
+                {s.species || 'Choose your Pokémon'}
+              </button>
+            </h3>
+            {species.exists && (
+              <span className="type-badges">
+                {species.types.map((t) => (
+                  <span className="type-badge" key={t}>
+                    {t}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
         </div>
         <div className="slot-actions">
           <button
@@ -196,199 +203,150 @@ export function PokemonSetEditor({
             <ArrowRight size={15} />
           </button>
           <button type="button" className="button danger" onClick={onRemove}>
-            <Trash2 size={14} /> Remove Pokémon
+            <Trash2 size={14} /> Remove
           </button>
         </div>
       </div>
-      <div className="set-fields">
-        <DexField
-          label="Pokémon species"
-          value={s.species}
-          choices={catalogs.species}
-          onChange={(v) => onPatch({ species: v })}
+      {selection && (
+        <PokemonSelector
+          key={selection.kind + ':' + selection.moveIndex}
+          kind={selection.kind}
+          format={format}
+          species={s.species}
+          value={selectedValue}
+          onClose={() => setSelection(null)}
+          onSelect={(value) => {
+            if (selection.kind === 'moves') {
+              const moves = [...s.moves];
+              moves[selection.moveIndex ?? 0] = value;
+              onPatch({ moves });
+            } else onPatch({ [selection.kind]: value });
+            setSelection(null);
+          }}
         />
-        <Field label="Nickname">
-          <input
-            aria-label="Nickname"
-            value={s.name === s.species ? '' : s.name || ''}
-            onChange={(e) => onPatch({ name: e.target.value })}
-          />
-        </Field>
-        <DexField
-          label="Item"
-          value={s.item || ''}
-          choices={catalogs.items}
-          onChange={(v) => onPatch({ item: v })}
-        />
-        <DexField
-          label="Ability"
-          value={s.ability || ''}
-          choices={[
-            ...new Set([
-              ...Object.values(species.abilities || {}),
-              ...catalogs.abilities,
-            ]),
-          ]}
-          onChange={(v) => onPatch({ ability: v })}
-        />
-        {(gen >= 9 || !!s.teraType) && (
-          <DexField
-            label="Tera Type"
-            value={s.teraType || ''}
-            choices={catalogs.types}
-            onChange={(v) => onPatch({ teraType: v })}
-          />
-        )}
-        <Field label="Level">
-          <input
-            aria-label="Level"
-            type="number"
-            min={1}
-            max={100}
-            value={s.level ?? ''}
-            placeholder="100"
-            onChange={(e) =>
-              onPatch({
-                level: e.target.value ? Number(e.target.value) : undefined,
-              })
-            }
-          />
-        </Field>
-        <DexField
-          label="Nature"
-          value={s.nature || ''}
-          choices={catalogs.natures}
-          onChange={(v) => onPatch({ nature: v })}
-        />
-      </div>
-      <div className="set-lower">
-        <div>
-          <div className="spread-heading">
-            <h4>EV spread</h4>
-            <span className={evTotal > 510 ? 'warning' : 'muted'}>
-              {evTotal} / 510
-            </span>
-          </div>
-          <div className="stat-inputs">
-            {stats.map((stat, i) => (
-              <label key={stat} htmlFor={id + 'ev' + stat}>
-                {statNames[i]}
-                <input
-                  id={id + 'ev' + stat}
-                  aria-label={'EV ' + statNames[i]}
-                  type="number"
-                  min={0}
-                  max={252}
-                  step={4}
-                  placeholder="0"
-                  value={s.evs?.[stat] ?? ''}
-                  onChange={(e) => {
-                    const values = { ...s.evs };
-                    if (e.target.value === '') delete values[stat];
-                    else values[stat] = Number(e.target.value);
-                    onPatch({ evs: values });
-                  }}
-                />
-              </label>
+      )}
+      <div className="builder-columns">
+        <div className="builder-set-values">
+          {gen >= 2 && field('Item', 'item', s.item || '')}
+          {gen >= 3 && (
+            <>
+              {field('Ability', 'ability', s.ability || '')}
+              {species.exists && (
+                <div className="possible-abilities">
+                  <small>Possible abilities</small>
+                  {[...new Set(Object.values(species.abilities))].map((a) => (
+                    <button
+                      type="button"
+                      key={a}
+                      title={dexFor(format).abilities.get(a).shortDesc}
+                      onClick={() => onPatch({ ability: a })}
+                    >
+                      {a}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {field('Nature', 'nature', s.nature || '')}
+            </>
+          )}
+          {gen >= 9 && field('Tera type', 'teraType', s.teraType || '')}
+          <div className="move-fields">
+            <h4>Moves</h4>
+            {Array.from({ length: Math.max(4, s.moves.length) }, (_, i) => (
+              <div key={i}>
+                {field('Move ' + (i + 1), 'moves', s.moves[i] || '', i)}
+              </div>
             ))}
           </div>
-          <details className="iv-editor">
-            <summary>
-              IV spread <span className="muted">· 31 unless specified</span>
-            </summary>
-            <div className="stat-inputs">
-              {stats.map((stat, i) => (
-                <label key={stat}>
-                  {statNames[i]}
-                  <input
-                    aria-label={'IV ' + statNames[i]}
-                    type="number"
-                    min={0}
-                    max={31}
-                    placeholder="31"
-                    value={s.ivs?.[stat] ?? ''}
-                    onChange={(e) => {
-                      const values = { ...s.ivs };
-                      if (e.target.value === '') delete values[stat];
-                      else values[stat] = Number(e.target.value);
-                      onPatch({ ivs: values });
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
-          </details>
+        </div>
+        <div>
+          <EVEditor set={s} format={format} onPatch={onPatch} />
           <details className="extra-set-fields">
-            <summary>Gender, shiny & other details</summary>
+            <summary>Level, nickname & other details</summary>
             <div className="set-fields">
-              <Field label="Gender">
-                <select
-                  aria-label="Gender"
-                  value={s.gender || ''}
-                  onChange={(e) => onPatch({ gender: e.target.value })}
-                >
-                  <option value="">Unspecified</option>
-                  <option>M</option>
-                  <option>F</option>
-                </select>
-              </Field>
-              <Field label="Happiness">
+              <Field label="Level">
                 <input
-                  aria-label="Happiness"
+                  aria-label="Level"
                   type="number"
-                  min={0}
-                  max={255}
-                  placeholder="255"
-                  value={s.happiness ?? ''}
+                  min={1}
+                  max={100}
+                  value={s.level ?? 100}
                   onChange={(e) =>
                     onPatch({
-                      happiness: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
+                      level: Math.max(
+                        1,
+                        Math.min(100, Number(e.target.value) || 100),
+                      ),
                     })
                   }
                 />
               </Field>
-              <label className="set-shiny">
+              <Field label="Nickname">
                 <input
-                  type="checkbox"
-                  checked={!!s.shiny}
-                  onChange={(e) => onPatch({ shiny: e.target.checked })}
-                />{' '}
-                Shiny
-              </label>
+                  aria-label="Nickname"
+                  value={s.name === s.species ? '' : s.name || ''}
+                  onChange={(e) => onPatch({ name: e.target.value })}
+                />
+              </Field>
+              {gen >= 2 && (
+                <>
+                  <Field label="Gender">
+                    <select
+                      aria-label="Gender"
+                      value={s.gender || ''}
+                      onChange={(e) => onPatch({ gender: e.target.value })}
+                    >
+                      <option value="">Unspecified</option>
+                      <option>M</option>
+                      <option>F</option>
+                    </select>
+                  </Field>
+                  <Field label="Happiness">
+                    <input
+                      aria-label="Happiness"
+                      type="number"
+                      min={0}
+                      max={255}
+                      value={s.happiness ?? ''}
+                      placeholder="255"
+                      onChange={(e) =>
+                        onPatch({
+                          happiness: e.target.value
+                            ? Math.max(0, Math.min(255, Number(e.target.value)))
+                            : undefined,
+                        })
+                      }
+                    />
+                  </Field>
+                  <label className="set-shiny">
+                    <input
+                      type="checkbox"
+                      checked={!!s.shiny}
+                      onChange={(e) => onPatch({ shiny: e.target.checked })}
+                    />{' '}
+                    Shiny
+                  </label>
+                </>
+              )}
             </div>
-            <p className="muted">
+            <p className="picker-hint">
               Additional imported fields stay in Showdown Text.
             </p>
           </details>
         </div>
-        <div className="move-fields">
-          <h4>Moves</h4>
-          {Array.from({ length: Math.max(4, s.moves.length) }, (_, i) => (
-            <DexField
-              key={i}
-              label={'Move ' + (i + 1)}
-              value={s.moves[i] || ''}
-              choices={catalogs.moves}
-              onChange={(v) => {
-                const moves = [...s.moves];
-                moves[i] = v;
-                onPatch({ moves });
-              }}
-            />
-          ))}
-        </div>
       </div>
-      <Field label="Set note">
-        <textarea
-          aria-label="Set note"
-          rows={3}
-          value={slot.note}
-          onChange={(e) => onNote(e.target.value)}
-          placeholder="Benchmarks, matchups, and how to use this Pokémon…"
-        />
-      </Field>
+      <details className="set-note-editor">
+        <summary>{slot.note ? 'Set note · has note' : 'Add set note'}</summary>
+        <Field label="Set note">
+          <textarea
+            aria-label="Set note"
+            rows={3}
+            value={slot.note}
+            onChange={(e) => onNote(e.target.value)}
+            placeholder="Benchmarks, matchups, and how to use this Pokémon…"
+          />
+        </Field>
+      </details>
     </section>
   );
 }

@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { Plus, Save, ChevronDown } from 'lucide-react';
 import { api } from '@/lib/client';
 import {
-  emptyDraft,
   cleanMeta,
   type Draft,
   type TeamRecord,
   type PokemonSet,
 } from '@/lib/domain';
 import { parseShowdown } from '@/lib/showdown';
+import { builderDraft, type SetEditTarget } from '@/lib/builder-data';
 import {
   newSlot,
   readVisualTeam,
@@ -37,12 +37,16 @@ export function TeamEditor({
   mode,
   team,
   tags,
+  initialFormat,
+  editTarget,
   onClose,
   onSaved,
 }: {
   mode: 'new' | 'version' | 'metadata';
   team?: TeamRecord;
   tags: string[];
+  initialFormat?: string;
+  editTarget?: SetEditTarget;
   onClose: () => void;
   onSaved: (id?: string) => void;
 }) {
@@ -54,7 +58,7 @@ export function TeamEditor({
           version_comment:
             mode === 'version' ? '' : team.version.version_comment,
         }
-      : emptyDraft(),
+      : builderDraft(initialFormat),
   );
   const [initial] = useState(() => {
     try {
@@ -76,7 +80,7 @@ export function TeamEditor({
     }
   });
   const [slots, setSlots] = useState(initial.slots),
-    [active, setActive] = useState(0);
+    [active, setActive] = useState(editTarget?.slot ?? 0);
   const [editorMode, setEditorMode] = useState(
     initial.error ? 'text' : 'visual',
   );
@@ -189,7 +193,11 @@ export function TeamEditor({
       description={
         mode === 'metadata'
           ? 'Organise this team across all its versions.'
-          : 'Choose a Pokémon to edit its set. Your saved history stays intact.'
+          : mode === 'new'
+            ? 'Unsaved team · add your first Pokémon.'
+            : team?.version.id !== team?.current_version_id
+              ? 'Restore this historical snapshot as a new version. Newer history stays intact.'
+              : 'Changes save as a new version.'
       }
       onClose={onClose}
     >
@@ -250,6 +258,7 @@ export function TeamEditor({
                   index={active}
                   count={slots.length}
                   format={draft.format}
+                  target={editTarget?.slot === active ? editTarget : undefined}
                   onPatch={patch}
                   onNote={(note) => {
                     const next = slots.map((s, i) =>
