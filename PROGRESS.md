@@ -4,7 +4,7 @@
 
 The user resumed work after several usage checkpoints. The focused Showdown-style UX pass is now implemented and locally verified. No partially wired prototype remains. Do not start the explicitly deferred PokéPaste/folder/AI work without a new request.
 
-Branch: main. Previous checkpoint: d393e6c; previous application baseline: a2e04be. This document is committed with the UX implementation; use `git log -2 --oneline` for its exact commit and `git status --short` to verify the current tree. The implementation commit follows successful tests/typecheck/build. Publication status is recorded below and may be updated by a subsequent documentation commit.
+Branch: main. Previous checkpoint: d393e6c; previous application baseline: a2e04be. Implementation commit: b9256f1 — Make team building direct with rich selectors, stats and inline metadata. A following documentation commit records publication status. Use `git log -2 --oneline` and `git status --short` to verify the current tree. Tests/typecheck/build passed before the implementation commit.
 
 ## Completed in this pass
 
@@ -101,7 +101,7 @@ HTTP tests hardcode localhost:3000 and use the local sign-in simulator. PGlite t
 
 ## External setup and publication
 
-Existing site: https://teamvault-library.internetscaryuwu.chatgpt.site/ . Reuse .openai/hosting.json; do not create another Site. Owner-only access was reverified during this pass. Before this pass the latest live source was 1614542; a2e04be source was pushed but build upload failed twice. The current publication attempt is pending at the time this implementation document is written; do not assume local changes are live until the final deployment result is recorded.
+Existing site: https://teamvault-library.internetscaryuwu.chatgpt.site/ . Reuse .openai/hosting.json; do not create another Site. Owner-only access was reverified during this pass. Before this pass the latest live source was 1614542; a2e04be source was pushed but build upload failed twice. Publication is blocked before source upload: the sandbox could not connect, and automatic approval review rejected the elevated push to the existing Sites source repository because it requires explicit user approval for the payload/destination. No source from this pass was uploaded, no saved site version was created, and the live site remains unchanged. The completed build archive was validated with scripts/package.ps1 using the Sites prepare-site-build.cjs helper (bash is unavailable on this Windows runtime). Ask approval for uploading the completed TeamVault source and handoff notes to its existing private Sites repository, then publish owner-only. Do not work around the rejection. The bundled Git requires --exec-path=C:/Users/24650/.cache/codex-runtimes/codex-primary-runtime/dependencies/native/git/mingw64/bin to locate its HTTPS helper. Use a fresh temporary credential, never persist it, and rerun git rev-parse --verify HEAD after the successful push before saving the version.
 
 For Supabase, apply every migration in filename order, configure Email/redirect URLs/SMTP and set SUPABASE_URL plus SUPABASE_PUBLISHABLE_KEY together. Never use service-role keys. README/.env.example describe setup. No Vercel adaptation is implemented; the current runtime is Sites/Cloudflare. Public access is a separate deliberate change and was not requested.
 
