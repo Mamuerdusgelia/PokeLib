@@ -5,15 +5,20 @@ import type {
 import {
   cleanMeta,
   normalizeTags,
+  snapshotRevision,
   type Draft,
   type Snapshot,
   type TeamRecord,
   type QueryPlan,
 } from './domain';
-import { makeSnapshot } from './snapshot';
+import { makeSnapshot, updateSnapshot } from './snapshot';
 import { indexTerms } from './search';
 import { demoDrafts } from './demo';
 type Row = Record<string, any>;
+const editConflict =
+  'This team changed in another window. Reload it before saving.';
+const timestampAfter = (previous: string) =>
+  new Date(Math.max(Date.now(), Date.parse(previous) + 1)).toISOString();
 export class DemoStore {
   constructor(
     private db: D1Database,
@@ -70,6 +75,8 @@ export class DemoStore {
               },
               t.current_version_id,
               t.current_version_id,
+              snapshotRevision(t.version),
+              t.updated_at,
             );
           }
           if (i < 2) await this.patch(t.id, { favourite: true });
@@ -171,37 +178,119 @@ export class DemoStore {
     await this.db.batch(statements);
     return { ids: built.map((b) => b.id), count: built.length };
   }
-  async version(id: string, draft: Draft, expected: string, parent: string) {
+  async save(
+    id: string,
+    draft: Draft,
+    expected: string,
+    parent: string,
+    expectedRevision: string,
+    expectedUpdatedAt: string,
+  ) {
+    return this.writeVersion(
+      id,
+      draft,
+      expected,
+      parent,
+      expectedRevision,
+      expectedUpdatedAt,
+      false,
+    );
+  }
+  async version(
+    id: string,
+    draft: Draft,
+    expected: string,
+    parent: string,
+    expectedRevision: string,
+    expectedUpdatedAt: string,
+  ) {
+    return this.writeVersion(
+      id,
+      draft,
+      expected,
+      parent,
+      expectedRevision,
+      expectedUpdatedAt,
+      true,
+    );
+  }
+  private async writeVersion(
+    id: string,
+    draft: Draft,
+    expected: string,
+    parent: string,
+    expectedRevision: string,
+    expectedUpdatedAt: string,
+    create: boolean,
+  ) {
     const t = await this.get(id);
-    if (t.current_version_id !== expected)
-      throw Error(
-        'This team changed in another window. Reload it before saving.',
-      );
+    if (
+      t.current_version_id !== expected ||
+      snapshotRevision(t.version) !== expectedRevision ||
+      t.updated_at !== expectedUpdatedAt
+    )
+      throw Error(editConflict);
     const base = t.history!.find((v) => v.id === parent);
     if (!base) throw Error('Version not found.');
+    if (!create && parent !== t.current_version_id)
+      throw Error(
+        'Historical versions are immutable. Restore as a new version.',
+      );
     const m = cleanMeta(draft);
-    const v = makeSnapshot(draft, id, t.version.version_number + 1, parent);
-    await this.db.batch([
+    const v = create
+      ? makeSnapshot(draft, id, t.version.version_number + 1, parent)
+      : updateSnapshot(draft, t.version);
+    const statements: D1PreparedStatement[] = [];
+    if (create)
+      statements.push(
+        this.stmt(
+          'INSERT INTO team_versions(id,team_id,version_number,snapshot,created_at) VALUES(?,?,?,?,?)',
+          v.id,
+          id,
+          v.version_number,
+          JSON.stringify(v),
+          v.created_at,
+        ),
+      );
+    // A failed comparison deliberately violates metadata's NOT NULL constraint.
+    // D1 batch rolls back the preceding insert and every following index/tag write.
+    statements.push(
       this.stmt(
-        'INSERT INTO team_versions(id,team_id,version_number,snapshot,created_at) VALUES(?,?,?,?,?)',
-        v.id,
-        id,
-        v.version_number,
-        JSON.stringify(v),
-        v.created_at,
-      ),
-      this.stmt(
-        'UPDATE teams SET title=?,format=?,team_date=?,source_name=?,metadata=?,current_version_id=?,updated_at=? WHERE id=? AND owner_id=?',
+        `UPDATE teams SET title=?,format=?,team_date=?,source_name=?,
+         metadata=CASE WHEN current_version_id=? AND updated_at=? AND EXISTS(
+           SELECT 1 FROM team_versions v WHERE v.id=? AND v.team_id=teams.id
+           AND coalesce(json_extract(v.snapshot,'$.edit_revision'),v.id)=?
+         ) THEN ? ELSE NULL END,current_version_id=coalesce(?,current_version_id),updated_at=? WHERE id=? AND owner_id=?`,
         m.title,
         m.format,
         m.team_date,
         m.source_name,
+        expected,
+        expectedUpdatedAt,
+        expected,
+        expectedRevision,
         JSON.stringify(m),
-        v.id,
-        v.created_at,
+        create ? v.id : null,
+        timestampAfter(t.updated_at),
         id,
         this.owner,
       ),
+    );
+    if (!create)
+      statements.push(
+        this.stmt(
+          'UPDATE team_versions SET snapshot=? WHERE id=? AND team_id=?',
+          JSON.stringify(v),
+          v.id,
+          id,
+        ),
+        this.stmt(
+          'DELETE FROM search_terms WHERE team_id=? AND version_id=?',
+          id,
+          v.id,
+        ),
+      );
+    statements.push(
       this.stmt(
         "DELETE FROM search_terms WHERE team_id=? AND version_id=''",
         id,
@@ -209,10 +298,25 @@ export class DemoStore {
       ...this.termStatements(
         m,
         v,
-        t.history!.map((x) => x.version_comment),
+        t
+          .history!.filter((x) => create || x.id !== v.id)
+          .map((x) => x.version_comment),
       ),
       ...this.tagStatements(id, m.tags),
-    ]);
+    );
+    try {
+      const results = await this.db.batch(statements);
+      if (!results[create ? 1 : 0].meta.changes) throw Error('Team not found.');
+    } catch (e) {
+      const message = (e as Error).message;
+      if (
+        /NOT NULL constraint failed: teams.metadata|UNIQUE constraint failed: team_versions.team_id, team_versions.version_number/i.test(
+          message,
+        )
+      )
+        throw Error(editConflict);
+      throw e;
+    }
     return this.get(id);
   }
   async patch(id: string, p: Row) {
@@ -222,8 +326,9 @@ export class DemoStore {
         await this.stmt(
           'UPDATE teams SET ' +
             fields.map((k) => k + '=?').join(',') +
-            ',updated_at=? WHERE id=? AND owner_id=?',
+            ",updated_at=CASE WHEN updated_at>=? THEN strftime('%Y-%m-%dT%H:%M:%fZ',updated_at,'+0.001 seconds') ELSE ? END WHERE id=? AND owner_id=?",
           ...fields.map((k) => Number(p[k])),
+          new Date().toISOString(),
           new Date().toISOString(),
           id,
           this.owner,
@@ -247,7 +352,7 @@ export class DemoStore {
         JSON.stringify(m),
         Number(p.favourite ?? t.favourite),
         Number(p.archived ?? t.archived),
-        new Date().toISOString(),
+        timestampAfter(t.updated_at),
         id,
         this.owner,
       ),
@@ -474,10 +579,12 @@ export async function resolveDemoShare(
     .bind(...(version ? [version] : []), await hashToken(token))
     .first<Row>();
   if (!r) throw Error('This share link is unavailable.');
+  const publicVersion = JSON.parse(r.snapshot);
+  delete publicVersion.set_editing;
   return {
     ...JSON.parse(r.metadata),
     id: r.id,
     current_version_id: r.current_version_id,
-    version: JSON.parse(r.snapshot),
+    version: publicVersion,
   };
 }

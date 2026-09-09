@@ -1308,3 +1308,17 @@
     gap: 6px;
   }
 }
+
+.move-options {
+  margin: 10px 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.move-options summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.move-options small {
+  display: block;
+  margin-top: 6px;
+}

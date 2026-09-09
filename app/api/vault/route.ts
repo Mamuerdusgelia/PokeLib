@@ -39,7 +39,24 @@ export async function POST(request: Request) {
         result = await store.import(demoDrafts);
         break;
       case 'version':
-        result = await store.version(p.id, p.draft, p.expected, p.parent);
+        result = await store.version(
+          p.id,
+          p.draft,
+          p.expected,
+          p.parent,
+          p.expected_revision,
+          p.expected_updated_at,
+        );
+        break;
+      case 'save':
+        result = await store.save(
+          p.id,
+          p.draft,
+          p.expected,
+          p.parent,
+          p.expected_revision,
+          p.expected_updated_at,
+        );
         break;
       case 'patch':
         result = await store.patch(p.id, p.patch);

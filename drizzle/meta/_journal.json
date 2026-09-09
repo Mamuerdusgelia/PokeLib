@@ -15,6 +15,13 @@
       "when": 1788707521791,
       "tag": "0001_version_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788930000000,
+      "tag": "0002_edit_current_version",
+      "breakpoints": true
     }
   ]
 }

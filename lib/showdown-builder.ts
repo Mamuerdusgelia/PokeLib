@@ -6,7 +6,15 @@
  * Preserve only relevant set fields, supply first normal ability, keep imported odd EVs.
  */
 import { toID } from '@pkmn/dex';
-import { dexFor, generationFor, editEVs, type StatId } from './builder-data';
+import {
+  dexFor,
+  generationFor,
+  editEVs,
+  canonicalMoveName,
+  presentedSpecies,
+  selectableBattleForm,
+  type StatId,
+} from './builder-data';
 import type { PokemonSet } from './domain';
 
 export function requiredItems(format: string, name: string) {
@@ -27,23 +35,35 @@ export function speciesSelectionPatch(
   format: string,
   set: PokemonSet,
   name: string,
+  options: { authored?: boolean; teraManaged?: boolean } = {},
 ): Partial<PokemonSet> {
-  const species = dexFor(format).species.get(name);
+  const dex = dexFor(format),
+    species = dex.species.get(name);
+  const stored =
+    typeof species.battleOnly === 'string' &&
+    selectableBattleForm(format, species)
+      ? dex.species.get(species.battleOnly)
+      : species;
   const patch: Partial<PokemonSet> = {
-    species: species.exists ? species.name : name,
+    species: species.exists ? stored.name : name,
   };
   // Re-selecting an imported species must not normalize unusual abilities/items.
-  if (!species.exists || toID(set.species) === species.id) return patch;
+  if (!species.exists) return patch;
+  if (presentedSpecies(format, set).id === species.id)
+    return { species: set.species };
   if (generationFor(format) >= 3) {
-    const abilities = Object.values(species.abilities);
+    const abilities = Object.values(stored.abilities);
     patch.ability =
       species.requiredAbility ||
       (abilities.some((a) => toID(a) === toID(set.ability))
         ? set.ability
-        : species.abilities['0']);
+        : stored.abilities['0']);
   }
   const items = requiredItems(format, species.name);
-  const oldRequirements = requiredItems(format, set.species);
+  const oldRequirements = requiredItems(
+    format,
+    presentedSpecies(format, set).name,
+  );
   if (items.length === 1) patch.item = items[0];
   else if (items.length > 1 && !items.some((i) => toID(i) === toID(set.item)))
     patch.item = '';
@@ -52,7 +72,40 @@ export function speciesSelectionPatch(
     oldRequirements.some((i) => toID(i) === toID(set.item))
   )
     patch.item = '';
+  if (
+    species.requiredMove &&
+    !set.moves.some((move) => toID(move) === toID(species.requiredMove))
+  ) {
+    // Appending the trigger preserves all existing moves, including custom extras.
+    patch.moves = [...set.moves, species.requiredMove];
+  }
+  const next = { ...set, ...patch };
+  const moves = (patch.moves || set.moves).map((move) =>
+    canonicalMoveName(
+      format,
+      next,
+      canonicalMoveName(format, set, move),
+      species.name,
+    ),
+  );
+  if (moves.some((move, index) => move !== (patch.moves || set.moves)[index]))
+    patch.moves = moves;
+  if (
+    generationFor(format) >= 9 &&
+    (options.teraManaged || (options.authored && !set.teraType))
+  ) {
+    patch.teraType = species.requiredTeraType || species.types[0];
+  }
   return patch;
+}
+
+/** Display fallback only; callers decide whether an authored default is persisted. */
+export function defaultTeraType(format: string, name: string) {
+  if (generationFor(format) < 9) return undefined;
+  const species = dexFor(format).species.get(name);
+  return species.exists
+    ? species.requiredTeraType || species.types[0]
+    : undefined;
 }
 export function stepEV(
   set: PokemonSet,

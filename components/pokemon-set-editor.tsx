@@ -1,10 +1,14 @@
 'use client';
 import { useEffect, useRef, useState, type Ref } from 'react';
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
+import { startBuilderTiming } from '@/lib/builder-performance';
 import type { PokemonSet } from '@/lib/domain';
 import type { EditorSlot } from '@/lib/visual-team';
 import {
   dexFor,
+  presentedSet,
+  canonicalMoveName,
+  learnsetSuggestions,
   generationFor,
   type SelectorKind,
   type SetEditTarget,
@@ -24,12 +28,14 @@ export function PokemonSlotBar({
   onSelect,
   onAdd,
   addButtonRef,
+  format,
 }: {
   slots: EditorSlot[];
   selected: number;
   onSelect: (i: number) => void;
   onAdd: () => void;
   addButtonRef?: Ref<HTMLButtonElement>;
+  format: string;
 }) {
   return (
     <fieldset
@@ -38,7 +44,10 @@ export function PokemonSlotBar({
       data-extra-slots={slots.length > 6}
     >
       {Array.from({ length: Math.max(6, slots.length) }, (_, i) => {
-        const slot = slots[i];
+        const original = slots[i];
+        const slot = original
+          ? { ...original, set: presentedSet(format, original.set) }
+          : undefined;
         return slot ? (
           <button
             type="button"
@@ -111,12 +120,13 @@ export function PokemonSetEditor({
   count: number;
   format: string;
   target?: SetEditTarget;
-  onPatch: (p: Partial<PokemonSet>) => void;
+  onPatch: (p: Partial<PokemonSet>, manualAttackIv?: boolean) => void;
   onNote: (note: string) => void;
   onMove: (direction: number) => void;
   onRemove: () => void;
 }) {
-  const s = slot.set,
+  const stored = slot.set;
+  const s = presentedSet(format, stored),
     gen = generationFor(format),
     species = dexFor(format).species.get(s.species);
   const [selection, setSelection] = useState<{
@@ -130,6 +140,9 @@ export function PokemonSetEditor({
         ? { kind: 'species' }
         : null,
   );
+  useEffect(() => {
+    if (s.species) void learnsetSuggestions(format, s.species).catch(() => {});
+  }, [format, s.species]);
   const panel = useRef<HTMLElement>(null);
   const skipMoveFocus = useRef(false);
   function focusField(kind: SelectorKind, moveIndex?: number) {
@@ -186,9 +199,13 @@ export function PokemonSetEditor({
                 skipMoveFocus.current = false;
                 return;
               }
+              startBuilderTiming('move-results');
               setSelection({ kind, moveIndex });
             }}
-            onClick={() => setSelection({ kind, moveIndex })}
+            onClick={() => {
+              if (kind === 'moves') startBuilderTiming('move-results');
+              setSelection({ kind, moveIndex });
+            }}
             onKeyDown={(e) => {
               if (
                 !e.ctrlKey &&
@@ -199,6 +216,7 @@ export function PokemonSetEditor({
                   e.key === 'ArrowDown')
               ) {
                 e.preventDefault();
+                startBuilderTiming('move-results');
                 setSelection({
                   kind,
                   moveIndex,
@@ -301,8 +319,12 @@ export function PokemonSetEditor({
           onClose={closeSelector}
           onSelect={(value, direction = 0) => {
             if (selection.kind === 'moves') {
-              const moves = [...s.moves];
-              moves[selection.moveIndex ?? 0] = value;
+              const moves = [...stored.moves];
+              moves[selection.moveIndex ?? 0] = canonicalMoveName(
+                format,
+                stored,
+                value,
+              );
               onPatch({ moves });
               const next = direction
                 ? adjacentMove(
@@ -312,6 +334,7 @@ export function PokemonSetEditor({
                   )
                 : null;
               if (next !== null) {
+                startBuilderTiming('move-results');
                 setSelection({ kind: 'moves', moveIndex: next });
                 return;
               }
@@ -334,13 +357,26 @@ export function PokemonSetEditor({
             } else {
               onPatch(
                 selection.kind === 'species'
-                  ? speciesSelectionPatch(format, s, value)
+                  ? speciesSelectionPatch(format, stored, value, {
+                      authored: !!slot.editing?.authored,
+                      teraManaged: slot.editing?.tera === 'auto',
+                    })
                   : { [selection.kind]: value },
               );
               closeSelector();
             }
           }}
         />
+      )}
+      {s.species !== stored.species && (
+        <p className="picker-hint">
+          Battle form preview: {s.species}. Stored and exported as{' '}
+          {stored.species}
+          {stored.item ? ' holding ' + stored.item : ''}.{' '}
+          {s.moves.some((m, i) => m !== stored.moves[i])
+            ? 'Iron Head becomes the displayed Behemoth move in battle.'
+            : ''}
+        </p>
       )}
       <div className="builder-columns">
         <div className="builder-set-values">
@@ -365,7 +401,13 @@ export function PokemonSetEditor({
               {species.exists && (
                 <div className="possible-abilities">
                   <small>Possible abilities</small>
-                  {[...new Set(Object.values(species.abilities))].map((a) => (
+                  {[
+                    ...new Set(
+                      Object.values(
+                        dexFor(format).species.get(stored.species).abilities,
+                      ),
+                    ),
+                  ].map((a) => (
                     <button
                       type="button"
                       key={a}
@@ -381,6 +423,12 @@ export function PokemonSetEditor({
             </>
           )}
           {gen >= 9 && field('Tera type', 'teraType', s.teraType || '')}
+          {gen >= 9 && species.requiredTeraType && (
+            <p className="picker-hint">
+              {species.name} requires {species.requiredTeraType} Tera. Existing
+              values are preserved until you change them.
+            </p>
+          )}
           <div className="move-fields">
             <h4>Moves</h4>
             {Array.from({ length: Math.max(4, s.moves.length) }, (_, i) => (
@@ -391,7 +439,12 @@ export function PokemonSetEditor({
           </div>
         </div>
         <div>
-          <EVEditor set={s} format={format} onPatch={onPatch} />
+          <EVEditor
+            set={s}
+            format={format}
+            onPatch={onPatch}
+            autoAttack={slot.editing?.attack_iv === 'auto'}
+          />
           <details className="extra-set-fields">
             <summary>Level, nickname & other details</summary>
             <div className="set-fields">

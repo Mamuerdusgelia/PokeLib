@@ -1,4 +1,6 @@
+import { snapshotRevision } from '../.test-build/domain.mjs';
 import assert from 'node:assert/strict';
+import { testSaveModel, argsFor, draftOf } from './test-save-model.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs/promises';
 import { DemoStore, resolveDemoShare } from '../.test-build/demo-store.mjs';
@@ -190,6 +192,8 @@ await check('new version copies notes and preserves snapshot', async () => {
     { ...t, ...t.version, version_comment: 'Edited for Gliscor matchup' },
     t.current_version_id,
     t.current_version_id,
+    snapshotRevision(t.version),
+    t.updated_at,
   );
   assert.equal(t.version.version_number, 2);
   assert.deepEqual(t.version.set_notes, old.set_notes);
@@ -208,7 +212,15 @@ await check('historical versions reject in-place writes', () =>
 );
 await check('stale version save is rejected', async () => {
   await assert.rejects(
-    () => a.version(id, { ...t, ...t.version }, old.id, old.id),
+    () =>
+      a.version(
+        id,
+        { ...t, ...t.version },
+        old.id,
+        old.id,
+        snapshotRevision(t.version),
+        t.updated_at,
+      ),
     /changed/,
   );
 });
@@ -228,6 +240,8 @@ await check(
       { ...t, ...old, version_comment: 'Restored v1' },
       t.current_version_id,
       old.id,
+      snapshotRevision(t.version),
+      t.updated_at,
     );
     assert.equal(t.history.length, 3);
     assert.equal(t.version.version_number, 3);
@@ -379,6 +393,8 @@ for (let i = 0; i < 2; i++) {
     { ...deletionTeam, ...deletionTeam.version },
     deletionTeam.current_version_id,
     deletionTeam.history.at(-1).id,
+    snapshotRevision(deletionTeam.version),
+    deletionTeam.updated_at,
   );
 }
 const deletionToken = (await a.share(deletionTeam.id)).token;
@@ -455,6 +471,8 @@ await check(
       { ...team, ...team.version, team_notes: '', set_notes: [] },
       team.current_version_id,
       team.current_version_id,
+      snapshotRevision(team.version),
+      team.updated_at,
     );
     assert.equal(await find('note:Setnotemarker'), false);
     assert.equal(await find('note:Teamnotemarker'), false);
@@ -463,9 +481,216 @@ await check(
       { ...team, ...originalVersion },
       team.current_version_id,
       originalVersion.id,
+      snapshotRevision(team.version),
+      team.updated_at,
     );
     assert.ok(await find('note:Setnotemarker'));
     await a.delete(noteId);
+  },
+);
+await testSaveModel({
+  check,
+  store: a,
+  template: demoDrafts[0],
+  resolve: (token, n) => resolveDemoShare(d1, token, n),
+  historicalWrite: async (_, old) =>
+    assert.throws(
+      () =>
+        db.prepare('UPDATE team_versions SET snapshot=? WHERE id=?').run(
+          JSON.stringify({
+            ...old,
+            edit_revision: crypto.randomUUID(),
+            team_notes: 'Forbidden historical write',
+          }),
+          old.id,
+        ),
+      /immutable/i,
+    ),
+  identityWrite: async (team) => {
+    assert.throws(
+      () =>
+        db
+          .prepare('UPDATE team_versions SET version_number=999 WHERE id=?')
+          .run(team.version.id),
+      /immutable/i,
+    );
+    assert.throws(
+      () =>
+        db.prepare('UPDATE team_versions SET snapshot=? WHERE id=?').run(
+          JSON.stringify({
+            ...team.version,
+            edit_revision: crypto.randomUUID(),
+            original_text: 'Forbidden source overwrite',
+          }),
+          team.version.id,
+        ),
+      /immutable/i,
+    );
+  },
+  rewind: async (team, old) =>
+    assert.throws(
+      () =>
+        db
+          .prepare('UPDATE teams SET current_version_id=? WHERE id=?')
+          .run(old.id, team.id),
+      /pointer/,
+    ),
+  otherOwner: async (team) => {
+    await assert.rejects(
+      () => b.save(...argsFor(team, draftOf(team))),
+      /not found/,
+    );
+    await assert.rejects(
+      () => b.version(...argsFor(team, draftOf(team))),
+      /not found/,
+    );
+  },
+  legacyImport: async (draft) => {
+    const teamId = crypto.randomUUID(),
+      m = cleanMeta(draft),
+      v = makeSnapshot(draft, teamId, 1, null);
+    delete v.edit_revision;
+    db.prepare(
+      'INSERT INTO teams(id,owner_id,title,format,team_date,source_name,metadata,current_version_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+    ).run(
+      teamId,
+      'owner-a',
+      m.title,
+      m.format,
+      m.team_date,
+      m.source_name,
+      JSON.stringify(m),
+      v.id,
+      v.created_at,
+      v.created_at,
+    );
+    db.prepare(
+      'INSERT INTO team_versions(id,team_id,version_number,snapshot,created_at) VALUES(?,?,?,?,?)',
+    ).run(v.id, teamId, 1, JSON.stringify(v), v.created_at);
+    return a.get(teamId);
+  },
+});
+for (const [loserAction, winnerAction] of [
+  ['save', 'save'],
+  ['save', 'version'],
+  ['version', 'save'],
+  ['version', 'version'],
+]) {
+  await check(
+    `D1 atomic ${loserAction}/${winnerAction} race preserves winning content and indexes`,
+    async () => {
+      const before = await a.get(
+        (await a.import([{ ...demoDrafts[0], title: 'Race regression' }]))
+          .ids[0],
+      );
+      let winner;
+      const racing = new DemoStore(
+        {
+          prepare: d1.prepare,
+          batch: async (statements) => {
+            winner = await a[winnerAction](
+              ...argsFor(
+                before,
+                draftOf(before, {
+                  team_notes: 'Winner marker',
+                  tags: ['Winner tag'],
+                }),
+              ),
+            );
+            return d1.batch(statements);
+          },
+        },
+        'owner-a',
+      );
+      await assert.rejects(
+        () =>
+          racing[loserAction](
+            ...argsFor(
+              before,
+              draftOf(before, {
+                team_notes: 'Losing note',
+                tags: ['Losing tag'],
+              }),
+            ),
+          ),
+        /changed/,
+      );
+      assert.deepEqual(await a.get(before.id), winner);
+      assert.equal(
+        (await a.list({ plan: planQuery('note:"Losing note"') })).teams.some(
+          (t) => t.id === before.id,
+        ),
+        false,
+      );
+      assert.equal((await a.facets()).tags.includes('Losing tag'), false);
+      await a.delete(before.id);
+    },
+  );
+}
+await check(
+  'incremental current-save migration leaves legacy snapshots byte-identical',
+  async () => {
+    const legacy = new DatabaseSync(':memory:');
+    try {
+      for (const file of [
+        '0000_ordinary_victor_mancha.sql',
+        '0001_version_guards.sql',
+      ])
+        legacy.exec(await fs.readFile('drizzle/' + file, 'utf8'));
+      const draft = demoDrafts[0],
+        teamId = crypto.randomUUID(),
+        m = cleanMeta(draft);
+      const v1 = makeSnapshot(draft, teamId, 1, null),
+        v2 = makeSnapshot(draft, teamId, 2, v1.id);
+      delete v1.edit_revision;
+      delete v2.edit_revision;
+      legacy
+        .prepare(
+          'INSERT INTO teams(id,owner_id,title,format,team_date,source_name,metadata,current_version_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+        )
+        .run(
+          teamId,
+          'owner-a',
+          m.title,
+          m.format,
+          m.team_date,
+          m.source_name,
+          JSON.stringify(m),
+          v1.id,
+          v1.created_at,
+          v1.created_at,
+        );
+      for (const v of [v1, v2])
+        legacy
+          .prepare(
+            'INSERT INTO team_versions(id,team_id,version_number,snapshot,created_at) VALUES(?,?,?,?,?)',
+          )
+          .run(v.id, teamId, v.version_number, JSON.stringify(v), v.created_at);
+      legacy
+        .prepare('UPDATE teams SET current_version_id=? WHERE id=?')
+        .run(v2.id, teamId);
+      const before = legacy
+        .prepare('SELECT * FROM team_versions ORDER BY version_number')
+        .all();
+      legacy.exec(
+        await fs.readFile('drizzle/0002_edit_current_version.sql', 'utf8'),
+      );
+      assert.deepEqual(
+        legacy
+          .prepare('SELECT * FROM team_versions ORDER BY version_number')
+          .all(),
+        before,
+      );
+      assert.throws(
+        () =>
+          legacy
+            .prepare('UPDATE teams SET current_version_id=? WHERE id=?')
+            .run(v1.id, teamId),
+        /pointer/,
+      );
+    } finally {
+      legacy.close();
+    }
   },
 );
 console.log('SQLite + domain: ' + passed + ' checks passed.');

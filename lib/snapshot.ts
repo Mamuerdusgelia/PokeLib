@@ -1,4 +1,9 @@
-import { cleanMeta, type Draft, type Snapshot } from './domain';
+import {
+  cleanMeta,
+  type Draft,
+  type Snapshot,
+  type SetEditing,
+} from './domain';
 import { parseShowdown } from './showdown';
 export function makeSnapshot(
   d: Draft,
@@ -14,8 +19,10 @@ export function makeSnapshot(
   )
     throw Error('Notes exceed the storage limit.');
   const { sets } = parseShowdown(d.showdown_text, d.format);
+  const id = crypto.randomUUID();
   return {
-    id: crypto.randomUUID(),
+    id,
+    edit_revision: id,
     team_id,
     version_number,
     parent_version_id,
@@ -25,6 +32,45 @@ export function makeSnapshot(
     parsed_team: sets,
     team_notes: d.team_notes ?? '',
     set_notes: sets.map((_, i) => d.set_notes?.[i] ?? ''),
+    ...(d.set_editing === undefined
+      ? {}
+      : { set_editing: cleanSetEditing(d.set_editing, sets.length) }),
     created_at: new Date().toISOString(),
+  };
+}
+
+function cleanSetEditing(
+  value: unknown,
+  count: number,
+): Array<SetEditing | null> {
+  if (!Array.isArray(value) || value.length > 24)
+    throw Error('Invalid set editing metadata.');
+  return Array.from({ length: count }, (_, i) => {
+    const entry = value[i];
+    if (entry == null) return null;
+    if (
+      typeof entry !== 'object' ||
+      entry.authored !== true ||
+      !['eligible', 'auto', 'manual'].includes(entry.attack_iv) ||
+      !['auto', 'manual'].includes(entry.tera)
+    )
+      throw Error('Invalid set editing metadata.');
+    return { authored: true, attack_iv: entry.attack_iv, tera: entry.tera };
+  });
+}
+
+/** Replace authored content while retaining this version's identity and source. */
+export function updateSnapshot(d: Draft, current: Snapshot): Snapshot {
+  const next = makeSnapshot(
+    { ...d, original_text: current.original_text },
+    current.team_id,
+    current.version_number,
+    current.parent_version_id,
+  );
+  return {
+    ...next,
+    id: current.id,
+    created_at: current.created_at,
+    version_comment: current.version_comment,
   };
 }

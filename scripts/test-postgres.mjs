@@ -1,9 +1,12 @@
+import { snapshotRevision } from '../.test-build/domain.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import assert from 'node:assert/strict';
+import { testSaveModel, argsFor, draftOf } from './test-save-model.mjs';
 import fs from 'node:fs/promises';
 import { SupabaseStore } from '../.test-build/supabase-store.mjs';
 import { demoDrafts } from '../.test-build/demo.mjs';
 import { planQuery } from '../.test-build/search.mjs';
+import { makeSnapshot } from '../.test-build/snapshot.mjs';
 const pg = new PGlite();
 await pg.exec(
   "CREATE ROLE anon; CREATE ROLE authenticated; CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$; GRANT USAGE ON SCHEMA auth TO authenticated,anon; GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated,anon;",
@@ -96,6 +99,8 @@ await check('immutable versions copy notes', async () => {
     { ...t, ...t.version, version_comment: 'Matchup adjustment' },
     t.current_version_id,
     t.current_version_id,
+    snapshotRevision(t.version),
+    t.updated_at,
   );
   assert.equal(t.version.version_number, 2);
   assert.deepEqual(t.version.set_notes, old.set_notes);
@@ -105,7 +110,15 @@ await check(
   'optimistic stale and missing expected versions rejected',
   async () => {
     await assert.rejects(
-      () => store.version(t.id, { ...t, ...t.version }, old.id, old.id),
+      () =>
+        store.version(
+          t.id,
+          { ...t, ...t.version },
+          old.id,
+          old.id,
+          snapshotRevision(t.version),
+          t.updated_at,
+        ),
       /changed/,
     );
     await assert.rejects(
@@ -148,6 +161,8 @@ await check(
       { ...t, ...old, version_comment: 'Restore original' },
       t.current_version_id,
       old.id,
+      snapshotRevision(t.version),
+      t.updated_at,
     );
     assert.equal(t.history.length, 3);
     assert.equal((await resolve(token)).version.version_number, 3);
@@ -306,6 +321,8 @@ for (let i = 0; i < 2; i++) {
     { ...deletionTeam, ...deletionTeam.version },
     deletionTeam.current_version_id,
     deletionTeam.history.at(-1).id,
+    snapshotRevision(deletionTeam.version),
+    deletionTeam.updated_at,
   );
 }
 const deletionToken = (await store.share(deletionTeam.id)).token;
@@ -403,6 +420,8 @@ await check(
       { ...team, ...team.version, team_notes: '', set_notes: [] },
       team.current_version_id,
       team.current_version_id,
+      snapshotRevision(team.version),
+      team.updated_at,
     );
     assert.equal(await find('note:Setnotemarker'), false);
     assert.equal(await find('note:Teamnotemarker'), false);
@@ -411,10 +430,193 @@ await check(
       { ...team, ...originalVersion },
       team.current_version_id,
       originalVersion.id,
+      snapshotRevision(team.version),
+      team.updated_at,
     );
     assert.ok(await find('note:Setnotemarker'));
     await store.delete(noteId);
   },
 );
+await testSaveModel({
+  check,
+  store,
+  template: demoDrafts[0],
+  resolve,
+  historicalWrite: async (_, old) => {
+    await pg.exec('RESET ROLE');
+    try {
+      await assert.rejects(
+        () =>
+          pg.query(
+            'UPDATE public.team_versions SET snapshot=$1::jsonb WHERE id=$2',
+            [
+              JSON.stringify({
+                ...old,
+                edit_revision: crypto.randomUUID(),
+                team_notes: 'Forbidden historical write',
+              }),
+              old.id,
+            ],
+          ),
+        /immutable/i,
+      );
+    } finally {
+      await pg.exec('SET ROLE authenticated');
+    }
+  },
+  identityWrite: async (team) => {
+    await pg.exec('RESET ROLE');
+    try {
+      await assert.rejects(
+        () =>
+          pg.query(
+            'UPDATE public.team_versions SET version_number=999 WHERE id=$1',
+            [team.version.id],
+          ),
+        /immutable/i,
+      );
+      await assert.rejects(
+        () =>
+          pg.query(
+            'UPDATE public.team_versions SET snapshot=$1::jsonb WHERE id=$2',
+            [
+              JSON.stringify({
+                ...team.version,
+                edit_revision: crypto.randomUUID(),
+                original_text: 'Forbidden source overwrite',
+              }),
+              team.version.id,
+            ],
+          ),
+        /immutable/i,
+      );
+    } finally {
+      await pg.exec('SET ROLE authenticated');
+    }
+  },
+  rewind: async (team, old) => {
+    await pg.exec('RESET ROLE');
+    try {
+      await assert.rejects(
+        () =>
+          pg.query(
+            'UPDATE public.teams SET current_version_id=$1 WHERE id=$2',
+            [old.id, team.id],
+          ),
+        /pointer/,
+      );
+    } finally {
+      await pg.exec('SET ROLE authenticated');
+    }
+  },
+  otherOwner: async (team) => {
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [b]);
+    try {
+      await assert.rejects(
+        () => store.save(...argsFor(team, draftOf(team))),
+        /not found/,
+      );
+      await assert.rejects(
+        () => store.version(...argsFor(team, draftOf(team))),
+        /not found/,
+      );
+      await assert.rejects(() => rpc('save', { id: team.id }), /not found/);
+    } finally {
+      await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [
+        a,
+      ]);
+    }
+  },
+  legacyImport: async (draft) => {
+    const id = crypto.randomUUID(),
+      snapshot = makeSnapshot(draft, id, 1, null);
+    delete snapshot.edit_revision;
+    const imported = await rpc('import', {
+      teams: [{ id, meta: draft, snapshot, imported: false, terms: [] }],
+    });
+    return store.get(imported.ids[0]);
+  },
+});
+await check(
+  'direct RPC Save requires revision and metadata timestamp under lock',
+  async () => {
+    const team = await store.get((await store.import([demoDrafts[0]])).ids[0]);
+    for (const patch of [
+      { expected_revision: undefined },
+      { expected_updated_at: undefined },
+      { expected_revision: 'stale-revision' },
+      { expected_updated_at: '2000-01-01T00:00:00Z' },
+    ])
+      await assert.rejects(
+        () =>
+          rpc('save', {
+            id: team.id,
+            expected: team.current_version_id,
+            parent: team.current_version_id,
+            expected_revision: snapshotRevision(team.version),
+            expected_updated_at: team.updated_at,
+            ...patch,
+          }),
+        /changed/,
+      );
+    assert.deepEqual(await store.get(team.id), team);
+    await store.delete(team.id);
+  },
+);
+for (const [loserAction, winnerAction] of [
+  ['save', 'save'],
+  ['save', 'version'],
+  ['version', 'save'],
+  ['version', 'version'],
+]) {
+  await check(
+    `RPC ${loserAction}/${winnerAction} race rejects stale preparation atomically`,
+    async () => {
+      const before = await store.get(
+        (await store.import([{ ...demoDrafts[0], title: 'RPC race fixture' }]))
+          .ids[0],
+      );
+      let winner;
+      const racing = new SupabaseStore({
+        rpc: async (name, payload) => {
+          if (payload.action === loserAction) {
+            winner = await store[winnerAction](
+              ...argsFor(
+                before,
+                draftOf(before, {
+                  team_notes: 'Winner note',
+                  tags: ['Winner tag'],
+                }),
+              ),
+            );
+          }
+          return client.rpc(name, payload);
+        },
+      });
+      await assert.rejects(
+        () =>
+          racing[loserAction](
+            ...argsFor(
+              before,
+              draftOf(before, {
+                team_notes: 'Losing note',
+                tags: ['Losing tag'],
+              }),
+            ),
+          ),
+        /changed/,
+      );
+      assert.deepEqual(await store.get(before.id), winner);
+      assert.equal(
+        (
+          await store.list({ plan: planQuery('note:"Losing note"') })
+        ).teams.some((t) => t.id === before.id),
+        false,
+      );
+      assert.equal((await store.facets()).tags.includes('Losing tag'), false);
+      await store.delete(before.id);
+    },
+  );
+}
 console.log('PostgreSQL: ' + passed + ' checks passed.');
 await pg.close();

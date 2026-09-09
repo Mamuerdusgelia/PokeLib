@@ -62,6 +62,10 @@ import {
   PokemonDetails,
   downloadText,
 } from './vault-ui';
+import {
+  startBuilderTiming,
+  afterBuilderPaint,
+} from '@/lib/builder-performance';
 import { TeamEditor, ImportTeams } from './team-editor';
 import { SearchFilters } from './search-filters';
 import { FormatNavigator } from './format-navigator';
@@ -374,22 +378,35 @@ export default function Library() {
         id: t.id,
         patch: { favourite: !t.favourite },
       });
-      setTeams((ts) =>
-        ts.map((x) => (x.id === t.id ? { ...x, favourite: r.favourite } : x)),
-      );
+      const mergeFavourite = (current: TeamRecord) =>
+        current.updated_at > r.updated_at
+          ? current
+          : { ...current, favourite: r.favourite, updated_at: r.updated_at };
+      setTeams((ts) => ts.map((x) => (x.id === t.id ? mergeFavourite(x) : x)));
       setDetail((current) =>
-        current?.id === t.id ? { ...current, favourite: r.favourite } : current,
+        current?.id === t.id ? mergeFavourite(current) : current,
       );
       invalidateLibrary();
     } catch (e) {
       setError((e as Error).message);
     }
   }
-  async function saved(id?: string) {
+  async function saved(id?: string, updated?: TeamRecord) {
     setModal(null);
     setNotice('Saved to your library.');
     invalidateLibrary();
-    if (id) await openTeam(id);
+    if (updated) {
+      setDetail(updated);
+      setTab('team');
+      setTeams((current) =>
+        current.map((t) => (t.id === updated.id ? updated : t)),
+      );
+      const u = new URL(window.location.href);
+      u.searchParams.set('team', updated.id);
+      u.searchParams.delete('version');
+      window.history.replaceState({}, '', u);
+    } else if (id) await openTeam(id);
+    afterBuilderPaint('save-visible');
   }
   async function saveMetadata(patch: Partial<TeamMeta>) {
     if (!detail) return;
@@ -698,9 +715,7 @@ export default function Library() {
                     onClick={() => editVersion()}
                   >
                     <Plus size={15} />
-                    {isHistory
-                      ? 'Restore as new version'
-                      : 'Create New Version'}
+                    {isHistory ? 'Restore as new version' : 'Edit team'}
                   </button>
                 </div>
               </div>
@@ -893,7 +908,10 @@ export default function Library() {
                   </button>
                   <button
                     className="button primary"
-                    onClick={() => setModal('new')}
+                    onClick={() => {
+                      startBuilderTiming('new-team');
+                      setModal('new');
+                    }}
                   >
                     <Plus size={17} />
                     New team
@@ -1072,7 +1090,13 @@ export default function Library() {
                     >
                       Import Pokémon Showdown Teams
                     </button>
-                    <button className="button" onClick={() => setModal('new')}>
+                    <button
+                      className="button"
+                      onClick={() => {
+                        startBuilderTiming('new-team');
+                        setModal('new');
+                      }}
+                    >
                       Create New Team
                     </button>
                   </div>
@@ -1133,9 +1157,9 @@ export default function Library() {
             setModal(null);
             setEditTarget(undefined);
           }}
-          onSaved={(id) => {
+          onSaved={(id, updated) => {
             setEditTarget(undefined);
-            void saved(id);
+            void saved(id, updated);
           }}
         />
       )}
@@ -1426,7 +1450,8 @@ function ShareDialog({
             />
           </Field>
           <p className="muted small">
-            The version link stays on this snapshot. Anyone with either link can
+            This link stays on this version, following edits while it is
+            current. Historical versions are fixed. Anyone with either link can
             view the team’s other versions by changing the version number.
           </p>
         </>

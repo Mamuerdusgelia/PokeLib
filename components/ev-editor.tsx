@@ -19,10 +19,12 @@ export function EVEditor({
   set,
   format,
   onPatch,
+  autoAttack = false,
 }: {
   set: PokemonSet;
   format: string;
-  onPatch: (patch: Partial<PokemonSet>) => void;
+  autoAttack?: boolean;
+  onPatch: (patch: Partial<PokemonSet>, manualAttackIv?: boolean) => void;
 }) {
   const gen = generationFor(format),
     dex = dexFor(format),
@@ -194,34 +196,6 @@ export function EVEditor({
                   ? 'Choose a reduced stat'
                   : 'Choose a boosted stat'}
           </strong>
-          <select
-            aria-label="Nature boosted stat"
-            value={modifiers.plus}
-            onChange={(e) => chooseModifier('plus', e.target.value)}
-          >
-            <option value="">Neutral</option>
-            {statIds
-              .filter((s) => s !== 'hp')
-              .map((s) => (
-                <option value={s} key={s}>
-                  + {statNames[s]}
-                </option>
-              ))}
-          </select>
-          <select
-            aria-label="Nature reduced stat"
-            value={modifiers.minus}
-            onChange={(e) => chooseModifier('minus', e.target.value)}
-          >
-            <option value="">Neutral</option>
-            {statIds
-              .filter((s) => s !== 'hp')
-              .map((s) => (
-                <option value={s} key={s}>
-                  − {statNames[s]}
-                </option>
-              ))}
-          </select>
           <button
             type="button"
             className="text-link"
@@ -236,6 +210,12 @@ export function EVEditor({
       )}
       <details className="iv-editor">
         <summary>{gen < 3 ? 'IVs (DV × 2)' : 'IV spread'}</summary>
+        {autoAttack && (
+          <p className="picker-hint">
+            Attack IV is automatically set to 0. Adding a physical move restores
+            31; editing Attack IV keeps your choice.
+          </p>
+        )}
         <div className="stat-inputs">
           {stats.map((stat) => (
             <label key={stat}>
@@ -255,7 +235,7 @@ export function EVEditor({
                   if (gen < 3) value = Math.floor(value / 2) * 2;
                   const ivs = { ...set.ivs, [stat]: value };
                   if (gen === 1 && stat === 'spa') ivs.spd = value;
-                  onPatch({ ivs });
+                  onPatch({ ivs }, stat === 'atk');
                 }}
               />
             </label>

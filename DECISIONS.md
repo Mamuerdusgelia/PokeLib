@@ -1,5 +1,19 @@
 # Product and technical decisions
 
+## Builder usability and current Save — 2026-09-09
+
+These decisions supersede earlier statements that every edit creates an immutable snapshot.
+
+- **Editable current, frozen history.** Save updates only the current numbered version. Save as new version preserves it and creates the next current version, with an optional comment. Historical editing/restoring always creates a new version; the pointer can never rewind to make an old row editable. Save retains version identity, creation date, parent, original import text and comment while updating authored raw text and notes.
+- **Conflicts are explicit.** Both actions require the current version ID, snapshot edit_revision (legacy fallback: ID), and team updated_at. D1 checks all three inside its atomic batch; PostgreSQL locks the team and checks them in the RPC. Updates receive a fresh revision and a strictly increasing modified timestamp. Current search terms are replaced transactionally. Existing snapshots are not rewritten by the append-only migrations.
+- **Sharing follows version semantics.** A living link follows current Save/new versions. A numbered link follows edits while that version is current and becomes fixed when it is historical. It still authorizes the conceptual team's other numbered versions.
+- **Showdown aliases and identities.** Use installed official Dex aliases, with fallback-only competitive extensions (cc → Close Combat). Genuine exact names outrank aliases, which outrank prefixes/substrings. Normalize and deduplicate all Hidden Power variant IDs before rendering; variants obey the active query.
+- **Battle-form presentation is a projection.** Select useful single-parent forms with an available item/move trigger using Showdown metadata. Canonical storage uses the starting species and required trigger; Crowned Iron Head displays as Behemoth Blade/Bash. Display transformed base stats without rewriting unchanged imported raw text. Multi-parent and pure transient battle/Tera states remain excluded. Z crystals alone do not imply Arceus forms.
+- **Authored defaults have provenance.** Newly authored Gen 9 sets use required Tera type or primary type while auto-managed. Manual/imported values remain authoritative. New authored sets auto-zero Attack after four known nonphysical moves, or explicit Save of a partial nonphysical set; a physical move restores 31 only when TeamVault managed the zero. Never auto-zero Special Attack. Gen 1/2, Hidden Power and unknown moves are excluded from smart IV defaults.
+- **Persist authoring flags privately.** Optional set_editing belongs to snapshots, copies into versions/restores and follows slot identities. Imports and legacy snapshots have no automatic flags. Raw changes drop provenance for changed blocks; unchanged/reordered blocks retain theirs. This metadata is absent from Showdown exports and shared projections.
+- **Measured responsiveness.** Cache catalogs by generation/National Dex availability, warm catalogs during draft idle time, warm learnsets after species selection, render 40 selector rows initially with Show more, and reuse confirmed save responses instead of fetching the team again. Keep raw reconciliation safeguards. Optional ?profile=1 timings stay in browser console/performance entries and transmit no telemetry.
+- **Focused scope.** No external Supabase setup, special-mod parity, PokéPaste, folders or unrelated product work. Compatibility migrations cover both retained storage adapters.
+
 ## Showdown integration — 2026-09-08/09
 
 These decisions supersede older approximate-learnset and fixed-title descriptions below.

@@ -18,6 +18,7 @@ for (const name of [
   'builder-data',
   'showdown-learnsets',
   'showdown-builder',
+  'builder-defaults',
   'pokemon-sprites',
 ]) {
   const source = await fs.readFile(
@@ -48,6 +49,7 @@ try {
   await import('./test-ux.mjs');
   await import('./test-builder.mjs');
   await import('./test-showdown.mjs');
+  await import('./test-defaults.mjs');
 } catch (e) {
   console.error({
     message: e.message,

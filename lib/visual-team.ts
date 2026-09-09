@@ -1,12 +1,13 @@
 import { Sets } from '@pkmn/sets';
 import { parseShowdown } from './showdown';
-import { normalize, type PokemonSet } from './domain';
+import { normalize, type PokemonSet, type SetEditing } from './domain';
 
 export type EditorSlot = {
   id: string;
   set: PokemonSet;
   raw: string;
   note: string;
+  editing?: SetEditing;
 };
 export type OrphanNote = { id: string; label: string; note: string };
 export const newSlot = (): EditorSlot => ({
@@ -14,6 +15,7 @@ export const newSlot = (): EditorSlot => ({
   set: { species: '', moves: [] },
   raw: '',
   note: '',
+  editing: { authored: true, attack_iv: 'eligible', tera: 'auto' },
 });
 const identity = (s: PokemonSet) =>
   normalize(s.species) + ':' + normalize(s.name || s.species);
@@ -23,6 +25,7 @@ export function readVisualTeam(
   format: string,
   previous: EditorSlot[] = [],
   initialNotes: string[] = [],
+  initialEditing: Array<SetEditing | null> = [],
 ) {
   if (!text.trim())
     return {
@@ -70,6 +73,13 @@ export function readVisualTeam(
       set,
       raw,
       note: match?.note || (!previous.length ? initialNotes[i] || '' : ''),
+      // Only unchanged raw blocks retain automatic defaults. Raw edits are manual input.
+      editing:
+        match?.raw.trim() === raw.trim()
+          ? match.editing
+          : !previous.length
+            ? initialEditing[i] || undefined
+            : undefined,
     };
   });
   const orphans = previous

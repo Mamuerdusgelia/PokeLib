@@ -85,12 +85,150 @@ try {
   });
   assert.ok([400, 403].includes(cross.status));
   assert.equal((await req('get', { id: disposable }, cookie)).status, 200);
+  // Current edits and historical checkpoints have distinct persistence contracts.
+  let current = (await req('get', { id: disposable }, cookie)).data;
+  const payloadFor = (team, draft, parent = team.current_version_id) => ({
+    id: team.id,
+    draft,
+    parent,
+    expected: team.current_version_id,
+    expected_revision: team.version.edit_revision ?? team.version.id,
+    expected_updated_at: team.updated_at,
+  });
+  const beforeSave = structuredClone(current);
+  const saved = await req(
+    'save',
+    payloadFor(current, {
+      ...current,
+      ...current.version,
+      showdown_text:
+        current.version.showdown_text.replace('Ice Beam', 'Thunderbolt') +
+        '\nCustom Field: HTTP preserved',
+      team_notes: 'Httpcurrentnote',
+      set_notes: ['Httpsetnote'],
+      set_editing: [{ authored: true, attack_iv: 'auto', tera: 'auto' }],
+      version_comment: 'Must keep existing comment',
+      original_text: 'Must keep original source',
+    }),
+    cookie,
+  );
+  assert.equal(saved.status, 200);
+  current = saved.data;
+  assert.equal(current.version.id, beforeSave.version.id);
+  assert.equal(current.version.version_number, 1);
+  assert.equal(current.history.length, 1);
+  assert.equal(current.version.original_text, beforeSave.version.original_text);
+  assert.equal(
+    current.version.version_comment,
+    beforeSave.version.version_comment,
+  );
+  assert.notEqual(
+    current.version.edit_revision,
+    beforeSave.version.edit_revision ?? beforeSave.version.id,
+  );
+  assert.equal(current.version.set_editing[0].attack_iv, 'auto');
+  assert.equal(
+    (
+      await req(
+        'list',
+        { query: 'team:"' + title + '" Darkrai Ice Beam' },
+        cookie,
+      )
+    ).data.total,
+    0,
+  );
+  assert.equal(
+    (
+      await req(
+        'list',
+        { query: 'team:"' + title + '" Darkrai Thunderbolt note:Httpsetnote' },
+        cookie,
+      )
+    ).data.total,
+    1,
+  );
+  const stale = await req(
+    'save',
+    payloadFor(beforeSave, { ...beforeSave, ...beforeSave.version }),
+    cookie,
+  );
+  assert.equal(stale.status, 400);
+  assert.match(stale.data.error, /changed/);
+  assert.equal(
+    (await req('save', payloadFor(current, { ...current, ...current.version })))
+      .status,
+    401,
+  );
+  const firstSaved = structuredClone(current.version);
+  const checkpoint = await req(
+    'version',
+    payloadFor(current, {
+      ...current,
+      ...current.version,
+      team_notes: 'Httpnewversionnote',
+      set_notes: ['Httpnewsetnote'],
+      version_comment: 'HTTP checkpoint',
+    }),
+    cookie,
+  );
+  assert.equal(checkpoint.status, 200);
+  current = checkpoint.data;
+  assert.equal(current.version.version_number, 2);
+  assert.equal(current.history.length, 2);
+  assert.deepEqual(
+    current.history.find((v) => v.id === firstSaved.id),
+    firstSaved,
+  );
+  const forbiddenHistory = await req(
+    'save',
+    payloadFor(current, { ...current, ...firstSaved }, firstSaved.id),
+    cookie,
+  );
+  assert.equal(forbiddenHistory.status, 400);
+  assert.match(forbiddenHistory.data.error, /immutable/i);
+  const secondSaved = structuredClone(current.version);
+  const restored = await req(
+    'version',
+    payloadFor(
+      current,
+      {
+        ...current,
+        ...firstSaved,
+        version_comment: 'HTTP restore',
+      },
+      firstSaved.id,
+    ),
+    cookie,
+  );
+  assert.equal(restored.status, 200);
+  current = restored.data;
+  assert.equal(current.version.version_number, 3);
+  assert.equal(current.history.length, 3);
+  assert.equal(current.version.parent_version_id, firstSaved.id);
+  assert.equal(current.version.showdown_text, firstSaved.showdown_text);
+  assert.deepEqual(current.version.set_notes, firstSaved.set_notes);
+  assert.deepEqual(current.version.set_editing, firstSaved.set_editing);
+  assert.deepEqual(
+    current.history.find((v) => v.id === secondSaved.id),
+    secondSaved,
+  );
   let link = await req('share', { id: disposable }, cookie);
   assert.equal(link.status, 200);
   assert.equal(
     (await fetch(origin + '/api/share/' + link.data.token)).status,
     200,
   );
+  const shared = await (
+    await fetch(origin + '/api/share/' + link.data.token)
+  ).json();
+  assert.equal(shared.version.version_number, 3);
+  assert.equal(shared.version.set_editing, undefined);
+  const pinned = await (
+    await fetch(origin + '/api/share/' + link.data.token + '?version=1')
+  ).json();
+  assert.equal(pinned.version.showdown_text, firstSaved.showdown_text);
+  assert.deepEqual(pinned.version.set_notes, firstSaved.set_notes);
+  assert.equal(pinned.version.set_editing, undefined);
   await req('revoke', { id: disposable }, cookie);
   assert.equal(
     (await fetch(origin + '/api/share/' + link.data.token)).status,
@@ -111,7 +249,7 @@ try {
     404,
   );
   console.log(
-    'HTTP integration: authentication, persistence, search, history, sharing, revocation, origin checks, and permanent deletion passed.',
+    'HTTP integration: authentication, current Save, immutable checkpoints/restoration, private builder state, search, sharing, revocation, origin checks, and permanent deletion passed.',
   );
 } catch (e) {
   console.error(e.stack);

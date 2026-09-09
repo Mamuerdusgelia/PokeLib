@@ -26,8 +26,15 @@ export type TeamMeta = {
   team_date: string | null;
   team_date_precision: Precision;
 };
+export type SetEditing = {
+  authored: true;
+  attack_iv: 'eligible' | 'auto' | 'manual';
+  tera: 'auto' | 'manual';
+};
 export type Snapshot = {
   id: string;
+  /** Changes on every current-version save; old snapshots use their id. */
+  edit_revision?: string;
   team_id: string;
   version_number: number;
   parent_version_id: string | null;
@@ -37,8 +44,11 @@ export type Snapshot = {
   parsed_team: PokemonSet[];
   team_notes: string;
   set_notes: string[];
+  set_editing?: Array<SetEditing | null>;
   created_at: string;
 };
+export const snapshotRevision = (snapshot: Snapshot) =>
+  snapshot.edit_revision ?? snapshot.id;
 export type TeamRecord = TeamMeta & {
   id: string;
   owner_id?: string;
@@ -55,6 +65,7 @@ export type Draft = TeamMeta & {
   showdown_text: string;
   team_notes: string;
   set_notes: string[];
+  set_editing?: Array<SetEditing | null>;
   version_comment: string;
   original_text?: string;
   imported?: boolean;

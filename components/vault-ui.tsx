@@ -3,7 +3,11 @@ import { useState, type ReactNode, type ComponentProps } from 'react';
 import { TagPicker } from './tag-picker';
 import { pokemonSprite } from '@/lib/pokemon-sprites';
 import { readVisualTeam } from '@/lib/visual-team';
-import { generationFor, type SetEditTarget } from '@/lib/builder-data';
+import {
+  presentedSet,
+  generationFor,
+  type SetEditTarget,
+} from '@/lib/builder-data';
 import {
   Dialog,
   DialogContent,
@@ -205,83 +209,85 @@ export function PokemonDetails({
   return (
     <>
       <div className="set-grid">
-        {team.version.parsed_team.map((p, i) => (
-          <article className="set-card" key={i}>
-            <div className="set-title">
-              <PokemonSprite
-                species={p.species}
-                shiny={p.shiny}
-                gender={p.gender}
-              />
-              <div>
-                <h3>
-                  {value(p.species, i, 'species')}{' '}
-                  {p.gender && <small>{p.gender}</small>}
-                </h3>
-                {p.name && p.name !== p.species && (
-                  <p className="nickname">{p.name}</p>
-                )}
-                {generationFor(team.format) >= 2 && (
-                  <p>{value(p.item || 'No item', i, 'item')}</p>
-                )}
-              </div>
-              {p.shiny && <span className="tag">Shiny</span>}
-            </div>
-            <dl>
-              {generationFor(team.format) >= 3 && (
-                <>
-                  <div>
-                    <dt>Ability</dt>
-                    <dd>
-                      {value(p.ability || 'Choose ability', i, 'ability')}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Nature</dt>
-                    <dd>{value(p.nature || 'Choose nature', i, 'nature')}</dd>
-                  </div>
-                </>
-              )}
-              {generationFor(team.format) >= 9 && p.teraType && (
+        {team.version.parsed_team
+          .map((p) => presentedSet(team.format, p))
+          .map((p, i) => (
+            <article className="set-card" key={i}>
+              <div className="set-title">
+                <PokemonSprite
+                  species={p.species}
+                  shiny={p.shiny}
+                  gender={p.gender}
+                />
                 <div>
-                  <dt>Tera type</dt>
-                  <dd>{value(p.teraType, i, 'teraType')}</dd>
-                </div>
-              )}
-              <div>
-                <dt>EVs</dt>
-                <dd>
-                  {value(
-                    Object.entries(p.evs || {})
-                      .filter(([, v]) => v > 0)
-                      .map(([k, v]) => v + ' ' + statNames[k])
-                      .join(' / ') || 'Default',
-                    i,
-                    'stats',
+                  <h3>
+                    {value(p.species, i, 'species')}{' '}
+                    {p.gender && <small>{p.gender}</small>}
+                  </h3>
+                  {p.name && p.name !== p.species && (
+                    <p className="nickname">{p.name}</p>
                   )}
-                </dd>
+                  {generationFor(team.format) >= 2 && (
+                    <p>{value(p.item || 'No item', i, 'item')}</p>
+                  )}
+                </div>
+                {p.shiny && <span className="tag">Shiny</span>}
               </div>
-            </dl>
-            <ul className="moves">
-              {(p.moves || []).map((move, j) => (
-                <li key={j}>{value(move, i, 'moves', j)}</li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              className="text-link set-export"
-              onClick={() => exportSet(i)}
-            >
-              Export set
-            </button>
-            {team.version.set_notes[i] && (
-              <details className="set-note">
-                <summary>Set note · has note</summary>
-                <p>{team.version.set_notes[i]}</p>
-              </details>
-            )}
-          </article>
-        ))}
+              <dl>
+                {generationFor(team.format) >= 3 && (
+                  <>
+                    <div>
+                      <dt>Ability</dt>
+                      <dd>
+                        {value(p.ability || 'Choose ability', i, 'ability')}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Nature</dt>
+                      <dd>{value(p.nature || 'Choose nature', i, 'nature')}</dd>
+                    </div>
+                  </>
+                )}
+                {generationFor(team.format) >= 9 && p.teraType && (
+                  <div>
+                    <dt>Tera type</dt>
+                    <dd>{value(p.teraType, i, 'teraType')}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>EVs</dt>
+                  <dd>
+                    {value(
+                      Object.entries(p.evs || {})
+                        .filter(([, v]) => v > 0)
+                        .map(([k, v]) => v + ' ' + statNames[k])
+                        .join(' / ') || 'Default',
+                      i,
+                      'stats',
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              <ul className="moves">
+                {(p.moves || []).map((move, j) => (
+                  <li key={j}>{value(move, i, 'moves', j)}</li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="text-link set-export"
+                onClick={() => exportSet(i)}
+              >
+                Export set
+              </button>
+              {team.version.set_notes[i] && (
+                <details className="set-note">
+                  <summary>Set note · has note</summary>
+                  <p>{team.version.set_notes[i]}</p>
+                </details>
+              )}
+            </article>
+          ))}
       </div>
       <section className="notes-section">
         <h2>Team notes</h2>

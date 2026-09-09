@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cleanMeta, type Draft, type TeamRecord } from './domain';
-import { makeSnapshot } from './snapshot';
+import { makeSnapshot, updateSnapshot } from './snapshot';
 import { indexTerms } from './search';
 import { hashToken } from './demo-store';
 export class SupabaseStore {
@@ -38,20 +38,70 @@ export class SupabaseStore {
       }),
     });
   }
-  async version(id: string, d: Draft, expected: string, parent: string) {
+  async save(
+    id: string,
+    d: Draft,
+    expected: string,
+    parent: string,
+    expectedRevision: string,
+    expectedUpdatedAt: string,
+  ) {
+    return this.writeVersion(
+      id,
+      d,
+      expected,
+      parent,
+      expectedRevision,
+      expectedUpdatedAt,
+      false,
+    );
+  }
+  async version(
+    id: string,
+    d: Draft,
+    expected: string,
+    parent: string,
+    expectedRevision: string,
+    expectedUpdatedAt: string,
+  ) {
+    return this.writeVersion(
+      id,
+      d,
+      expected,
+      parent,
+      expectedRevision,
+      expectedUpdatedAt,
+      true,
+    );
+  }
+  private async writeVersion(
+    id: string,
+    d: Draft,
+    expected: string,
+    parent: string,
+    expectedRevision: string,
+    expectedUpdatedAt: string,
+    create: boolean,
+  ) {
     const t = await this.get(id);
-    const snapshot = makeSnapshot(d, id, t.version.version_number + 1, parent),
+    const snapshot = create
+        ? makeSnapshot(d, id, t.version.version_number + 1, parent)
+        : updateSnapshot(d, t.version),
       meta = cleanMeta(d);
-    return this.call('version', {
+    return this.call(create ? 'version' : 'save', {
       id,
       expected,
+      expected_revision: expectedRevision,
+      expected_updated_at: expectedUpdatedAt,
       parent,
       meta,
       snapshot,
       terms: indexTerms(
         meta,
         snapshot,
-        t.history?.map((x) => x.version_comment),
+        t.history
+          ?.filter((x) => create || x.id !== snapshot.id)
+          .map((x) => x.version_comment),
       ),
     });
   }
