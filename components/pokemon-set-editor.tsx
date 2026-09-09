@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Ref } from 'react';
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import type { PokemonSet } from '@/lib/domain';
 import type { EditorSlot } from '@/lib/visual-team';
@@ -12,20 +12,31 @@ import {
 import { Field, PokemonSprite } from './vault-ui';
 import { PokemonSelector } from './pokemon-selector';
 import { EVEditor } from './ev-editor';
+import {
+  adjacentMove,
+  requiredItems,
+  speciesSelectionPatch,
+} from '@/lib/showdown-builder';
 
 export function PokemonSlotBar({
   slots,
   selected,
   onSelect,
   onAdd,
+  addButtonRef,
 }: {
   slots: EditorSlot[];
   selected: number;
   onSelect: (i: number) => void;
   onAdd: () => void;
+  addButtonRef?: Ref<HTMLButtonElement>;
 }) {
   return (
-    <fieldset className="pokemon-slot-bar" aria-label="Team Pokémon">
+    <fieldset
+      className="pokemon-slot-bar"
+      aria-label="Team Pokémon"
+      data-extra-slots={slots.length > 6}
+    >
       {Array.from({ length: Math.max(6, slots.length) }, (_, i) => {
         const slot = slots[i];
         return slot ? (
@@ -46,6 +57,8 @@ export function PokemonSlotBar({
               <PokemonSprite
                 key={slot.set.species}
                 species={slot.set.species}
+                shiny={slot.set.shiny}
+                gender={slot.set.gender}
               />
             ) : (
               <Plus size={25} />
@@ -60,6 +73,7 @@ export function PokemonSlotBar({
             type="button"
             key={i}
             className="pokemon-slot empty-slot"
+            ref={i === slots.length ? addButtonRef : undefined}
             aria-label={'Add Pokémon in slot ' + (i + 1)}
             onClick={onAdd}
           >
@@ -108,6 +122,7 @@ export function PokemonSetEditor({
   const [selection, setSelection] = useState<{
     kind: SelectorKind;
     moveIndex?: number;
+    initialQuery?: string;
   } | null>(() =>
     target && target.field !== 'stats'
       ? { kind: target.field, moveIndex: target.moveIndex }
@@ -116,6 +131,32 @@ export function PokemonSetEditor({
         : null,
   );
   const panel = useRef<HTMLElement>(null);
+  const skipMoveFocus = useRef(false);
+  function focusField(kind: SelectorKind, moveIndex?: number) {
+    const label =
+      kind === 'moves'
+        ? 'Move ' + ((moveIndex ?? 0) + 1)
+        : kind === 'species'
+          ? 'Edit Pokémon species'
+          : 'Edit ' +
+            {
+              item: 'Item',
+              ability: 'Ability',
+              nature: 'Nature',
+              teraType: 'Tera type',
+            }[kind];
+    const el = panel.current?.querySelector<HTMLElement>(
+      `[aria-label="${label}"]`,
+    );
+    if (el) {
+      skipMoveFocus.current = kind === 'moves';
+      el.focus();
+    }
+  }
+  function closeSelector() {
+    if (selection) focusField(selection.kind, selection.moveIndex);
+    setSelection(null);
+  }
   useEffect(() => {
     if (target?.field === 'stats') {
       const stats =
@@ -133,14 +174,49 @@ export function PokemonSetEditor({
     return (
       <div className="builder-value">
         <span>{label}</span>
-        <button
-          type="button"
-          className={'edit-value ' + (!value ? 'unset' : '')}
-          aria-label={'Edit ' + label}
-          onClick={() => setSelection({ kind, moveIndex })}
-        >
-          {value || 'Choose ' + label.toLowerCase()}
-        </button>
+        {kind === 'moves' ? (
+          <input
+            className="move-entry"
+            aria-label={label}
+            placeholder="Choose move"
+            value={value}
+            readOnly
+            onFocus={() => {
+              if (skipMoveFocus.current) {
+                skipMoveFocus.current = false;
+                return;
+              }
+              setSelection({ kind, moveIndex });
+            }}
+            onClick={() => setSelection({ kind, moveIndex })}
+            onKeyDown={(e) => {
+              if (
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                (e.key.length === 1 ||
+                  e.key === 'Enter' ||
+                  e.key === 'ArrowDown')
+              ) {
+                e.preventDefault();
+                setSelection({
+                  kind,
+                  moveIndex,
+                  initialQuery: e.key.length === 1 ? e.key : undefined,
+                });
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className={'edit-value ' + (!value ? 'unset' : '')}
+            aria-label={'Edit ' + label}
+            onClick={() => setSelection({ kind, moveIndex })}
+          >
+            {value || 'Choose ' + label.toLowerCase()}
+          </button>
+        )}
       </div>
     );
   }
@@ -157,7 +233,14 @@ export function PokemonSetEditor({
     >
       <div className="set-editor-heading">
         <div className="builder-species">
-          {s.species && <PokemonSprite key={s.species} species={s.species} />}
+          {s.species && (
+            <PokemonSprite
+              key={s.species}
+              species={s.species}
+              shiny={s.shiny}
+              gender={s.gender}
+            />
+          )}
           <div>
             <span className="eyebrow">
               POKÉMON {index + 1} / {count}
@@ -175,7 +258,7 @@ export function PokemonSetEditor({
             {species.exists && (
               <span className="type-badges">
                 {species.types.map((t) => (
-                  <span className="type-badge" key={t}>
+                  <span className="type-badge" data-pokemon-type={t} key={t}>
                     {t}
                   </span>
                 ))}
@@ -214,20 +297,68 @@ export function PokemonSetEditor({
           format={format}
           species={s.species}
           value={selectedValue}
-          onClose={() => setSelection(null)}
-          onSelect={(value) => {
+          initialQuery={selection.initialQuery}
+          onClose={closeSelector}
+          onSelect={(value, direction = 0) => {
             if (selection.kind === 'moves') {
               const moves = [...s.moves];
               moves[selection.moveIndex ?? 0] = value;
               onPatch({ moves });
-            } else onPatch({ [selection.kind]: value });
-            setSelection(null);
+              const next = direction
+                ? adjacentMove(
+                    selection.moveIndex ?? 0,
+                    Math.max(4, moves.length),
+                    direction,
+                  )
+                : null;
+              if (next !== null) {
+                setSelection({ kind: 'moves', moveIndex: next });
+                return;
+              }
+              if (direction > 0)
+                panel.current
+                  ?.querySelector<HTMLElement>('[aria-label="EV HP"]')
+                  ?.focus();
+              else if (direction < 0)
+                focusField(
+                  gen >= 9
+                    ? 'teraType'
+                    : gen >= 3
+                      ? 'nature'
+                      : gen === 2
+                        ? 'item'
+                        : 'species',
+                );
+              else focusField('moves', selection.moveIndex);
+              setSelection(null);
+            } else {
+              onPatch(
+                selection.kind === 'species'
+                  ? speciesSelectionPatch(format, s, value)
+                  : { [selection.kind]: value },
+              );
+              closeSelector();
+            }
           }}
         />
       )}
       <div className="builder-columns">
         <div className="builder-set-values">
           {gen >= 2 && field('Item', 'item', s.item || '')}
+          {gen >= 2 && requiredItems(format, s.species).length > 1 && (
+            <div className="possible-abilities">
+              <small>Required item choices</small>
+              {requiredItems(format, s.species).map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  onClick={() => onPatch({ item })}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
           {gen >= 3 && (
             <>
               {field('Ability', 'ability', s.ability || '')}

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, Save, ChevronDown } from 'lucide-react';
 import { api } from '@/lib/client';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/lib/domain';
 import { parseShowdown } from '@/lib/showdown';
 import { builderDraft, type SetEditTarget } from '@/lib/builder-data';
+import { generatedTeamTitle } from '@/lib/showdown-builder';
 import {
   newSlot,
   readVisualTeam,
@@ -58,8 +59,10 @@ export function TeamEditor({
           version_comment:
             mode === 'version' ? '' : team.version.version_comment,
         }
-      : builderDraft(initialFormat),
+      : { ...builderDraft(initialFormat), title: generatedTeamTitle() },
   );
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const [renaming, setRenaming] = useState(false);
   const [initial] = useState(() => {
     try {
       return {
@@ -183,6 +186,7 @@ export function TeamEditor({
   return (
     <Modal
       wide
+      initialFocus={mode === 'new' ? addButtonRef : undefined}
       title={
         mode === 'new'
           ? 'Build a team'
@@ -206,23 +210,50 @@ export function TeamEditor({
       ) : (
         <div className="visual-team-workspace">
           <div className="editor-team-header">
-            <Field label="Team name">
-              <input
-                aria-label="Team name"
-                value={draft.title}
-                maxLength={160}
-                placeholder="Untitled team"
-                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-              />
-            </Field>
-            <Field label="Format">
-              <input
-                aria-label="Team format"
-                value={draft.format}
-                placeholder="gen9ou"
-                onChange={(e) => setDraft({ ...draft, format: e.target.value })}
-              />
-            </Field>
+            <div className="editor-format">
+              <Field label="Format">
+                <input
+                  aria-label="Team format"
+                  value={draft.format}
+                  placeholder="Choose a format"
+                  onChange={(e) =>
+                    setDraft({ ...draft, format: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
+            {renaming ? (
+              <Field label="Team name">
+                <input
+                  aria-label="Team name"
+                  ref={(element) => element?.focus()}
+                  value={draft.title}
+                  maxLength={160}
+                  placeholder="Untitled team"
+                  onChange={(e) =>
+                    setDraft({ ...draft, title: e.target.value })
+                  }
+                  onBlur={() => setRenaming(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      setRenaming(false);
+                    }
+                  }}
+                />
+              </Field>
+            ) : (
+              <h3 className="builder-team-title">
+                <button
+                  type="button"
+                  className="edit-value"
+                  onClick={() => setRenaming(true)}
+                  aria-label="Rename team"
+                >
+                  {draft.title}
+                </button>
+              </h3>
+            )}
           </div>
           <div className="editor-tag-row">
             <span>Tags</span>
@@ -242,6 +273,7 @@ export function TeamEditor({
             <>
               <PokemonSlotBar
                 slots={slots}
+                addButtonRef={addButtonRef}
                 selected={active}
                 onSelect={setActive}
                 onAdd={() => {

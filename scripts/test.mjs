@@ -16,6 +16,9 @@ for (const name of [
   'format-groups',
   'search-filters',
   'builder-data',
+  'showdown-learnsets',
+  'showdown-builder',
+  'pokemon-sprites',
 ]) {
   const source = await fs.readFile(
     path.join(root, 'lib', name + '.ts'),
@@ -28,17 +31,23 @@ for (const name of [
         module: ts.ModuleKind.ESNext,
       },
     })
-    .outputText.replace(
-      /from '(\.\/[^']+)'/g,
-      (_, p) => "from '" + p + ".mjs'",
+    .outputText.replace(/from '(\.\/[^']+)'/g, (_, p) => "from '" + p + ".mjs'")
+    .replace(/import\('(\.\/[^']+)'/g, (_, p) =>
+      p.endsWith('.json')
+        ? "import('" + p + "', {with:{type:'json'}}"
+        : "import('" + p + ".mjs'",
     );
   await fs.writeFile(path.join(root, '.test-build', name + '.mjs'), out);
 }
+await fs.cp('lib/showdown-data', '.test-build/showdown-data', {
+  recursive: true,
+});
 try {
   await import('./test-core.mjs');
   await import('./test-postgres.mjs');
   await import('./test-ux.mjs');
   await import('./test-builder.mjs');
+  await import('./test-showdown.mjs');
 } catch (e) {
   console.error({
     message: e.message,

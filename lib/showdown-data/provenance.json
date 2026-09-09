@@ -1,0 +1,55 @@
+{
+  "source": "https://play.pokemonshowdown.com/data/teambuilder-tables.js",
+  "retrieved": "2026-09-08",
+  "lastModified": "2026-09-08T02:10:18Z",
+  "clientCodeRevision": "eeaec53202425be20761198da837f5fb9b264c51",
+  "inspectedServerRevision": "6b4bc34e44cc2541929cc4b8fff96e756ab3f268",
+  "note": "Official generated snapshot; the live asset does not declare its exact server build revision. Hash pins the data; code revision identifies the inspected adapter source.",
+  "sourceSha256": "36a5dce8c06776affe5cda1a96c65554756218d2de89d2fc940f41ec8875eee3",
+  "files": {
+    "standard": {
+      "bytes": 1914879,
+      "sha256": "beb855993b6cb87a86a030c58fd68c551476a163d70e25ff295a0b5f82c0e9ab"
+    },
+    "gen8bdsp": {
+      "bytes": 386910,
+      "sha256": "590a20da45926a56a17c2efaafa095e615e0cab50b3ea8de83863928e5aad965"
+    },
+    "gen7letsgo": {
+      "bytes": 72525,
+      "sha256": "f7333a2cf5b583bd83e7ccded4abead993890c2e21a706880db65fc99a271385"
+    },
+    "gen5bw1": {
+      "bytes": 670537,
+      "sha256": "a3fd2e6c03e7e37c510ca3af22dd66200a3f2957fc34b1d6676386d33668061e"
+    },
+    "gen3rs": {
+      "bytes": 370426,
+      "sha256": "485416ec10c80812b10e66353009c5e9710d436f90d0921d290836650a3d6129"
+    },
+    "gen3frlg": {
+      "bytes": 364141,
+      "sha256": "f07fc060ba159d6504712b2ffe01ea2ef82542ac4ea7bd2fb552e977e98ce854"
+    },
+    "gen8dlc1": {
+      "bytes": 1630319,
+      "sha256": "c4301776d8ff1996c12ac8e1770da9ebfb90601f42aa8c56e668a93991886703"
+    },
+    "gen9predlc": {
+      "bytes": 1813540,
+      "sha256": "5827e850772ded7b5e476c8782009049b2af8ff8d828f8bfc058df4c7db001cf"
+    },
+    "gen9dlc1": {
+      "bytes": 1845059,
+      "sha256": "c0558fe87355ae295ab93c2675435c5bcbbedea0e441e36b6bbd04a1f85e3132"
+    },
+    "champions": {
+      "bytes": 237025,
+      "sha256": "75664bf6ffb92b487859d52ecbd5035097a44b9ca920391728c8a5fe2dff1227"
+    },
+    "natdexchampions": {
+      "bytes": 1932097,
+      "sha256": "0adf9665fc5b48d4f3f60adfb102593126e9c8d4e2f8253f49a23d733aa23498"
+    }
+  }
+}

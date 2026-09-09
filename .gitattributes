@@ -1,0 +1,2 @@
+# Generated data hashes are defined over LF bytes on every platform.
+lib/showdown-data/*.json text eol=lf

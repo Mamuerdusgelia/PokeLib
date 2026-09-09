@@ -1,5 +1,20 @@
 # Product and technical decisions
 
+## Showdown integration — 2026-09-08/09
+
+These decisions supersede older approximate-learnset and fixed-title descriptions below.
+
+- **AGPL and focused reuse.** The user explicitly authorized open-source/AGPL work. TeamVault is AGPL-3.0-only, retaining MIT notices for MIT portions. Adapt Showdown's search traversal, keyboard and nature/default behavior into TeamVault React components. Do not import the Preact client, simulator or Showdown's team-storage model. Exact sources and changes are in SHOWDOWN_INTEGRATION.md.
+- **Generated availability is authoritative.** Use pinned Showdown teambuilder generation/origin marks, including Gen 9 move resets, form ancestry, egg inheritance, Sketch and National Dex. Default selection shows the full individual pool with progressively more results; custom/all-generation choices remain available. This does not promise event/combination/tier legality or full special-mod parity.
+- **Defaults never normalize an unchanged imported species.** On an explicit species change, choose a required ability, retain a valid current ability, or use normal ability 0. Fill a sole required item, offer multiple choices, and remove a former required item only when it is still held. Other set fields remain untouched.
+- **Keyboard/EV semantics.** Tab/Enter commit and advance; Shift+Tab reverses and terminal movement leaves the picker. Escape returns to the field. Buttons/arrows edit EVs by four without pre-rounding odd imported values. Incomplete nature +/- choices remain local until a complete pair exists; neutral is explicit. Existing caps, Gen 1/2 mechanics and raw patching stay authoritative.
+- **Canonical sprites.** Pin @pkmn/img 0.3.4 and pass shiny/gender consistently. Fix its static female-sprite edge case using its metadata, not guessed suffixes. Artwork rights remain separate from MIT/AGPL code licenses; see THIRD_PARTY_NOTICES.md.
+- **New-team priority.** Display format before a generated Untitled plus short UUID title; focus Add Pokémon instead of naming. No extra database counter or library fetch. Saved naming remains editable.
+- **Search typing.** Exact type words in species queries constrain actual types, so water ground excludes Water Absorb users with another type. A complete ability name still matches that ability. Global library search contracts are unchanged.
+- **Source offer ships with the build.** Package tracked app/config/docs with a per-file hash manifest and a visible download link, excluding credentials, runtime environments, databases and user content. Use .tar because the dev server decodes .gz responses. Include pnpm-workspace.yaml, support rebuilding downloaded manifests without .git, and force LF for hashed generated JSON. Stage new application files before build.
+- **Responsive layout.** Use gray surface levels and restrained type/category colors. Phone EV sliders have their own row. More than six imported sets remain supported; their multirow slot bar does not stick over the editor.
+- **Preservation and scope.** Keep stable notes, partial/custom raw input, historical views and restore-as-new-version. No schema changes. Publication remains owner-only. PokéPaste, folders, feeds, AI, simulator, calculator, replay and collaboration are deferred to a separate request.
+
 - **Conceptual teams stay stable.** Version creation adds an immutable snapshot, then advances the team's current pointer. Restore creates another version, preserving all newer history. parent_version_id leaves room for branching.
 - **Edits are explicit snapshots.** Editing Showdown text or notes goes through Create New Version. Metadata editing changes tags, name, provenance and historical date across the conceptual team.
 - **Original data is authoritative.** @pkmn/sets parses with the detected generation's Dex. Save original text plus full structured Pokémon set JSON. Retain unknown fields in export text and show warnings.

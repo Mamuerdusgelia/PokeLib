@@ -1,6 +1,7 @@
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, type ComponentProps } from 'react';
 import { TagPicker } from './tag-picker';
+import { pokemonSprite } from '@/lib/pokemon-sprites';
 import { readVisualTeam } from '@/lib/visual-team';
 import { generationFor, type SetEditTarget } from '@/lib/builder-data';
 import {
@@ -16,12 +17,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import {
-  type PokemonSet,
-  type TeamRecord,
-  dateLabel,
-  formatLabel,
-} from '@/lib/domain';
+import { type PokemonSet, type TeamRecord, dateLabel } from '@/lib/domain';
 export function Pick({
   value,
   onChange,
@@ -64,16 +60,21 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  initialFocus,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  initialFocus?: ComponentProps<typeof DialogContent>['initialFocus'];
 }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className={'vault-modal ' + (wide ? 'wide' : '')}>
+      <DialogContent
+        initialFocus={initialFocus}
+        className={'vault-modal ' + (wide ? 'wide' : '')}
+      >
         <DialogTitle className="modal-title">{title}</DialogTitle>
         <DialogDescription>{description || ''}</DialogDescription>
         {children}
@@ -108,27 +109,25 @@ export function TagEditor({
     <TagPicker tags={tags} suggestions={suggestions} onChange={onChange} />
   );
 }
-const special: Record<string, string> = {
-  'Urshifu-Rapid-Strike': 'urshifu-rapidstrike',
-  'Necrozma-Dusk-Mane': 'necrozma-duskmane',
-};
-export function PokemonSprite({ species }: { species: string }) {
-  const [bad, setBad] = useState(false);
-  return bad ? (
-    <span className="sprite-fallback" title={species}>
+export function PokemonSprite({
+  species,
+  shiny,
+  gender,
+}: Pick<PokemonSet, 'species' | 'shiny' | 'gender'>) {
+  const [failedUrl, setFailedUrl] = useState('');
+  const sprite = pokemonSprite({ species, shiny, gender });
+  const label = (shiny ? 'Shiny ' : '') + species;
+  return !sprite || failedUrl === sprite.url ? (
+    <span className="sprite-fallback" title={label}>
       {species.slice(0, 2)}
     </span>
   ) : (
     <img
       loading="lazy"
-      alt={species}
-      title={species}
-      onError={() => setBad(true)}
-      src={
-        'https://play.pokemonshowdown.com/sprites/gen5/' +
-        (special[species] || species.toLowerCase().replace(/[^a-z0-9-]/g, '')) +
-        '.png'
-      }
+      alt={label}
+      title={label}
+      onError={() => setFailedUrl(sprite.url)}
+      src={sprite.url}
     />
   );
 }
@@ -136,7 +135,12 @@ export function PokemonLine({ sets }: { sets: PokemonSet[] }) {
   return (
     <div className="pokemon-line">
       {sets.map((p, i) => (
-        <PokemonSprite key={p.species + i} species={p.species} />
+        <PokemonSprite
+          key={p.species + i}
+          species={p.species}
+          shiny={p.shiny}
+          gender={p.gender}
+        />
       ))}
     </div>
   );
@@ -204,7 +208,11 @@ export function PokemonDetails({
         {team.version.parsed_team.map((p, i) => (
           <article className="set-card" key={i}>
             <div className="set-title">
-              <PokemonSprite species={p.species} />
+              <PokemonSprite
+                species={p.species}
+                shiny={p.shiny}
+                gender={p.gender}
+              />
               <div>
                 <h3>
                   {value(p.species, i, 'species')}{' '}

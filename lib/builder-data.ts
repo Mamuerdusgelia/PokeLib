@@ -1,4 +1,4 @@
-import { Dex, toID } from '@pkmn/dex';
+import { Dex, toID, type Species } from '@pkmn/dex';
 import { emptyDraft, generationFor, type PokemonSet } from './domain';
 export { generationFor } from './domain';
 
@@ -31,6 +31,29 @@ export const builderDraft = (format = '') => ({
   format: format || 'unknown',
 });
 export const dexFor = (format: string) => Dex.forGen(generationFor(format));
+export function matchesSpeciesQuery(
+  format: string,
+  species: Species,
+  query: string,
+) {
+  const abilities = Object.values(species.abilities);
+  // A complete ability name remains searchable even when it contains a type.
+  if (query.trim() && abilities.some((a) => toID(a) === toID(query)))
+    return true;
+  const haystack = [species.name, ...species.types, ...abilities]
+    .join(' ')
+    .toLowerCase();
+  return query
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((token) =>
+      dexFor(format).types.get(token).exists
+        ? species.types.some((t) => t.toLowerCase() === token)
+        : haystack.includes(token),
+    );
+}
 export function availableIn(
   format: string,
   entry: { exists: boolean; gen?: number; isNonstandard?: string | null },
@@ -39,66 +62,43 @@ export function availableIn(
     entry.exists &&
     (entry.gen || 0) <= generationFor(format) &&
     (!entry.isNonstandard ||
-      (/nationaldex/i.test(format) && entry.isNonstandard === 'Past'))
+      (/nationaldex|natdex/i.test(format) && entry.isNonstandard === 'Past'))
   );
 }
 export function builderCatalog(format: string) {
   const dex = dexFor(format),
     available = (e: Parameters<typeof availableIn>[1]) =>
       availableIn(format, e);
+  // @pkmn/dex resolves typed Hidden Power names, but all() exposes only the
+  // base entry and get() retains its base ID. Give selectable variants unique IDs.
+  const hiddenPowerVariants = dex.types
+    .all()
+    .filter((t) => !['Normal', 'Fairy', 'Stellar'].includes(t.name))
+    .map((t) => ({
+      // Picker rows intentionally copy enumerable data; no Move methods are used.
+      // oxlint-disable-next-line typescript/no-misused-spread
+      ...dex.moves.get('Hidden Power ' + t.name),
+      id: toID('Hidden Power ' + t.name),
+    }));
   return {
     species: dex.species.all().filter((s) => available(s) && !s.battleOnly),
     item: dex.items.all().filter(available),
     ability: dex.abilities.all().filter(available),
-    moves: dex.moves
-      .all()
-      .filter((m) => available(m) && !m.isZ && !m.isMax && m.id !== 'struggle'),
+    moves: [...dex.moves.all(), ...hiddenPowerVariants].filter(
+      (m) => available(m) && !m.isZ && !m.isMax && m.id !== 'struggle',
+    ),
     nature: dex.natures.all().filter(available),
     teraType: dex.types.all().filter(available),
   };
 }
 
-const learnsetCache = new Map<string, Promise<Set<string>>>();
 export function learnsetSuggestions(
   format: string,
   name: string,
 ): Promise<Set<string>> {
-  const gen = generationFor(format),
-    key = toID(format) + ':' + toID(name);
-  let result = learnsetCache.get(key);
-  if (result) return result;
-  result = (async () => {
-    const dex = dexFor(format),
-      found = new Set<string>(),
-      visited = new Set<string>();
-    async function visit(name: string) {
-      const species = dex.species.get(name);
-      if (!species.exists || species.gen > gen || visited.has(species.id))
-        return;
-      visited.add(species.id);
-      const data = await dex.learnsets.get(species.id);
-      for (const [move, sources] of Object.entries(data.learnset || {})) {
-        if (sources.some((source) => Number(source[0]) <= gen)) found.add(move);
-      }
-      if (species.changesFrom) await visit(species.changesFrom);
-      if (species.prevo) await visit(species.prevo);
-    }
-    await visit(name);
-    if (toID(name) === 'smeargle') {
-      for (const move of dex.moves.all())
-        if (
-          availableIn(format, move) &&
-          !move.isZ &&
-          !move.isMax &&
-          !['struggle', 'chatter', 'sketch'].includes(move.id)
-        )
-          found.add(move.id);
-    }
-    return found;
-  })();
-  learnsetCache.set(key, result);
-  result.catch(() => learnsetCache.delete(key));
-  return result;
+  return import('./showdown-learnsets').then((m) =>
+    m.learnableMoves(format, name),
+  );
 }
 
 export function actualStat(format: string, set: PokemonSet, stat: StatId) {

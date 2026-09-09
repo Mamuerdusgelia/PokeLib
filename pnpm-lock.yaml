@@ -17,6 +17,9 @@ importers:
       '@pkmn/dex':
         specifier: 0.10.11
         version: 0.10.11
+      '@pkmn/img':
+        specifier: 0.3.4
+        version: 0.3.4
       '@pkmn/sets':
         specifier: 5.2.0
         version: 5.2.0
@@ -1504,6 +1507,9 @@ packages:
 
   '@pkmn/dex@0.10.11':
     resolution: {integrity: sha512-htR2Etf3WCiu4k4ukmyYD94do97sTm9LfmxJ8tg2uuPGJsZ98ZZGlJFUZNltfXU0pO61ItiU6obRXTw05qipDQ==}
+
+  '@pkmn/img@0.3.4':
+    resolution: {integrity: sha512-N1mdujeBb9pGEooc42arzv84Q5zK7lUd5FL/xVEQHJ2tjwJthchTTfMzBgr4AXIDTxAf1XfmGr0pH2ynbYbUyQ==}
 
   '@pkmn/sets@5.2.0':
     resolution: {integrity: sha512-WHAW6bZu0WCo/3b+LTW7BE0fBhYZnWH1lCXIu2an8/wTiZ/+s1eTcQYj7W/YQKxWT5dm/La03AZ6CeqdJip9CQ==}
@@ -5106,6 +5112,8 @@ snapshots:
   '@pkmn/dex@0.10.11':
     dependencies:
       '@pkmn/dex-types': 0.10.11
+
+  '@pkmn/img@0.3.4': {}
 
   '@pkmn/sets@5.2.0':
     dependencies:

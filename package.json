@@ -10,16 +10,18 @@
     "test:http": "node scripts/test-http.mjs",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "dev": "vinext dev",
-    "build": "vinext build",
+    "build": "node scripts/source-offer.mjs && vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "source:package": "node scripts/source-offer.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
     "@electric-sql/pglite": "^0.5.8",
     "@pkmn/dex": "0.10.11",
+    "@pkmn/img": "0.3.4",
     "@pkmn/sets": "5.2.0",
     "@shadcn/react": "0.3.0",
     "@supabase/supabase-js": "^2.115.0",
@@ -61,5 +63,6 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module"
+  "type": "module",
+  "license": "AGPL-3.0-only"
 }

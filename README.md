@@ -8,7 +8,7 @@ The complete PostgreSQL/Supabase adapter and migration are included. No Supabase
 
 ## Architecture
 - New Team opens an unsaved blank six-slot builder immediately, inheriting the active format filter. The first nonempty save creates the team; abandoning the draft creates no record.
-- Click displayed species, item, ability, nature, move or stats to edit that set in a new version. Generation-aware selectors show types, abilities, base stats, descriptions and move data. Species can be filtered by two types, ability and move, and sorted by each stat or total. Move learnset suggestions are approximate, not full competitive legality.
+- Click displayed species, item, ability, nature, move or stats to edit that set in a new version. Generation-aware selectors show types, abilities, base stats, descriptions and move data. Species can be filtered by two types, ability and move, and sorted by each stat or total. Move availability uses pinned Showdown teambuilder tables and adapted traversal, including Gen 9/National Dex differences. This is individual move availability, not full competitive legality; special-mod limits are documented in SHOWDOWN_INTEGRATION.md.
 - EV sliders and numeric inputs show ordinary actual stats, a 510 total/252 per-stat cap for modern generations, and nature plus/minus controls. Gen 1/2 use documented stat-experience equivalents without the modern total cap. Unsupported mechanics are hidden by generation while their imported raw fields remain preserved.
 - Click title, format, date and source in the team page to edit metadata inline. Tags retain Add tag → suggestions / Create. Metadata applies across versions and does not replace the displayed historical snapshot.
 - Compact list view is the default unless a saved grid/list preference exists. Navigation contains All Teams, Favourites and Formats. Archive controls are removed; normal lists and counts include legacy archived records without rewriting their flags. Delete remains directly available in the library.
@@ -93,7 +93,7 @@ New teams default to the browser's local date. Imported teams default to Unknown
 
 Normal export returns the stored Showdown body, including unrecognised lines. Download original returns the original source attached to the snapshot. Canonical parsing/export is tested, but saving does not silently replace the user's text with a potentially lossy canonical representation. Import preview is not a legality validator.
 
-Visual changes rewrite only the edited Showdown field lines; unknown lines and extra moves remain. Implied Hidden Power IVs and Frustration happiness are materialized when needed to preserve their effective values. Explicit zero stat experience survives Gen 1/2 save/reopen. Raw text with a layout the visual editor cannot safely split stays editable in text mode; per-set export asks for full-team export in that case. Special imported fields without dedicated controls remain accessible there. Generation-filtered move suggestions are included; a full legality checker is not.
+Visual changes rewrite only the edited Showdown field lines; unknown lines and extra moves remain. Implied Hidden Power IVs and Frustration happiness are materialized when needed to preserve their effective values. Explicit zero stat experience survives Gen 1/2 save/reopen. Raw text with a layout the visual editor cannot safely split stays editable in text mode; per-set export asks for full-team export in that case. Special imported fields without dedicated controls remain accessible there. The default picker shows the full Showdown-derived move pool with an explicit all-generation/custom option; a full legality checker is not included.
 
 ## Sharing
 Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A living link resolves the team's current version; ?version=N pins the displayed snapshot. Tokens authorize the conceptual team and its versions, so a pinned URL is not a narrower access grant. The interface explains this. Regeneration and revocation invalidate previous links. Shared projections include notes, tags and source, but exclude owner account fields and full history.
@@ -101,7 +101,7 @@ Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A l
 A private Sites deployment restricts access to the site itself. To let arbitrary people open links, first configure Supabase and deliberately change the site's audience. The application still keeps libraries private through RLS and token checks.
 
 ## Tests
-- pnpm test: 41 domain/SQLite, 24 PostgreSQL migration/RLS/RPC, 13 UX helper and 10 builder checks (88 total), including preservation, notes/search, archive inclusion, generation catalogs, learnset caching and stat calculation.
+- pnpm test: 41 domain/SQLite, 24 PostgreSQL migration/RLS/RPC, 13 UX helper and 10 builder and 16 Showdown integration checks (104 total), including preservation, notes/search, archive inclusion, generation catalogs, learnset caching and stat calculation.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
@@ -129,3 +129,11 @@ No battle simulator, full legality checker, EV archetype inference, PokéPaste s
 Sprites are loaded from Pokémon Showdown's public static sprite directory:
 https://play.pokemonshowdown.com/sprites/gen5/
 The app falls back to a species abbreviation if a sprite is unavailable. Pokémon and Pokémon character names are trademarks of Nintendo, Game Freak and The Pokémon Company. TeamVault is independent.
+
+## Showdown integration and source license
+
+TeamVault is AGPL-3.0-only, with MIT notices retained for incorporated MIT code. See LICENSE, THIRD_PARTY_NOTICES.md and SHOWDOWN_INTEGRATION.md for exact upstream sources, data provenance and limitations. @pkmn/img resolves form, shiny and gender sprite URLs; artwork rights are separate from source-code licensing.
+
+Move inputs support arrows, Tab/Enter completion and bounded forward/reverse navigation. EV buttons/arrows step by four while preserving imported odd values until edited; nature can be selected directly with +/- controls. Explicit species changes supply default abilities and canonical required items. New drafts show format before a generated title and focus Add Pokémon.
+
+The production build first runs scripts/source-offer.mjs, emitting public/source/teamvault-source.tar. It contains tracked application/configuration/documentation files and a hash manifest, never runtime environments, databases or user content. Stage new source files before building from Git. Downloaded source uses SOURCE_MANIFEST.json without requiring .git; install dependencies with the included pnpm-workspace.yaml, then use the local commands above. Node and a native tar executable are required.

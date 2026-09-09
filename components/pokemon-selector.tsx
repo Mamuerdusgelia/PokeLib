@@ -1,4 +1,6 @@
 'use client';
+// Keyboard completion adapted from Pokémon Showdown battle-team-editor.tsx,
+// Copyright Guangcong Luo and contributors; AGPLv3. TeamVault changes 2026-09-08.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { toID } from '@pkmn/dex';
@@ -6,6 +8,7 @@ import {
   builderCatalog,
   dexFor,
   learnsetSuggestions,
+  matchesSpeciesQuery,
   statIds,
   statNames,
   type SelectorKind,
@@ -32,6 +35,7 @@ export function PokemonSelector({
   format,
   species,
   value,
+  initialQuery,
   onSelect,
   onClose,
 }: {
@@ -39,10 +43,13 @@ export function PokemonSelector({
   format: string;
   species: string;
   value: string;
-  onSelect: (name: string) => void;
+  initialQuery?: string;
+  onSelect: (name: string, direction?: number) => void;
   onClose: () => void;
 }) {
-  const [query, setQuery] = useState(''),
+  const [query, setQuery] = useState(
+      initialQuery ?? (kind === 'moves' ? value : ''),
+    ),
     [type, setType] = useState(''),
     [type2, setType2] = useState(''),
     [ability, setAbility] = useState(''),
@@ -53,6 +60,8 @@ export function PokemonSelector({
     error?: boolean;
   } | null>(null);
   const [highlight, setHighlight] = useState('');
+  const [showAllMoves, setShowAllMoves] = useState(false);
+  const [limit, setLimit] = useState(100);
   const [moveQuery, setMoveQuery] = useState('');
   const [moveMatches, setMoveMatches] = useState<{
     key: string;
@@ -74,14 +83,15 @@ export function PokemonSelector({
   const learnsetStatus = !species
     ? 'Generation moves'
     : learnset?.key !== learnsetKey
-      ? 'Loading learnset suggestions…'
+      ? 'Loading Showdown move pool…'
       : learnset.error
-        ? 'Learnset unavailable. Showing generation moves.'
-        : 'Learnset suggestions first · other moves remain available';
+        ? 'Move pool unavailable. Retry opening this selector, or show all generation moves.'
+        : 'Showdown move pool';
   useEffect(() => {
     input.current?.focus();
+    if (initialQuery === undefined) input.current?.select();
     input.current?.scrollIntoView({ block: 'nearest' });
-  }, []);
+  }, [initialQuery]);
   useEffect(() => {
     if (kind !== 'moves' || !species) return;
     let cancelled = false;
@@ -147,6 +157,13 @@ export function PokemonSelector({
     return entries
       .filter((e) => {
         if (
+          kind === 'moves' &&
+          pokemon.exists &&
+          !showAllMoves &&
+          !suggestions.has(e.id)
+        )
+          return false;
+        if (
           kind === 'species' &&
           moveFilter &&
           (moveMatches?.key !== moveKey || !moveMatches.names.has(e.id))
@@ -156,7 +173,9 @@ export function PokemonSelector({
         const abilities = 'abilities' in e ? Object.values(e.abilities) : [];
         const search = [e.name, ...types, ...abilities].join(' ').toLowerCase();
         return (
-          tokens.every((t) => search.includes(t)) &&
+          (kind === 'species' && 'abilities' in e && 'types' in e
+            ? matchesSpeciesQuery(format, e, query)
+            : tokens.every((t) => search.includes(t))) &&
           (!type || types.some((t) => t === type)) &&
           (!type2 || types.some((t) => t === type2)) &&
           (!ability ||
@@ -209,9 +228,11 @@ export function PokemonSelector({
     moveFilter,
     moveKey,
     moveMatches,
+    showAllMoves,
+    format,
   ]);
   const highlighted =
-    rows.slice(0, 100).find((row) => row.name === highlight)?.name ||
+    rows.slice(0, limit).find((row) => row.name === highlight)?.name ||
     rows[0]?.name ||
     '';
   return (
@@ -296,9 +317,9 @@ export function PokemonSelector({
       {kind === 'species' && moveFilter && (
         <output className="picker-hint">
           {moveMatches?.key !== moveKey
-            ? 'Checking learnset suggestions…'
+            ? 'Checking Showdown move pools…'
             : moveMatches.error ||
-              'Move filter uses learnset suggestions, not full format legality.'}
+              'Move filter uses the same Showdown pool as move selection.'}
         </output>
       )}
       <Command
@@ -318,22 +339,40 @@ export function PokemonSelector({
           }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return;
-            if (event.key === 'Enter') {
+            // Adapted from Showdown battle-team-editor.keyDownSearchInput (AGPLv3).
+            // Commit and advance; the parent exits after the final move instead of wrapping.
+            if (
+              (event.key === 'Enter' || event.key === 'Tab') &&
+              highlighted &&
+              !event.altKey &&
+              !event.ctrlKey &&
+              !event.metaKey
+            ) {
               event.preventDefault();
               event.stopPropagation();
-              if (highlighted) onSelect(highlighted);
+              onSelect(highlighted, event.shiftKey ? -1 : 1);
             }
           }}
         />
         {kind === 'moves' && (
           <p className="picker-hint">
-            {learnsetStatus || 'Generation moves'} · Suggestions are not a
-            legality check.
+            {learnsetStatus} · Individual moves, not a tournament legality
+            check.
+            {pokemon.exists && (
+              <label className="move-pool-toggle">
+                <input
+                  type="checkbox"
+                  checked={showAllMoves}
+                  onChange={(e) => setShowAllMoves(e.target.checked)}
+                />{' '}
+                Show all generation moves / custom sets
+              </label>
+            )}
           </p>
         )}
         <CommandList className="selector-results">
           <CommandEmpty>No matching results.</CommandEmpty>
-          {rows.slice(0, 100).map((e) => (
+          {rows.slice(0, limit).map((e) => (
             <CommandItem
               key={e.id}
               value={e.name}
@@ -349,7 +388,11 @@ export function PokemonSelector({
                 {'types' in e && (
                   <span className="type-badges">
                     {e.types.map((t) => (
-                      <span className="type-badge" key={t}>
+                      <span
+                        className="type-badge"
+                        data-pokemon-type={t}
+                        key={t}
+                      >
                         {t}
                       </span>
                     ))}
@@ -378,12 +421,18 @@ export function PokemonSelector({
               {'basePower' in e && (
                 <span className="selector-move-data">
                   <span>
-                    {e.type} · {e.category}
+                    <span className="type-badge" data-pokemon-type={e.type}>
+                      {e.type}
+                    </span>{' '}
+                    <span className="category-badge" data-category={e.category}>
+                      {e.category}
+                    </span>
                   </span>
                   <small>
                     Power {e.basePower || '—'} · Acc.{' '}
                     {e.accuracy === true ? '—' : e.accuracy}
-                    {suggestions.has(e.id) ? ' · Learnset' : ''}
+                    {e.accuracy === true ? '' : '%'}
+                    {suggestions.has(e.id) ? ' · Learnable' : ''}
                   </small>
                 </span>
               )}
@@ -394,8 +443,17 @@ export function PokemonSelector({
       <div className="selector-footer">
         <small>
           {rows.length} results
-          {rows.length > 100 ? ' · showing first 100; refine your search' : ''}
+          {rows.length > limit ? ` · showing first ${limit}` : ''}
         </small>
+        {rows.length > limit && (
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => setLimit((n) => n + 100)}
+          >
+            Show 100 more
+          </button>
+        )}
         {query.trim() && !rows.some((e) => toID(e.name) === toID(query)) && (
           <button
             className="text-link"

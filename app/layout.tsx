@@ -32,6 +32,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <footer className="source-offer">
+          <a href="/source/teamvault-source.tar" download>
+            TeamVault source · AGPLv3
+          </a>
+          <span>Builder adapted from Pokémon Showdown</span>
+        </footer>
       </body>
     </html>
   );
