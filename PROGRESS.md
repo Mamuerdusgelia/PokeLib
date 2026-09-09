@@ -2,7 +2,7 @@
 
 ## Current state
 
-The focused builder usability/performance pass is implemented and undergoing final publication checks. Starting HEAD was 2df25d1, with the previous live application fab8129. Resolve the exact new implementation commit and tree state with git log -3 --oneline and git status --short. Publication result will be recorded below after deployment.
+The focused builder usability/performance pass is complete and privately published. Implementation commit f2d4245a92289ec5832e2e40b9f5e5b3a96b26a5 (f2d4245), starting from 2df25d1. This documentation-only follow-up records publication; git log -3 --oneline and git status --short resolve its latest commit and clean tree.
 
 No unrelated major feature was started. Supabase external setup, PokéPaste, folders and special-format parity were explicitly excluded. Existing Supabase adapter semantics were updated alongside D1 so the Save contract stays consistent; this did not configure a live Supabase project.
 
@@ -28,7 +28,7 @@ No unrelated major feature was started. Supabase external setup, PokéPaste, fol
 - node scripts/test-http.mjs: PASS after integration: authentication, current Save, immutable history/restore, private authoring flags, search, share/revoke, origin enforcement and permanent deletion.
 - node node_modules/typescript/bin/tsc --noEmit: PASS after final functional fixes.
 - Full lint: FAIL, 67 pre-existing errors. Compared normalized diagnostics with prior showdown-lint.log; the only new warning (test prefer-const) was fixed. No new lint debt from this pass.
-- Production build: PASS, all five Vinext phases. Large-chunk and static route-classification warnings remain. Source archive refreshed after final documentation, with 166 files; final packaging/hash validation is recorded with publication.
+- Production build: PASS, all five Vinext phases. Large-chunk and static route-classification warnings remain. Source archive refreshed after final documentation, with 166 files; final packaging/hash validation passed and is recorded with publication.
 
 Browser acceptance performed on localhost:
 
@@ -37,7 +37,7 @@ Browser acceptance performed on localhost:
 - Gholdengo: hdb selection, Steel Tera, Shadow Ball/Make It Rain/Nasty Plot/Recover; Attack automatically zero. Reopen confirms persisted 0; replacing Recover with Iron Head restores 31.
 - Save keeps v1/history count 1. Manual Attack 0 plus set note saved as v2 with comment. Historical Save disabled. Restore v1 creates v3. v2 still has manual 0 and note (also verified through API). Favourite then Save succeeds.
 - Both disposable QA teams deleted after acceptance using exact IDs/title checks; user/demo records and older UX Review record retained. One initial cleanup request used an incorrect payload and failed without deleting anything; corrected contract succeeded.
-- Existing published library/editor inspected read-only before deployment; an unsaved new draft was opened and closed. Earlier network-suspended attempts failed, later access succeeded. Hosted acceptance after update will be recorded below.
+- Existing published library/editor inspected read-only before deployment; an unsaved new draft was opened and closed. Earlier network-suspended attempts failed, later access succeeded. Hosted source smoke validation after update is recorded below.
 - Current pass did not repeat phone-size/physical touch/screen-reader or full sharing-page visual acceptance. Prior 390px layout work remains; HTTP sharing regression passes.
 
 ## Measured performance
@@ -107,4 +107,13 @@ git log -3 --oneline
 
 ## Publication
 
-Existing owner-only site: https://teamvault-library.internetscaryuwu.chatgpt.site/. Access reverified before publication: owner, custom allowlist of one account, no external visitors or groups. Prior live implementation is fab8129 (saved version 4). New publication and final build/archive results will be recorded after successful deployment. No access-policy or runtime environment changes are requested.
+Published successfully at https://teamvault-library.internetscaryuwu.chatgpt.site on 2026-09-09T11:16:33Z. Owner-only access reverified after deployment: owner role, custom allowlist with one account, no external visitors/groups. No access-policy or runtime environment change. The new D1 migration was included in the deployment archive.
+
+- Deployed source: f2d4245a92289ec5832e2e40b9f5e5b3a96b26a5, pushed before saving/publishing.
+- Saved version: 5; appgprj_6a9d7930f9208191b3e0b14aae68961d~appgver_0886e8fa584081919fa89147ddf63bd1.
+- Deployment: appgdep_6aa13fe68e4881919e5f03bc5a914809; terminal status succeeded.
+- Packaging: validated Worker entrypoint, static assets, hosting metadata and drizzle/0002_edit_current_version.sql. Source manifest checked all 166 files against source bytes, including new migrations/tests; runtime environment/database/user data excluded.
+- Local corresponding-source GET returned 200/exact bytes. Hosted owner-authenticated GET returned 200, 12,501,504 bytes, exactly matching the validated local corresponding-source archive.
+- Existing hosted library/editor was inspected before publication without saving a draft. After deployment the Site view was reloaded and open_in_codex returned queued. The browser session then lost its tabs, so post-deploy interactive Save was not repeated; do not conflate source/HTTP deployment smoke with that unperformed check. Full interactive acceptance was performed locally.
+
+The source offer was refreshed after final documentation corrections and copied into the already validated build's static output before packaging; no application JavaScript changed after that successful production build. This publication-status update is a documentation-only follow-up and is not part of the deployed f2d4245 source archive. Retain owner-only access.
