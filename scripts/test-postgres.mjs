@@ -1,3 +1,4 @@
+import { testLargeWorkflows } from './test-large-workflows.mjs';
 import { snapshotRevision } from '../.test-build/domain.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import assert from 'node:assert/strict';
@@ -618,5 +619,18 @@ for (const [loserAction, winnerAction] of [
     },
   );
 }
+const otherClient = {
+  rpc: async (name, args) => {
+    await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [b]);
+    try {
+      return await client.rpc(name, args);
+    } finally {
+      await pg.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [
+        a,
+      ]);
+    }
+  },
+};
+await testLargeWorkflows(store, new SupabaseStore(otherClient), check);
 console.log('PostgreSQL: ' + passed + ' checks passed.');
 await pg.close();

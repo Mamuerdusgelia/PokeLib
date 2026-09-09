@@ -73,9 +73,9 @@ export function PokemonSlotBar({
               <Plus size={25} />
             )}
             <strong title={slot.set.species}>
-              {slot.set.name || slot.set.species || 'Choose Pokémon'}
+              {slot.set.name || slot.set.species || 'Empty slot'}
             </strong>
-            <small>{slot.set.item || 'No item'}</small>
+            {slot.set.species && <small>{slot.set.item || 'No item'}</small>}
           </button>
         ) : (
           <button
@@ -249,65 +249,67 @@ export function PokemonSetEditor({
       className="pokemon-set-editor"
       aria-label="Selected Pokémon set"
     >
-      <div className="set-editor-heading">
-        <div className="builder-species">
-          {s.species && (
-            <PokemonSprite
-              key={s.species}
-              species={s.species}
-              shiny={s.shiny}
-              gender={s.gender}
-            />
-          )}
-          <div>
-            <span className="eyebrow">
-              POKÉMON {index + 1} / {count}
-            </span>
-            <h3>
-              <button
-                className="edit-value"
-                type="button"
-                aria-label="Edit Pokémon species"
-                onClick={() => setSelection({ kind: 'species' })}
-              >
-                {s.species || 'Choose your Pokémon'}
-              </button>
-            </h3>
-            {species.exists && (
-              <span className="type-badges">
-                {species.types.map((t) => (
-                  <span className="type-badge" data-pokemon-type={t} key={t}>
-                    {t}
-                  </span>
-                ))}
-              </span>
+      {s.species && (
+        <div className="set-editor-heading">
+          <div className="builder-species">
+            {s.species && (
+              <PokemonSprite
+                key={s.species}
+                species={s.species}
+                shiny={s.shiny}
+                gender={s.gender}
+              />
             )}
+            <div>
+              <span className="eyebrow">
+                POKÉMON {index + 1} / {count}
+              </span>
+              <h3>
+                <button
+                  className="edit-value"
+                  type="button"
+                  aria-label="Edit Pokémon species"
+                  onClick={() => setSelection({ kind: 'species' })}
+                >
+                  {s.species || 'Choose your Pokémon'}
+                </button>
+              </h3>
+              {species.exists && (
+                <span className="type-badges">
+                  {species.types.map((t) => (
+                    <span className="type-badge" data-pokemon-type={t} key={t}>
+                      {t}
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="slot-actions">
+            <button
+              type="button"
+              className="button ghost"
+              aria-label="Move Pokémon left"
+              disabled={index === 0}
+              onClick={() => onMove(-1)}
+            >
+              <ArrowLeft size={15} />
+            </button>
+            <button
+              type="button"
+              className="button ghost"
+              aria-label="Move Pokémon right"
+              disabled={index === count - 1}
+              onClick={() => onMove(1)}
+            >
+              <ArrowRight size={15} />
+            </button>
+            <button type="button" className="button danger" onClick={onRemove}>
+              <Trash2 size={14} /> Remove
+            </button>
           </div>
         </div>
-        <div className="slot-actions">
-          <button
-            type="button"
-            className="button ghost"
-            aria-label="Move Pokémon left"
-            disabled={index === 0}
-            onClick={() => onMove(-1)}
-          >
-            <ArrowLeft size={15} />
-          </button>
-          <button
-            type="button"
-            className="button ghost"
-            aria-label="Move Pokémon right"
-            disabled={index === count - 1}
-            onClick={() => onMove(1)}
-          >
-            <ArrowRight size={15} />
-          </button>
-          <button type="button" className="button danger" onClick={onRemove}>
-            <Trash2 size={14} /> Remove
-          </button>
-        </div>
-      </div>
+      )}
       {selection && (
         <PokemonSelector
           key={selection.kind + ':' + selection.moveIndex}

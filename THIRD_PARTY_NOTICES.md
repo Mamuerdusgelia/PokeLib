@@ -9,6 +9,8 @@ Keyboard, nature and default-choice adaptations derive from battle-team-editor.t
 
 Search traversal adaptations derive from battle-dex-search.ts, with its explicit MIT header and author Guangcong Luo <guangcongluo@gmail.com>.
 
+The metadata-only format registry in lib/showdown-data/formats.json is generated from Pokémon Showdown server config/formats.ts at cc089d36b7717dec78ce8ab5d1745c03ad5c97e4. Its upstream MIT license and copyright are reproduced below; scripts/update-formats.mjs extracts names, IDs, mods, sections and battle types without executing simulator code. The original source URL, revision and source SHA-256 are stored in the registry.
+
 The MIT License (MIT)
 
 Copyright (c) 2011-2026 Guangcong Luo and other contributors http://pokemonshowdown.com/

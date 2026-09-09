@@ -1,3 +1,9 @@
+import {
+  canonicalFormat,
+  knownFormat,
+  cleanFormatContext,
+  type FormatContext,
+} from './formats';
 export type PokemonSet = {
   name?: string;
   species: string;
@@ -18,6 +24,7 @@ export type Precision = 'exact' | 'month' | 'year' | 'unknown';
 export type TeamMeta = {
   title: string;
   format: string;
+  format_context?: FormatContext;
   tags: string[];
   source_type: string;
   source_name: string;
@@ -182,7 +189,13 @@ export function cleanMeta(d: TeamMeta): TeamMeta {
   }
   return {
     title: d.title.trim(),
-    format: (d.format || 'unknown').trim().slice(0, 80),
+    format: canonicalFormat(
+      (d.format || 'unknown').trim().slice(0, 80),
+      d.format_context?.generation,
+    ),
+    ...(d.format_context
+      ? { format_context: cleanFormatContext(d.format_context) }
+      : {}),
     tags: normalizeTags(d.tags ?? []),
     source_type: d.source_type,
     source_name: (d.source_name ?? '').slice(0, 200),
@@ -211,6 +224,7 @@ export function dateLabel(
           });
 }
 export const formatLabel = (f: string) =>
+  knownFormat(f)?.name.replace(/\[|\]/g, '') ||
   f
     .replace(/^gen(\d+)/i, 'Gen $1 ')
     .replace(/vgc20(\d{2})/i, 'VGC $1 ')

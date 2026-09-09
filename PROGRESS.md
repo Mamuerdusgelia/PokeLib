@@ -1,3 +1,49 @@
+# Active work — 2026-09-10
+
+The large-library brief in attachment efab8b97 is active. User requested continuing after this foundation; do not interpret the older next-task list below as current scope. Starting clean checkpoint was c3a93a9. Source has not yet been republished in this pass; the previous owner-only deployment remains live until final verification/publication.
+
+## Completed foundation
+
+- Canonical Showdown format registry/picker and Singles/Doubles → generation/game → competitive-format navigation; unknown strings preserved, explicit Custom / Other generation/battle context, old format alias search, no raw history rewrite.
+- 1k/5k/10k isolated six-set libraries measured. At 10k the same-set median fell from 2746.05 to 26.98 ms; initial-page median 82.75 to 2.91 ms. Pagination selects IDs before joining snapshots. See PERFORMANCE.md for medians/maxima, selection/bulk measurements, payloads and limitations.
+- One 1,000-team UI import with 50 previews/page, common metadata, five-team chunks, progress and owner-scoped durable retry receipts. Automated tests prove replay/failed-chunk behavior on D1 and PostgreSQL.
+- Page selection accumulates across pages; all matching selection returns at most 10,000 IDs, with actions blocked until selection finishes. Bulk Add tag / metadata and Delete share chunk receipts and progress. One delete confirmation; exact partial counts; atomic ownership/concurrency rechecks.
+- Empty Pokémon slot opens the selector with search focused and fewer repeated labels. Format suggestions are computed only while the picker is open.
+- D1 grouped search/tag inserts reduce six-set Save statement count 194→14; guards remain. Real request-stage/variant Save profiling remains to do.
+- D1 0003 indexes and 0004 operation_chunks plus matching PostgreSQL 202609100001/0002 migrations. Local D1 applied after SQLite backup API. The initial command accidentally created a separate empty default Wrangler state; that directory was moved into ignored .artifacts/library-scale/unused-default-wrangler-state. Correct migrations used --persist-to .wrangler/state.
+
+## Verification at the foundation
+
+- Automated suite PASS: 183 checks (66 D1/domain, 48 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 8 formats).
+- HTTP integration PASS after final functional fixes: authentication, Save/history/restore/share plus format normalization, import replay, ID-only selection, bulk tags/deletion, origin rejection.
+- TypeScript PASS. Lint remains FAIL: 66 existing diagnostics (previous checkpoint 67); no diagnostics in the new format/import/bulk/test helpers. Production build PASS (all five Vinext phases; 184-file corresponding-source archive). The Sites 0.1.66 build helper failed in Windows command quoting; the same package build succeeded through PowerShell with a command-scoped safe.directory exception for this checkout. No global Git setting changed.
+- Browser: empty-slot autofocus; Gen 4 Ubers; National Dex singles/doubles; stored custom Gen 5 Doubles and local-today date; 1,000 one-set import with progress and Unknown dates; page selection 30→60; select all 1,001 fixtures; bulk tag; one-confirmation deletion. Read-only comparison confirms all 6 original teams, 13 snapshots and 2 share rows unchanged; every QAScale20260910 fixture was removed. Browser navigation had intermittent timeouts and pointer clicks during moving layouts; keyboard activation and subsequent state verification completed checks. Physical touch/assistive tech remains unverified.
+
+## Next work, in priority order
+
+1. Commit the verified format/scale/bulk foundation before starting schema work.
+2. Complete variants end-to-end in both adapters: nullable/lazy family mapping, one Main build for legacy teams, independent current/history, clone/rename/delete variant and explicit whole-family deletion, paginated family grouping/matching-variant expansion, ownership/race/migration tests and browser QA. Follow SCHEMA_PLAN.md; never leave a partially migrated variant schema or relabel history as variants.
+3. Safe allowlisted PokéPaste server import (JSON/raw, title/author/URL provenance, Unknown date); test a real URL and SSRF rejection.
+4. Private saved-query Collections CRUD and canonical filters; no duplicate memberships/folders.
+5. Live collection capability sharing, rotate/revoke, membership checked at every detail read, matching variants grouped, no client query override.
+6. Repeated one/six-set real Save/new history/Create variant timing stages, before/after medians/outliers, preserve persistence-confirmed Saved and three-token guards.
+7. Re-run complete adapter/HTTP/type/build verification, update all docs/source offer, commit clean, publish owner-only, verify deployed source and access.
+
+## Limits / decisions to preserve
+
+- Variant and collection schemas are designed only, not yet started. Existing Save and shares retain their original team/history semantics.
+- In-dialog retry works; refreshing/remounting loses the UI operation descriptor. Receipts persist indefinitely for safe replay; retention/expiry and durable UI resumption need design. Legacy unchunked API/WebMCP import and selected export still have a 200-team request bound; large archives use the new Import dialog.
+- Custom identifiers are still grouped/searched by name. Reusing one unknown identifier in multiple generation/battle contexts is ambiguous in the single format facet map; preserve per-team context and revisit compound facets if needed.
+- Full current snapshot DTOs are returned for each 30-team page. No 10k full objects reach the library browser; selection is ID-only. Large per-team history/detail remains unpaginated. 20 MB is an input ceiling, not a promise that every complex 10,000-block archive fits a hosted isolate's memory/CPU limits.
+- Benchmarks are isolated local SQLite, not hosted D1/PG latency. Existing special-format/game parity limits, beta Vinext, client bundle size, lint debt, live Supabase auth/RLS setup and full-fidelity backup migration remain.
+- Preserve raw bytes/notes, immutable history, concurrency tokens, local-today vs imported Unknown dates, same-set search, owner checks, reusable tags, source licenses/offer and owner-only site access. No folders, PokéPaste publishing, simulator/AI/social or special-format expansion.
+
+## Key files for continuing
+
+SCHEMA_PLAN.md; PERFORMANCE.md; db/schema.ts; lib/domain.ts; lib/demo-store.ts; lib/supabase-store.ts; lib/snapshot.ts; lib/search.ts; components/library.tsx; components/bulk-actions.tsx; components/import-teams.tsx; components/visual-team-editor.tsx; scripts/test-large-workflows.mjs; scripts/test-save-model.mjs; scripts/benchmark-scale.mjs; scripts/benchmark-save.mjs; new D1/PG migrations. Source-offer allowlist now includes schema/performance documentation.
+
+## Earlier checkpoint (historical, superseded where noted above)
+
 # TeamVault progress — builder usability correction, 2026-09-09
 
 ## Current state

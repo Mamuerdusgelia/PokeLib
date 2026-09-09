@@ -6,6 +6,7 @@ import {
   type TeamRecord,
   type Precision,
 } from '@/lib/domain';
+import { FormatPicker } from './format-picker';
 import { Field, Pick } from './vault-ui';
 
 export function InlineTeamMetadata({
@@ -55,7 +56,7 @@ export function InlineTeamMetadata({
           field === 'title'
             ? { title: draft.title }
             : field === 'format'
-              ? { format: draft.format }
+              ? { format: draft.format, format_context: draft.format_context }
               : field === 'date'
                 ? {
                     team_date: draft.team_date,
@@ -90,11 +91,12 @@ export function InlineTeamMetadata({
       )}
       {field === 'format' && (
         <Field label="Team format">
-          <input
-            aria-label="Team format"
+          <FormatPicker
             value={draft.format}
-            placeholder="gen5ou"
-            onChange={(e) => update('format', e.target.value)}
+            context={draft.format_context}
+            onChange={(format, format_context) =>
+              setDraft({ ...draft, format, format_context })
+            }
           />
         </Field>
       )}

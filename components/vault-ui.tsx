@@ -3,6 +3,7 @@ import { useState, type ReactNode, type ComponentProps } from 'react';
 import { TagPicker } from './tag-picker';
 import { pokemonSprite } from '@/lib/pokemon-sprites';
 import { readVisualTeam } from '@/lib/visual-team';
+import { assistanceFormat } from '@/lib/formats';
 import {
   presentedSet,
   generationFor,
@@ -193,8 +194,10 @@ export function PokemonDetails({
   function exportSet(index: number) {
     setExportMessage('');
     try {
-      const slot = readVisualTeam(team.version.showdown_text, team.format)
-        .slots[index];
+      const slot = readVisualTeam(
+        team.version.showdown_text,
+        assistanceFormat(team.format, team.format_context),
+      ).slots[index];
       if (!slot)
         throw Error(
           'This set could not be separated safely. Use the full team export.',
@@ -210,7 +213,9 @@ export function PokemonDetails({
     <>
       <div className="set-grid">
         {team.version.parsed_team
-          .map((p) => presentedSet(team.format, p))
+          .map((p) =>
+            presentedSet(assistanceFormat(team.format, team.format_context), p),
+          )
           .map((p, i) => (
             <article className="set-card" key={i}>
               <div className="set-title">
@@ -227,14 +232,16 @@ export function PokemonDetails({
                   {p.name && p.name !== p.species && (
                     <p className="nickname">{p.name}</p>
                   )}
-                  {generationFor(team.format) >= 2 && (
-                    <p>{value(p.item || 'No item', i, 'item')}</p>
-                  )}
+                  {generationFor(
+                    assistanceFormat(team.format, team.format_context),
+                  ) >= 2 && <p>{value(p.item || 'No item', i, 'item')}</p>}
                 </div>
                 {p.shiny && <span className="tag">Shiny</span>}
               </div>
               <dl>
-                {generationFor(team.format) >= 3 && (
+                {generationFor(
+                  assistanceFormat(team.format, team.format_context),
+                ) >= 3 && (
                   <>
                     <div>
                       <dt>Ability</dt>
@@ -248,12 +255,15 @@ export function PokemonDetails({
                     </div>
                   </>
                 )}
-                {generationFor(team.format) >= 9 && p.teraType && (
-                  <div>
-                    <dt>Tera type</dt>
-                    <dd>{value(p.teraType, i, 'teraType')}</dd>
-                  </div>
-                )}
+                {generationFor(
+                  assistanceFormat(team.format, team.format_context),
+                ) >= 9 &&
+                  p.teraType && (
+                    <div>
+                      <dt>Tera type</dt>
+                      <dd>{value(p.teraType, i, 'teraType')}</dd>
+                    </div>
+                  )}
                 <div>
                   <dt>EVs</dt>
                   <dd>

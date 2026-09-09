@@ -1,16 +1,19 @@
 'use client';
 import { sourceTypes, type Draft, type Precision } from '@/lib/domain';
+import { FormatPicker } from './format-picker';
 import { Field, Pick, TagEditor } from './vault-ui';
 export function MetaFields({
   draft,
   setDraft,
   tags = [],
   compact = false,
+  importCommon = false,
 }: {
   draft: Draft;
   setDraft: (d: Draft) => void;
   tags?: string[];
   compact?: boolean;
+  importCommon?: boolean;
 }) {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft({ ...draft, [key]: value });
@@ -18,23 +21,27 @@ export function MetaFields({
     <div className="meta-fields">
       {!compact && (
         <>
-          <div className="field-row">
-            <Field label="Team name">
-              <input
-                value={draft.title}
-                maxLength={160}
-                onChange={(e) => set('title', e.target.value)}
-                placeholder="Give this team a name"
-              />
-            </Field>
-            <Field label="Showdown format">
-              <input
-                value={draft.format}
-                onChange={(e) => set('format', e.target.value)}
-                placeholder="gen9ou"
-              />
-            </Field>
-          </div>
+          {!importCommon && (
+            <div className="field-row">
+              <Field label="Team name">
+                <input
+                  value={draft.title}
+                  maxLength={160}
+                  onChange={(e) => set('title', e.target.value)}
+                  placeholder="Give this team a name"
+                />
+              </Field>
+              <Field label="Showdown format">
+                <FormatPicker
+                  value={draft.format}
+                  context={draft.format_context}
+                  onChange={(format, format_context) =>
+                    setDraft({ ...draft, format, format_context })
+                  }
+                />
+              </Field>
+            </div>
+          )}
           <Field label="Tags">
             <TagEditor
               tags={draft.tags}

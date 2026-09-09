@@ -4,6 +4,8 @@ import ts from 'typescript';
 const root = process.cwd();
 await fs.mkdir('.test-build', { recursive: true });
 for (const name of [
+  'formats',
+  'import-workflow',
   'domain',
   'public-config',
   'showdown',
@@ -33,6 +35,10 @@ for (const name of [
       },
     })
     .outputText.replace(/from '(\.\/[^']+)'/g, (_, p) => "from '" + p + ".mjs'")
+    .replace(
+      /from '(\.\/[^']+\.json)\.mjs'/g,
+      (_, p) => "from '" + p + "' with {type:'json'}",
+    )
     .replace(/import\('(\.\/[^']+)'/g, (_, p) =>
       p.endsWith('.json')
         ? "import('" + p + "', {with:{type:'json'}}"
@@ -50,6 +56,7 @@ try {
   await import('./test-builder.mjs');
   await import('./test-showdown.mjs');
   await import('./test-defaults.mjs');
+  await import('./test-formats.mjs');
 } catch (e) {
   console.error({
     message: e.message,

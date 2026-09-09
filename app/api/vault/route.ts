@@ -6,11 +6,13 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
     mutationOrigin(request);
-    if (Number(request.headers.get('content-length') || 0) > 6000000)
-      throw Error('Keep imports below 5 MB.');
+    if (Number(request.headers.get('content-length') || 0) > 21000000)
+      throw Error('Keep import archives below 20 MB.');
     const raw = await request.text();
-    if (raw.length > 6000000) throw Error('Keep imports below 5 MB.');
+    if (raw.length > 21000000) throw Error('Keep import archives below 20 MB.');
     const { action, payload: p = {} } = JSON.parse(raw);
+    if (action !== 'parse' && raw.length > 6000000)
+      throw Error('Request too large; use smaller chunks.');
     const store = await storeFor(request);
     let result: any;
     switch (action) {
@@ -26,14 +28,21 @@ export async function POST(request: Request) {
       case 'get':
         result = await store.get(p.id);
         break;
+      case 'select':
+        result = await store.list({
+          ...p,
+          plan: planQuery(p.query || ''),
+          ids_only: true,
+        });
+        break;
       case 'parse':
-        result = parseBatch(p.text, p.format);
+        result = parseBatch(p.text, p.format, p.format_context);
         break;
       case 'preview':
         result = parseShowdown(p.text, p.format);
         break;
       case 'import':
-        result = await store.import(p.drafts);
+        result = await store.import(p.drafts, p.chunk);
         break;
       case 'seed':
         result = await store.import(demoDrafts);
@@ -62,7 +71,10 @@ export async function POST(request: Request) {
         result = await store.patch(p.id, p.patch);
         break;
       case 'bulk':
-        result = await store.bulk(p.ids, p.patch);
+        result = await store.bulk(p.ids, p.patch, p.chunk);
+        break;
+      case 'bulk_delete':
+        result = await store.bulkDelete(p.ids, p.chunk);
         break;
       case 'delete':
         result = await store.delete(p.id);

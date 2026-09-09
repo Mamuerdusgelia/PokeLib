@@ -1,10 +1,12 @@
 'use client';
-import { useState } from 'react';
-import { Check, Upload, ArrowRight } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Upload, ArrowRight } from 'lucide-react';
 import { api } from '@/lib/client';
 import { emptyDraft, type Draft } from '@/lib/domain';
+import { IMPORT_CHUNK_SIZE } from '@/lib/import-workflow';
 import { Modal, Field } from './vault-ui';
 import { MetaFields } from './team-metadata-panel';
+import { FormatPicker } from './format-picker';
 export function ImportTeams({
   tags,
   onClose,
@@ -23,15 +25,36 @@ export function ImportTeams({
     title: 'Batch metadata',
     format: '',
   });
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(0),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false),
+    [completed, setCompleted] = useState(0),
+    [locked, setLocked] = useState(false);
+  const operation = useRef<{
+    id: string;
+    drafts: Draft[];
+    next: number;
+  } | null>(null);
+  function close() {
+    if (busy) return;
+    if (completed) onSaved();
+    else onClose();
+  }
   async function parse() {
     setBusy(true);
     setError('');
     try {
       setBatch(
-        await api('parse', { text, format: common.format || 'unknown' }),
+        await api('parse', {
+          text,
+          format: common.format || 'unknown',
+          format_context: common.format_context,
+        }),
       );
+      setPage(0);
+      operation.current = null;
+      setCompleted(0);
+      setLocked(false);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -39,28 +62,53 @@ export function ImportTeams({
     }
   }
   async function save() {
+    if (!batch || busy) return;
     setBusy(true);
     setError('');
+    if (!operation.current)
+      operation.current = {
+        id: crypto.randomUUID(),
+        next: 0,
+        drafts: batch.map(({ draft }) => ({
+          ...draft,
+          tags: common.tags,
+          source_type: common.source_type,
+          source_name: common.source_name,
+          source_url: common.source_url,
+          source_note: common.source_note,
+          team_date: common.team_date,
+          team_date_precision: common.team_date_precision,
+          team_notes: common.team_notes,
+          ...(draft.format === 'unknown' && common.format
+            ? { format: common.format, format_context: common.format_context }
+            : {}),
+        })),
+      };
+    const job = operation.current;
+    setLocked(true);
     try {
-      const drafts = batch!.map(({ draft }) => ({
-        ...draft,
-        tags: common.tags,
-        source_type: common.source_type,
-        source_name: common.source_name,
-        source_url: common.source_url,
-        source_note: common.source_note,
-        team_date: common.team_date,
-        team_date_precision: common.team_date_precision,
-        team_notes: common.team_notes,
-        format:
-          draft.format === 'unknown'
-            ? common.format || 'unknown'
-            : draft.format,
-      }));
-      await api('import', { drafts });
+      while (job.next < job.drafts.length) {
+        const drafts = job.drafts.slice(job.next, job.next + IMPORT_CHUNK_SIZE);
+        await api('import', {
+          drafts,
+          chunk: {
+            operation_id: job.id,
+            chunk_index: Math.floor(job.next / IMPORT_CHUNK_SIZE),
+          },
+        });
+        job.next += drafts.length;
+        setCompleted(job.next);
+      }
       onSaved();
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        'Import paused at ' +
+          job.next +
+          ' / ' +
+          job.drafts.length +
+          '. Completed teams are saved. Retry continues the same import. ' +
+          (e as Error).message,
+      );
     } finally {
       setBusy(false);
     }
@@ -69,14 +117,14 @@ export function ImportTeams({
     <Modal
       wide
       title="Import your teams"
-      description="Bring your Showdown exports and backups into one searchable library."
-      onClose={onClose}
+      description="Import Showdown text or a complete backup."
+      onClose={close}
     >
       {!batch ? (
         <>
           <div className="import-drop">
             <Upload size={25} />
-            <strong>Paste a team or an entire Showdown backup</strong>
+            <strong>Paste a team or Showdown backup</strong>
             <p>
               For multiple teams, keep the === [format] Team name === headers.
             </p>
@@ -89,8 +137,8 @@ export function ImportTeams({
                 onChange={async (e) => {
                   const f = e.target.files?.[0];
                   if (f) {
-                    if (f.size > 5000000) {
-                      setError('Choose a file smaller than 5 MB.');
+                    if (f.size > 20000000) {
+                      setError('Choose an archive smaller than 20 MB.');
                       return;
                     }
                     setText(await f.text());
@@ -107,78 +155,119 @@ export function ImportTeams({
             onChange={(e) => setText(e.target.value)}
             placeholder="Paste Pokémon Showdown export text here…"
           />
-          <div className="callout">
-            Imported teams start with an Unknown historical date. The import
-            timestamp is recorded separately.
-          </div>
+          <Field label="Format for teams without a format header">
+            <FormatPicker
+              label="Fallback import format"
+              value={common.format}
+              context={common.format_context}
+              onChange={(format, format_context) =>
+                setCommon({ ...common, format, format_context })
+              }
+            />
+          </Field>
+          <p className="picker-hint">
+            Imported Team Dates start as Unknown. Import time is recorded
+            separately.
+          </p>
         </>
       ) : (
         <>
           <div className="import-summary">
-            <Check size={19} />
-            <strong>
-              {batch.length} {batch.length === 1 ? 'team' : 'teams'} ready to
-              import
-            </strong>
-            <button className="text-link" onClick={() => setBatch(null)}>
-              Edit pasted text
-            </button>
+            <strong>{batch.length} teams detected</strong>
+            {!locked && (
+              <button className="text-link" onClick={() => setBatch(null)}>
+                Edit pasted text
+              </button>
+            )}
           </div>
-          <div className="batch-preview">
-            {batch.map((b, i) => (
-              <div key={i}>
-                <span>{String(i + 1).padStart(2, '0')}</span>
-                <input
-                  aria-label={'Team ' + (i + 1) + ' name'}
-                  value={b.draft.title}
-                  onChange={(e) =>
-                    setBatch(
-                      batch.map((x, j) =>
-                        j === i
-                          ? {
-                              ...x,
-                              draft: { ...x.draft, title: e.target.value },
-                            }
-                          : x,
-                      ),
-                    )
-                  }
-                />
-                <input
-                  aria-label={'Team ' + (i + 1) + ' format'}
-                  value={b.draft.format}
-                  onChange={(e) =>
-                    setBatch(
-                      batch.map((x, j) =>
-                        j === i
-                          ? {
-                              ...x,
-                              draft: { ...x.draft, format: e.target.value },
-                            }
-                          : x,
-                      ),
-                    )
-                  }
-                />
-                {b.warnings.length > 0 && (
-                  <span className="warning">{b.warnings.join(' ')}</span>
-                )}
-              </div>
-            ))}
-          </div>
-          <h3>Apply to all teams</h3>
-          <div className="batch-meta">
-            <MetaFields draft={common} setDraft={setCommon} tags={tags} />
-          </div>
-          <Field label="Common team note">
-            <textarea
-              rows={2}
-              value={common.team_notes}
-              onChange={(e) =>
-                setCommon({ ...common, team_notes: e.target.value })
-              }
-            />
-          </Field>
+          <fieldset disabled={locked}>
+            <div className="batch-preview">
+              {batch.slice(page * 50, (page + 1) * 50).map((b, offset) => {
+                const i = page * 50 + offset;
+                const update = (draft: Draft) =>
+                  setBatch(
+                    batch.map((x, j) => (j === i ? { ...x, draft } : x)),
+                  );
+                return (
+                  <div key={i}>
+                    <span>{i + 1}</span>
+                    <input
+                      aria-label={'Team ' + (i + 1) + ' name'}
+                      value={b.draft.title}
+                      onChange={(e) =>
+                        update({ ...b.draft, title: e.target.value })
+                      }
+                    />
+                    <FormatPicker
+                      label={'Team ' + (i + 1) + ' format'}
+                      value={b.draft.format}
+                      context={b.draft.format_context}
+                      onChange={(format, format_context) =>
+                        update({ ...b.draft, format, format_context })
+                      }
+                    />
+                    {!!b.warnings.length && (
+                      <span className="warning">{b.warnings.join(' ')}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+          {batch.length > 50 && (
+            <div className="import-pagination">
+              <button
+                className="button"
+                disabled={!page}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous preview page
+              </button>
+              <span>
+                Showing {page * 50 + 1}–
+                {Math.min((page + 1) * 50, batch.length)} of {batch.length}
+              </span>
+              <button
+                className="button"
+                disabled={(page + 1) * 50 >= batch.length}
+                onClick={() => setPage(page + 1)}
+              >
+                Next preview page
+              </button>
+            </div>
+          )}
+          <fieldset disabled={locked}>
+            <h3>Apply to all teams</h3>
+            <div className="batch-meta">
+              <MetaFields
+                importCommon
+                draft={common}
+                setDraft={setCommon}
+                tags={tags}
+              />
+            </div>
+            <Field label="Common team note">
+              <textarea
+                rows={2}
+                value={common.team_notes}
+                onChange={(e) =>
+                  setCommon({ ...common, team_notes: e.target.value })
+                }
+              />
+            </Field>
+          </fieldset>
+          {locked && (
+            <div className="import-progress">
+              <progress
+                max={batch.length}
+                value={completed}
+                aria-label="Import progress"
+              />
+              <output aria-live="polite">
+                {busy ? 'Importing' : 'Imported'} {completed} / {batch.length}
+              </output>
+            </div>
+          )}
         </>
       )}
       {error && (
@@ -187,8 +276,8 @@ export function ImportTeams({
         </p>
       )}
       <div className="modal-actions">
-        <button className="button" onClick={onClose}>
-          Cancel
+        <button className="button" disabled={busy} onClick={close}>
+          {completed ? 'Close' : 'Cancel'}
         </button>
         <button
           className="button primary"
@@ -196,9 +285,13 @@ export function ImportTeams({
           onClick={batch ? save : parse}
         >
           {busy
-            ? 'Working…'
+            ? batch
+              ? 'Importing…'
+              : 'Parsing…'
             : batch
-              ? 'Import ' + batch.length + ' teams'
+              ? locked
+                ? 'Retry remaining teams'
+                : 'Import ' + batch.length + ' teams'
               : 'Preview import'}
           <ArrowRight size={15} />
         </button>

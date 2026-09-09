@@ -1,4 +1,10 @@
-import { normalize } from './domain';
+import {
+  canonicalFormat,
+  knownFormat,
+  isOrdinaryFormat,
+  formatGeneration,
+  type FormatContext,
+} from './formats';
 const games: Record<number, string> = {
   9: 'Scarlet / Violet',
   8: 'Sword / Shield',
@@ -10,112 +16,75 @@ const games: Record<number, string> = {
   2: 'Gold / Silver',
   1: 'Red / Blue',
 };
-const names: Record<string, string> = {
-  anythinggoes: 'Anything Goes',
-  doublesou: 'Doubles OU',
-  doublesubers: 'Doubles Ubers',
-  doublesuu: 'Doubles UU',
-  almostanyability: 'Almost Any Ability',
-  balancedhackmons: 'Balanced Hackmons',
-  mixandmega: 'Mix and Mega',
-  stabmons: 'STABmons',
-  monotype: 'Monotype',
-};
-export function describeFormat(value: string) {
-  const id = normalize(value),
-    match = id.match(/^gen(\d+)(.*)$/);
-  const generation = match ? Number(match[1]) : 0;
-  let suffix = match?.[2] || id;
-  let group =
-    games[generation] ||
-    (generation ? 'Generation ' + generation : 'Other formats');
-  for (const [prefix, name] of [
-    ['champions', 'Pokémon Champions'],
-    ['bdsp', 'Brilliant Diamond / Shining Pearl'],
-    ['letsgo', 'Let’s Go'],
-  ]) {
-    if (suffix.startsWith(prefix)) {
-      group = name;
-      suffix = suffix.slice(prefix.length);
-      break;
-    }
-  }
-  let category = 'Other formats';
-  if (suffix.includes('vgc')) category = 'VGC';
-  else if (suffix.startsWith('nationaldex')) category = 'National Dex';
-  else if (/battlestadium|battlespot|^bss/.test(suffix))
-    category = 'Battle Stadium / Spot';
-  else if (/doubles|triples/.test(suffix)) category = 'Doubles / Triples';
-  else if (
-    /^(ou|ubers|uu|ru|nu|pu|zu|lc|anythinggoes)(?:$|suspect|blitz|bo3)/.test(
-      suffix,
-    )
-  )
-    category = 'Singles';
-  else if (/draft/.test(suffix)) category = 'Draft';
-  else if (
-    /almostanyability|balancedhackmons|mixandmega|stabmons|monotype|1v1/.test(
-      suffix,
-    )
-  )
-    category = 'Other Metagames';
-  let label =
-    names[suffix] ||
-    (/^(ou|uu|ru|nu|pu|zu|lc)$/.test(suffix)
-      ? suffix.toUpperCase()
-      : suffix === 'ubers'
-        ? 'Ubers'
-        : value);
-  if (category === 'VGC') {
-    const vgc = suffix.slice(suffix.indexOf('vgc') + 3);
-    label =
-      vgc
-        .replace(/^(\d{4})/, '$1 · ')
-        .replace(
-          /(?:regulation|reg)([a-z]+?)(?=bo\d|$)/,
-          (_, r: string) => 'Regulation ' + r.toUpperCase(),
-        )
-        .replace(/bo(\d)/, ' · Bo$1')
-        .replace(/ultraseries/, 'Ultra Series')
-        .replace(/sunseries/, 'Sun Series')
-        .replace(/moonseries/, 'Moon Series')
-        .replace(/ · $/, '') || 'VGC';
-  }
-  if (category === 'National Dex')
-    label =
-      names[suffix.slice(11)] ||
-      suffix.slice(11).toUpperCase() ||
-      'National Dex';
+export function describeFormat(value: string, context?: FormatContext) {
+  const canonical = canonicalFormat(value);
+  const f = knownFormat(canonical);
+  const generation =
+    (f
+      ? formatGeneration(f)
+      : context?.generation || Number(value.match(/gen\s*([1-9])/i)?.[1])) || 0;
+  const battle =
+    f?.battle ||
+    context?.battle ||
+    (/doubles|vgc|triples/i.test(value) ? 'doubles' : 'singles');
+  const game = canonical.toLowerCase().includes('champions')
+    ? 'Pokémon Champions'
+    : canonical.toLowerCase().includes('bdsp')
+      ? 'BDSP'
+      : canonical.toLowerCase().includes('letsgo')
+        ? 'Let’s Go'
+        : games[generation] || 'Other game';
+  const group = generation
+    ? 'Gen ' + generation + ' · ' + game
+    : 'Unknown generation';
+  let label = f?.name.replace(/^\[[^\]]+\]\s*/, '') || value;
+  if (label === 'National Dex') label = 'National Dex OU';
+  const custom = !isOrdinaryFormat(canonical);
+  const namedContext = f?.name.match(/^\[([^\]]+)\]/)?.[1];
   return {
-    value,
+    value: canonical,
     generation,
     group,
-    category,
+    category: battle === 'doubles' ? 'Doubles' : 'Singles',
     label,
+    custom,
     fullLabel:
-      category === 'VGC'
-        ? `Gen ${generation || '?'} VGC ${label}`
-        : `Gen ${generation || '?'} ${label === value ? value.replace(/^gen\d+/i, '') : label}`,
+      (namedContext ||
+        (generation ? 'Gen ' + generation : 'Unknown generation')) +
+      ' ' +
+      label,
   };
 }
-export function groupFormats(formats: string[]) {
-  const items = formats
-    .map(describeFormat)
-    .sort(
-      (a, b) =>
-        b.generation - a.generation ||
-        a.category.localeCompare(b.category) ||
-        a.label.localeCompare(b.label, undefined, { numeric: true }),
-    );
-  return [...new Set(items.map((f) => f.group))].map((group) => ({
-    group,
-    categories: [
-      ...new Set(items.filter((f) => f.group === group).map((f) => f.category)),
-    ].map((category) => ({
+export function groupFormats(
+  formats: string[],
+  contexts: Record<string, FormatContext> = {},
+) {
+  const items = [
+    ...new Map(
+      formats.map((value) => {
+        const f = describeFormat(value, contexts[value]);
+        return [f.value, f];
+      }),
+    ).values(),
+  ].sort(
+    (a, b) =>
+      b.generation - a.generation ||
+      a.group.localeCompare(b.group) ||
+      a.label.localeCompare(b.label, undefined, { numeric: true }),
+  );
+  return ['Singles', 'Doubles']
+    .map((category) => ({
       category,
-      formats: items.filter(
-        (f) => f.group === group && f.category === category,
-      ),
-    })),
-  }));
+      groups: [
+        ...new Set(
+          items.filter((f) => f.category === category).map((f) => f.group),
+        ),
+      ].map((group) => ({
+        group,
+        formats: items.filter(
+          (f) => f.category === category && f.group === group,
+        ),
+      })),
+    }))
+    .filter((c) => c.groups.length);
 }

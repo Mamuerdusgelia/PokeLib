@@ -42,6 +42,8 @@ const configs = new Set([
   'SHOWDOWN_INTEGRATION.md',
   'PROGRESS.md',
   'DECISIONS.md',
+  'SCHEMA_PLAN.md',
+  'PERFORMANCE.md',
 ]);
 const allowed = (name) =>
   (directories.test(name) || configs.has(name)) &&

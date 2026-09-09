@@ -68,7 +68,7 @@ Normalized search_terms records are indexed on field/value/team/version/slot. Th
 
 The unified search bar offers From, Tag, Year, Format, Pokémon, Move, Item and Ability suggestions. Choose values to create removable chips, then keep typing ordinary text. `from:` is an alias for `source:`. Source/year/format/Pokémon/item/ability chips replace their previous value; tags and moves can combine. Year means historical Team Date; Unknown is an explicit date filter.
 
-The collapsible format navigator derives generation/game and format-family groups from stored identifiers. Selecting a format updates the same search chips. Custom or unfamiliar formats remain available under a fallback; no separate format tags are created. Per-format counts and an upstream live format registry are not included.
+The collapsible format navigator uses Singles/Doubles → generation/game → competitive format. National Dex OU/Ubers belong to Singles; National Dex Doubles belongs to Doubles. The searchable picker uses a pinned, generated official Showdown format registry. Known names/case normalize to IDs (including contextual Gen 4 Ubers); bare Ubers with no generation means Gen 9. Existing search-index aliases remain searchable without rewriting historical snapshots. Unknown imported names are preserved; Custom / Other stores explicit generation/battle context and warns that assistance is incomplete. Formats are pinned metadata, not a live registry or full legality engine. Per-format counts are not included.
 
 Free text examples:
 
@@ -97,6 +97,14 @@ Power syntax:
 
 Species + move/item/ability/nature/Tera constraints must match a single set. Species mentions can also match team metadata where that does not weaken this rule. Search targets current set data and notes; all historical version comments are indexed. Explicit `note:` searches current team and set notes across the team; quoted note values are an AND of words, not an exact phrase. Historical set notes do not match current-library queries. The UI returns 30 teams per page.
 
+## Large-library workflows
+
+The supported design target is 10,000 stored teams per account with 30-record database pages. Select current page accumulates across pages; Select all matching resolves up to 10,000 owned IDs on the server. Bulk Delete has one confirmation; Add tag unions existing tags. Source/year replacement also remains available. Operations run in five-team atomic chunks with progress; completed chunks survive failures and Retry continues the paused operation without duplicating completed work. A partial close reports the actual completed count. Selections currently refer to whole teams; variants are not implemented at this checkpoint.
+
+Import parses a full Showdown archive once (20 MB / 10,000 blocks maximum), presents 50 editable previews per page, and accepts common tags/source/date/notes. Persistence uses five-team chunks and owner-scoped durable receipts. The UI has been exercised with 1,000 teams; retry correctness is tested on both adapters. Keep a paused dialog open for Retry: navigation/reload loses its in-memory run descriptor even though successful chunks remain saved. A fresh import intentionally creates new records. Legacy unchunked API/WebMCP calls retain a 200-team request bound; use the Import dialog for large archives. Selected Showdown export remains capped at 200 teams.
+
+See [PERFORMANCE.md](PERFORMANCE.md) for measured 1k/5k/10k timing tables, payload limits, before/after query and Save statement counts, and the distinction between local and hosted evidence. [SCHEMA_PLAN.md](SCHEMA_PLAN.md) records the planned families/variants/collections relationships and development recovery; those future schemas are not installed yet.
+
 ## Dates and preservation
 
 New teams default to the browser's local date. Imported teams default to Unknown; imported_at records the real import time. Dates support exact, month, year and Unknown precision. Unknown values sort last in either direction. The historical date never derives from created_at/imported_at.
@@ -113,7 +121,7 @@ A private Sites deployment restricts access to the site itself. To let arbitrary
 
 ## Tests
 
-- pnpm test: 58 domain/SQLite, 41 PostgreSQL migration/RLS/RPC, 13 UX helper, 10 builder, 25 Showdown integration and 13 authored-default checks (160 total), including preservation, notes/search, archive inclusion, generation catalogs, learnset caching and stat calculation.
+- pnpm test: 66 domain/SQLite, 48 PostgreSQL migration/RLS/RPC, 13 UX helper, 10 builder, 25 Showdown integration, 13 authored-default and 8 canonical-format checks (183 total). Includes a 1,000-team import, durable retry receipts, bulk ownership/atomicity, search, preservation and concurrency races.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
@@ -130,7 +138,7 @@ Use the Sites workflow for the existing project_id in .openai/hosting.json:
 
 1. Run tests, typecheck, and build.
 2. Commit and push the exact validated source to the Site's repository with a temporary per-command credential.
-3. Package dist with the Sites package-site.sh helper.
+3. Package dist with the installed Sites package-site.mjs helper.
 4. Save that version and publish privately.
 5. Verify terminal deployment success.
 
@@ -138,7 +146,7 @@ Sites provisions the D1 binding and applies packaged migrations. Do not commit c
 
 ## MVP boundaries
 
-No battle simulator, full legality checker, EV archetype inference, PokéPaste scraping, AI team analysis, folders or collaborative editing. Imports are bounded to 200 teams/5 MB and 24 sets per team. PostgreSQL bulk changes are atomic; D1 bulk metadata updates preflight ownership and apply per team, so a storage failure partway through requires reviewing the affected selection before retrying. Legacy archive flags remain internally; the UI includes those teams normally. Delete is available directly on every library card and list row, and at the bottom of an owned team's detail page. It requires confirmation. It permanently removes all versions, notes, search entries, and share links in one database transaction; reusable account tags and other teams remain intact.
+No battle simulator, full legality checker, EV archetype inference, AI team analysis, folders or collaborative editing. Variants, PokéPaste import, saved collections and collection sharing are the next requested work; their schemas are designed but not partially installed. Each imported team remains bounded at 150 KB / 24 sets, while the large-import dialog supports bounded multi-request archives. Both adapters commit each bulk chunk atomically and record retries with the mutation. Legacy archived teams remain visible. Deletion is available in library cards/rows, details and bulk selection, with confirmation. A team deletion removes all versions, notes, search entries and share links; reusable account tags remain.
 
 ## Asset attribution
 

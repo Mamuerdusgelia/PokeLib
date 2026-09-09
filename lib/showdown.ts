@@ -1,6 +1,12 @@
 import { Team, Teams } from '@pkmn/sets';
 import { Dex } from '@pkmn/dex';
 import {
+  canonicalFormat,
+  cleanFormatContext,
+  assistanceFormat,
+  type FormatContext,
+} from './formats';
+import {
   emptyDraft,
   generationFor,
   type Draft,
@@ -46,8 +52,10 @@ export function parseShowdown(text: string, format = 'gen9ou') {
 export function parseBatch(
   text: string,
   format = 'gen9ou',
+  context?: FormatContext,
 ): { draft: Draft; warnings: string[] }[] {
-  if (text.length > 5000000) throw Error('Import at most 5 MB at a time.');
+  if (typeof text !== 'string' || text.length > 20000000)
+    throw Error('Import an archive of at most 20 MB.');
   const headers = [...text.matchAll(/^\s*===\s*(.*?)\s*===\s*$/gm)];
   const blocks = headers.length
     ? headers.map((h, i) => ({
@@ -60,18 +68,25 @@ export function parseBatch(
           .trim(),
       }))
     : [{ header: '', body: text.trim(), original: text.trim() }];
-  if (blocks.length > 200)
-    throw Error('Import at most 200 teams in one batch.');
+  if (blocks.length > 10000)
+    throw Error(
+      'Split archives larger than 10,000 teams into separate imports.',
+    );
   return blocks.map((block, i) => {
     const m = block.header.match(/^(?:\[([^\]]+)\]\s*)?(.*)$/);
-    const f = m?.[1] || format;
+    const fallbackContext = !m?.[1] ? cleanFormatContext(context) : undefined;
+    const f = canonicalFormat(
+      m?.[1] || format,
+      fallbackContext?.generation || generationFor(format),
+    );
     const title = m?.[2]?.trim() || 'Imported team ' + (i + 1);
-    const p = parseShowdown(block.body, f);
+    const p = parseShowdown(block.body, assistanceFormat(f, fallbackContext));
     return {
       draft: {
         ...emptyDraft(true),
         title,
         format: f,
+        ...(fallbackContext ? { format_context: fallbackContext } : {}),
         showdown_text: block.body,
         original_text: block.original,
         set_notes: p.sets.map(() => ''),

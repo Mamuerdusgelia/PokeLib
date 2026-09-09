@@ -31,6 +31,9 @@ export const teams = sqliteTable(
     index('teams_owner_updated').on(t.owner_id, t.archived, t.updated_at),
     index('teams_owner_date').on(t.owner_id, t.team_date),
     index('teams_owner_title').on(t.owner_id, t.title),
+    index('teams_owner_modified_id').on(t.owner_id, t.updated_at, t.id),
+    index('teams_owner_format_id').on(t.owner_id, t.format, t.id),
+    index('teams_owner_created_id').on(t.owner_id, t.created_at, t.id),
   ],
 );
 export const versions = sqliteTable(
@@ -104,4 +107,17 @@ export const shares = sqliteTable(
     uniqueIndex('share_hash').on(t.token_hash),
     index('share_team').on(t.team_id),
   ],
+);
+export const operationChunks = sqliteTable(
+  'operation_chunks',
+  {
+    owner_id: text().notNull(),
+    operation_id: text().notNull(),
+    chunk_index: integer().notNull(),
+    kind: text().notNull(),
+    request_hash: text().notNull(),
+    result: text().notNull(),
+    created_at: text().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.owner_id, t.operation_id, t.chunk_index] })],
 );

@@ -22,6 +22,20 @@
       "when": 1788930000000,
       "tag": "0002_edit_current_version",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788961106172,
+      "tag": "0003_crazy_dreadnoughts",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788961441626,
+      "tag": "0004_slow_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

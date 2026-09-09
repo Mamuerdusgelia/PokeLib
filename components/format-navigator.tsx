@@ -1,15 +1,18 @@
 'use client';
 import { ChevronRight } from 'lucide-react';
 import { groupFormats } from '@/lib/format-groups';
+import type { FormatContext } from '@/lib/formats';
 import { useSidebar } from '@/components/ui/sidebar';
 export function FormatNavigator({
   formats,
   selected,
   onSelect,
+  contexts = {},
 }: {
   formats: string[];
   selected?: string;
   onSelect: (value: string) => void;
+  contexts?: Record<string, FormatContext>;
 }) {
   const { setOpenMobile } = useSidebar();
   function select(value: string) {
@@ -19,17 +22,17 @@ export function FormatNavigator({
   return (
     <nav className="format-navigator" aria-label="Formats">
       <div className="nav-section">FORMATS</div>
-      {groupFormats(formats).map(({ group, categories }) => (
-        <details key={group} open>
+      {groupFormats(formats, contexts).map(({ category, groups }) => (
+        <details key={category} open>
           <summary>
             <ChevronRight size={14} />
-            {group}
+            {category}
           </summary>
-          {categories.map(({ category, formats: entries }) => (
-            <details className="format-category" key={category} open>
+          {groups.map(({ group, formats: entries }) => (
+            <details className="format-category" key={group} open>
               <summary>
                 <ChevronRight size={12} />
-                {category}
+                {group}
               </summary>
               <div>
                 {entries.map((f) => (

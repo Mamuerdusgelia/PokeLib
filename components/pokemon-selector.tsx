@@ -267,8 +267,10 @@ export function PokemonSelector({
       }}
     >
       <div className="selector-heading">
-        <strong>Choose {labels[kind]}</strong>
-        <span>{value || 'Not set'}</span>
+        <strong>
+          {kind === 'species' && !value ? 'Pokémon' : 'Choose ' + labels[kind]}
+        </strong>
+        {value && <span>{value}</span>}
         <button
           type="button"
           className="button ghost"

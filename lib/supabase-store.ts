@@ -2,6 +2,13 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cleanMeta, type Draft, type TeamRecord } from './domain';
 import { makeSnapshot, updateSnapshot } from './snapshot';
 import { indexTerms } from './search';
+import { canonicalFormat, formatSearchValues } from './formats';
+import {
+  validateChunk,
+  requestHash,
+  IMPORT_CHUNK_SIZE,
+  type ChunkKey,
+} from './import-workflow';
 import { hashToken } from './demo-store';
 export class SupabaseStore {
   constructor(private client: SupabaseClient) {}
@@ -17,13 +24,43 @@ export class SupabaseStore {
     return this.call('get', { id });
   }
   list(p: any) {
-    return this.call('list', p);
+    return this.call('list', {
+      ...p,
+      plan: p.plan
+        ? {
+            ...p.plan,
+            meta: p.plan.meta.map((t: { field: string; value: string }) =>
+              t.field === 'format'
+                ? { ...t, values: formatSearchValues(t.value) }
+                : t,
+            ),
+          }
+        : p.plan,
+    });
   }
   facets(p: { include_archived?: boolean } = {}) {
-    return this.call('facets', p);
+    return this.call('facets', p).then((r) => ({
+      ...r,
+      formats: [
+        ...new Set((r.formats as string[]).map((f) => canonicalFormat(f))),
+      ],
+    }));
   }
-  async import(drafts: Draft[]) {
+  async import(drafts: Draft[], key?: ChunkKey) {
+    validateChunk(key);
+    if (
+      !Array.isArray(drafts) ||
+      drafts.length < 1 ||
+      drafts.length > 200 ||
+      (key && drafts.length > IMPORT_CHUNK_SIZE)
+    )
+      throw Error(
+        'Import request is too large; use the chunked import workflow.',
+      );
     return this.call('import', {
+      ...(key
+        ? { chunk: { ...key, request_hash: await requestHash(drafts) } }
+        : {}),
       teams: drafts.map((d) => {
         const id = crypto.randomUUID(),
           snapshot = makeSnapshot(d, id, 1, null),
@@ -125,8 +162,28 @@ export class SupabaseStore {
       ),
     });
   }
-  async bulk(ids: string[], p: any) {
-    return this.call('bulk', { ids, patch: p });
+  async bulk(ids: string[], p: any, key?: ChunkKey) {
+    validateChunk(key);
+    return this.call('bulk', {
+      ids,
+      patch: p,
+      ...(key
+        ? {
+            chunk: {
+              ...key,
+              request_hash: await requestHash({ ids, patch: p }),
+            },
+          }
+        : {}),
+    });
+  }
+  async bulkDelete(ids: string[], key: ChunkKey) {
+    validateChunk(key);
+    if (!key) throw Error('A deletion operation is required.');
+    return this.call('bulk_delete', {
+      ids,
+      chunk: { ...key, request_hash: await requestHash(ids) },
+    });
   }
   async delete(id: string) {
     const { data, error } = await this.client.rpc('delete_team', { p_id: id });

@@ -14,6 +14,13 @@ import {
 import { makeSnapshot, updateSnapshot } from './snapshot';
 import { indexTerms } from './search';
 import { demoDrafts } from './demo';
+import { canonicalFormat, formatSearchValues } from './formats';
+import {
+  validateChunk,
+  requestHash,
+  IMPORT_CHUNK_SIZE,
+  type ChunkKey,
+} from './import-workflow';
 type Row = Record<string, any>;
 const editConflict =
   'This team changed in another window. Reload it before saving.';
@@ -104,44 +111,79 @@ export class DemoStore {
     return { ...team, has_share: !!share };
   }
   private termStatements(meta: any, v: Snapshot, comments: string[] = []) {
-    return indexTerms(meta, v, comments).map((t) =>
+    return [
       this.stmt(
-        'INSERT OR IGNORE INTO search_terms(team_id,version_id,slot,field,value) VALUES(?,?,?,?,?)',
+        "INSERT OR IGNORE INTO search_terms(team_id,version_id,slot,field,value) SELECT ?,json_extract(value,'$.version_id'),json_extract(value,'$.slot'),json_extract(value,'$.field'),json_extract(value,'$.value') FROM json_each(?)",
         v.team_id,
-        t.version_id,
-        t.slot,
-        t.field,
-        t.value,
+        JSON.stringify(indexTerms(meta, v, comments)),
       ),
+    ];
+  }
+  private tagStatements(teamId: string, names: string[]) {
+    const tags = names.map((name) => ({
+      id: crypto.randomUUID(),
+      name,
+      normalized: name.toLowerCase(),
+    }));
+    return [
+      this.stmt('DELETE FROM team_tags WHERE team_id=?', teamId),
+      this.stmt(
+        "INSERT OR IGNORE INTO tags(id,owner_id,display_name,normalized_name) SELECT json_extract(value,'$.id'),?,json_extract(value,'$.name'),json_extract(value,'$.normalized') FROM json_each(?)",
+        this.owner,
+        JSON.stringify(tags),
+      ),
+      this.stmt(
+        "INSERT INTO team_tags(team_id,tag_id) SELECT ?,t.id FROM tags t JOIN json_each(?) j ON t.normalized_name=json_extract(j.value,'$.normalized') WHERE t.owner_id=?",
+        teamId,
+        JSON.stringify(tags),
+        this.owner,
+      ),
+    ];
+  }
+  private async receipt(key: ChunkKey, kind: string, digest: string) {
+    const row = await this.stmt(
+      'SELECT kind,request_hash,result FROM operation_chunks WHERE owner_id=? AND operation_id=? AND chunk_index=?',
+      this.owner,
+      key.operation_id,
+      key.chunk_index,
+    ).first<Row>();
+    if (!row) return null;
+    if (row.kind !== kind || row.request_hash !== digest)
+      throw Error(
+        'This retry differs from the original operation. Start a new import.',
+      );
+    return JSON.parse(row.result);
+  }
+  private receiptStatement(
+    key: ChunkKey,
+    kind: string,
+    digest: string,
+    result: unknown,
+  ) {
+    return this.stmt(
+      'INSERT INTO operation_chunks(owner_id,operation_id,chunk_index,kind,request_hash,result,created_at) VALUES(?,?,?,?,?,?,?)',
+      this.owner,
+      key.operation_id,
+      key.chunk_index,
+      kind,
+      digest,
+      JSON.stringify(result),
+      new Date().toISOString(),
     );
   }
-  private tagStatements(teamId: string, tags: string[]) {
-    const s: D1PreparedStatement[] = [
-      this.stmt('DELETE FROM team_tags WHERE team_id=?', teamId),
-    ];
-    for (const name of tags) {
-      const norm = name.toLowerCase();
-      s.push(
-        this.stmt(
-          'INSERT OR IGNORE INTO tags(id,owner_id,display_name,normalized_name) VALUES(?,?,?,?)',
-          crypto.randomUUID(),
-          this.owner,
-          name,
-          norm,
-        ),
-        this.stmt(
-          'INSERT INTO team_tags(team_id,tag_id) SELECT ?,id FROM tags WHERE owner_id=? AND normalized_name=?',
-          teamId,
-          this.owner,
-          norm,
-        ),
-      );
-    }
-    return s;
-  }
-  async import(drafts: Draft[]) {
+  async import(drafts: Draft[], key?: ChunkKey) {
+    validateChunk(key);
     if (!Array.isArray(drafts) || !drafts.length || drafts.length > 200)
-      throw Error('Choose 1–200 teams.');
+      throw Error(
+        'Import request is too large; use the chunked import workflow.',
+      );
+    if (key && drafts.length > IMPORT_CHUNK_SIZE)
+      throw Error('Import chunk is too large.');
+    const digest = key ? await requestHash(drafts) : '';
+    if (key) {
+      const previous = await this.receipt(key, 'import', digest);
+      if (previous) return previous;
+    }
     const built = drafts.map((d) => {
       const id = crypto.randomUUID();
       return { d, id, m: cleanMeta(d), v: makeSnapshot(d, id, 1, null) };
@@ -175,8 +217,19 @@ export class DemoStore {
         ...this.tagStatements(id, m.tags),
       );
     }
-    await this.db.batch(statements);
-    return { ids: built.map((b) => b.id), count: built.length };
+    const result = { ids: built.map((b) => b.id), count: built.length };
+    if (key)
+      statements.unshift(this.receiptStatement(key, 'import', digest, result));
+    try {
+      await this.db.batch(statements);
+    } catch (e) {
+      if (key) {
+        const previous = await this.receipt(key, 'import', digest);
+        if (previous) return previous;
+      }
+      throw e;
+    }
+    return result;
   }
   async save(
     id: string,
@@ -369,18 +422,131 @@ export class DemoStore {
     ]);
     return this.get(id);
   }
-  async bulk(ids: string[], p: Row) {
-    if (!ids.length || ids.length > 200) throw Error('Select up to 200 teams.');
-    for (const id of ids) await this.get(id);
+  async bulk(ids: string[], p: Row, key?: ChunkKey) {
+    validateChunk(key);
+    if (
+      !Array.isArray(ids) ||
+      !ids.length ||
+      ids.length > (key ? IMPORT_CHUNK_SIZE : 200) ||
+      new Set(ids).size !== ids.length
+    )
+      throw Error('Invalid bulk selection.');
+    const digest = key ? await requestHash({ ids, patch: p }) : '';
+    if (key) {
+      const previous = await this.receipt(key, 'bulk', digest);
+      if (previous) return previous;
+    }
+    const statements: D1PreparedStatement[] = [];
     for (const id of ids) {
       const t = await this.get(id);
-      await this.patch(id, {
+      const m = cleanMeta({
+        ...t,
         ...p,
         tags: p.tags ? normalizeTags([...t.tags, ...p.tags]) : t.tags,
       });
+      statements.push(
+        this.stmt(
+          'UPDATE teams SET title=?,format=?,team_date=?,source_name=?,metadata=CASE WHEN updated_at=? THEN ? ELSE NULL END,favourite=?,archived=?,updated_at=? WHERE id=? AND owner_id=?',
+          m.title,
+          m.format,
+          m.team_date,
+          m.source_name,
+          t.updated_at,
+          JSON.stringify(m),
+          Number(p.favourite ?? t.favourite),
+          Number(p.archived ?? t.archived),
+          timestampAfter(t.updated_at),
+          id,
+          this.owner,
+        ),
+        this.stmt(
+          "DELETE FROM search_terms WHERE team_id=? AND version_id=''",
+          id,
+        ),
+        ...this.termStatements(
+          m,
+          t.version,
+          t.history!.map((v) => v.version_comment),
+        ),
+        ...this.tagStatements(id, m.tags),
+      );
     }
-    return { count: ids.length };
+    const result = { count: ids.length };
+    if (key)
+      statements.unshift(this.receiptStatement(key, 'bulk', digest, result));
+    try {
+      await this.db.batch(statements);
+    } catch (e) {
+      if (key) {
+        const previous = await this.receipt(key, 'bulk', digest);
+        if (previous) return previous;
+      }
+      throw e;
+    }
+    return result;
   }
+  async bulkDelete(ids: string[], key: ChunkKey) {
+    validateChunk(key);
+    if (
+      !key ||
+      !Array.isArray(ids) ||
+      ids.length < 1 ||
+      ids.length > IMPORT_CHUNK_SIZE ||
+      new Set(ids).size !== ids.length
+    )
+      throw Error('Invalid deletion chunk.');
+    const digest = await requestHash(ids),
+      previous = await this.receipt(key, 'bulk_delete', digest);
+    if (previous) return previous;
+    const owned = await this.stmt(
+      'SELECT count(*) n FROM teams WHERE owner_id=? AND id IN (SELECT value FROM json_each(?))',
+      this.owner,
+      JSON.stringify(ids),
+    ).first<Row>();
+    if (owned?.n !== ids.length)
+      throw Error('A selected team is missing or belongs to another account.');
+    const result = { count: ids.length };
+    // Recheck inside the write transaction: a deletion between preflight and batch
+    // must roll the whole chunk back, rather than report an inaccurate success.
+    const receipt = this.stmt(
+      'INSERT INTO operation_chunks(owner_id,operation_id,chunk_index,kind,request_hash,result,created_at) SELECT ?,?,?,?,?,CASE WHEN (SELECT count(*) FROM teams WHERE owner_id=? AND id IN (SELECT value FROM json_each(?)))=? THEN ? ELSE NULL END,?',
+      this.owner,
+      key.operation_id,
+      key.chunk_index,
+      'bulk_delete',
+      digest,
+      this.owner,
+      JSON.stringify(ids),
+      ids.length,
+      JSON.stringify(result),
+      new Date().toISOString(),
+    );
+    try {
+      await this.db.batch([
+        receipt,
+        this.stmt(
+          'DELETE FROM teams WHERE owner_id=? AND id IN (SELECT value FROM json_each(?))',
+          this.owner,
+          JSON.stringify(ids),
+        ),
+      ]);
+    } catch (e) {
+      const previous = await this.receipt(key, 'bulk_delete', digest);
+      if (previous) return previous;
+      if (
+        /NOT NULL constraint failed: operation_chunks.result/i.test(
+          (e as Error).message,
+        )
+      )
+        throw Error(
+          'A selected team was deleted elsewhere. Refresh your selection.',
+        );
+      throw e;
+    }
+    return result;
+  }
+  list(p: Row & { ids_only: true }): Promise<{ ids: string[]; total: number }>;
+  list(p: Row): Promise<{ teams: TeamRecord[]; total: number }>;
   async list(p: Row) {
     const plan = p.plan as QueryPlan;
     const args: any[] = [this.owner];
@@ -417,9 +583,21 @@ export class DemoStore {
           (term.field === 'note'
             ? "(m.version_id='' OR m.version_id=t.current_version_id)"
             : "m.version_id=''") +
-          ' AND m.field=? AND m.value=?)',
+          ' AND m.field=? AND m.value IN (' +
+          (term.field === 'format'
+            ? formatSearchValues(term.value)
+            : [term.value]
+          )
+            .map(() => '?')
+            .join(',') +
+          '))',
       );
-      args.push(term.field, term.value);
+      args.push(
+        term.field,
+        ...(term.field === 'format'
+          ? formatSearchValues(term.value)
+          : [term.value]),
+      );
     }
     if (plan.set.length || plan.free.length) {
       let parts = [
@@ -427,6 +605,10 @@ export class DemoStore {
         's.version_id=t.current_version_id',
         's.slot>=0',
       ];
+      if (plan.set.length) {
+        parts.push('s.field=?', 's.value=?');
+        args.push(plan.set[0].field, plan.set[0].value);
+      }
       for (const term of plan.set) {
         parts.push(
           'EXISTS(SELECT 1 FROM search_terms x WHERE x.team_id=t.id AND x.version_id=s.version_id AND x.slot=s.slot AND x.field=? AND x.value=?)',
@@ -471,16 +653,29 @@ export class DemoStore {
       source: 't.source_name ASC',
     };
     const where = clauses.join(' AND ');
+    if (p.ids_only === true) {
+      const rows = await this.stmt(
+        'SELECT t.id FROM teams t WHERE ' +
+          where +
+          ' ORDER BY t.id LIMIT 10001',
+        ...args,
+      ).all<Row>();
+      if (rows.results.length > 10000)
+        throw Error('Narrow the selection to at most 10,000 teams.');
+      return { ids: rows.results.map((r) => r.id), total: rows.results.length };
+    }
     const count = await this.stmt(
       'SELECT count(*) AS n FROM teams t WHERE ' + where,
       ...args,
     ).first<Row>();
     const rows = await this.stmt(
-      'SELECT t.*,v.snapshot FROM teams t JOIN team_versions v ON v.id=t.current_version_id AND v.team_id=t.id WHERE ' +
+      'WITH page AS MATERIALIZED (SELECT t.id FROM teams t WHERE ' +
         where +
         ' ORDER BY ' +
         (orders[p.sort] || orders.modified_desc) +
-        ',t.id LIMIT 30 OFFSET ?',
+        ',t.id LIMIT 30 OFFSET ?) SELECT t.*,v.snapshot FROM page JOIN teams t ON t.id=page.id JOIN team_versions v ON v.id=t.current_version_id AND v.team_id=t.id ORDER BY ' +
+        (orders[p.sort] || orders.modified_desc) +
+        ',t.id',
       ...args,
       Math.max(0, Math.min(100000, Number(p.page) || 0)) * 30,
     ).all<Row>();
@@ -490,8 +685,20 @@ export class DemoStore {
     };
   }
   async facets(p: Row = {}) {
-    const rows = await this.stmt(
-      'SELECT format,source_name,substr(team_date,1,4) AS year,archived,favourite FROM teams WHERE owner_id=?',
+    const dimensions = await this.stmt(
+      "SELECT 'format' kind,format value FROM teams WHERE owner_id=? GROUP BY format UNION ALL SELECT 'source',source_name FROM teams WHERE owner_id=? AND source_name<>'' GROUP BY source_name UNION ALL SELECT 'year',substr(team_date,1,4) FROM teams WHERE owner_id=? AND team_date IS NOT NULL GROUP BY substr(team_date,1,4)",
+      this.owner,
+      this.owner,
+      this.owner,
+    ).all<Row>();
+    const counts = await this.stmt(
+      'SELECT count(*) all_count,coalesce(sum(CASE WHEN ?=1 OR archived=0 THEN 1 ELSE 0 END),0) visible_count,coalesce(sum(CASE WHEN favourite=1 AND (?=1 OR archived=0) THEN 1 ELSE 0 END),0) favourites,coalesce(sum(archived),0) archived FROM teams WHERE owner_id=?',
+      Number(p.include_archived === true),
+      Number(p.include_archived === true),
+      this.owner,
+    ).first<Row>();
+    const contexts = await this.stmt(
+      "SELECT format,json_extract(metadata,'$.format_context') context FROM teams WHERE owner_id=? AND json_type(metadata,'$.format_context')='object' GROUP BY format",
       this.owner,
     ).all<Row>();
     const tags = await this.stmt(
@@ -499,19 +706,26 @@ export class DemoStore {
       this.owner,
     ).all<Row>();
     const unique = (k: string) =>
-      [...new Set(rows.results.map((r) => r[k]).filter(Boolean))].sort();
+      [
+        ...new Set(
+          dimensions.results
+            .filter((r) => r.kind === k)
+            .map((r) =>
+              k === 'format' ? canonicalFormat(r.value) : String(r.value),
+            ),
+        ),
+      ].sort((a, b) => a.localeCompare(b));
     return {
       formats: unique('format'),
-      sources: unique('source_name'),
+      sources: unique('source'),
       years: unique('year'),
+      format_contexts: Object.fromEntries(
+        contexts.results.map((r) => [r.format, JSON.parse(r.context)]),
+      ),
       tags: tags.results.map((t) => t.display_name),
-      all: rows.results.filter(
-        (t) => p.include_archived === true || !t.archived,
-      ).length,
-      favourites: rows.results.filter(
-        (t) => t.favourite && (p.include_archived === true || !t.archived),
-      ).length,
-      archived: rows.results.filter((t) => t.archived).length,
+      all: counts?.visible_count || 0,
+      favourites: counts?.favourites || 0,
+      archived: counts?.archived || 0,
     };
   }
   async delete(id: string) {

@@ -177,23 +177,20 @@ check('format chip replaces old format while tags and moves combine', () => {
 check('formats group automatically with historic and custom fallbacks', () => {
   for (const [value, category] of [
     ['gen9ou', 'Singles'],
-    ['gen9vgc2025regi', 'VGC'],
-    ['gen8vgc2022', 'VGC'],
-    ['gen6doublesou', 'Doubles / Triples'],
-    ['gen9nationaldexubers', 'National Dex'],
-    ['gen10customformat', 'Other formats'],
+    ['gen9vgc2025regi', 'Doubles'],
+    ['gen8vgc2022', 'Doubles'],
+    ['gen6doublesou', 'Doubles'],
+    ['gen9nationaldexubers', 'Singles'],
+    ['gen10customformat', 'Singles'],
   ])
     assert.equal(describeFormat(value).category, category);
-  assert.equal(describeFormat('gen9vgc2024regg').label, '2024 · Regulation G');
-  assert.equal(
-    describeFormat('gen8bdspou').group,
-    'Brilliant Diamond / Shining Pearl',
-  );
+  assert.equal(describeFormat('gen9vgc2024regg').label, 'VGC 2024 Reg G');
+  assert.equal(describeFormat('gen8bdspou').group, 'Gen 8 · BDSP');
   assert.equal(
     describeFormat('gen9championsvgc2026regmabo3').group,
-    'Pokémon Champions',
+    'Gen 9 · Pokémon Champions',
   );
-  assert.ok(groupFormats(['gen9ou', 'gen5ou']).length === 2);
+  assert.ok(groupFormats(['gen9ou', 'gen5ou'])[0].groups.length === 2);
 });
 check('unfinished sets remain editable without moves', () => {
   for (const text of ['Pikachu', 'Pikachu\nAbility: Static'])

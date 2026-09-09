@@ -1,4 +1,5 @@
 import { Dex } from '@pkmn/dex';
+import { canonicalFormat } from './formats';
 import {
   normalize,
   words,
@@ -41,7 +42,10 @@ export function planQuery(q: string): QueryPlan {
       'tera',
     ].includes(field);
     if (set || field === 'tag' || field === 'format' || field === 'year') {
-      (set ? plan.set : plan.meta).push({ field, value: normalize(value) });
+      (set ? plan.set : plan.meta).push({
+        field,
+        value: normalize(field === 'format' ? canonicalFormat(value) : value),
+      });
     } else {
       for (const v of words(value)) plan.meta.push({ field, value: v });
     }
@@ -65,7 +69,10 @@ export function planQuery(q: string): QueryPlan {
     if (found) continue;
     const token = tokens[i++];
     if (/^gen\d/i.test(token))
-      plan.meta.push({ field: 'format', value: normalize(token) });
+      plan.meta.push({
+        field: 'format',
+        value: normalize(canonicalFormat(token)),
+      });
     else if (/^\d{4}$/.test(token))
       plan.meta.push({ field: 'year', value: token });
     else plan.free.push(...words(token));

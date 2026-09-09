@@ -13,6 +13,7 @@ async function req(action, payload = {}, cookie = '') {
   return { status: r.status, data: await r.json() };
 }
 let cookie, disposable;
+const bulkIds = [];
 try {
   assert.equal((await req('list')).status, 401);
   const sign = await fetch(origin + '/signin-with-chatgpt?return_to=%2F', {
@@ -248,6 +249,70 @@ try {
       .status,
     404,
   );
+  const bulkTitle = 'HTTP bulk ' + crypto.randomUUID();
+  const batch = Array.from({ length: 7 }, (_, i) => ({
+    ...parsed.data[0].draft,
+    title: bulkTitle + ' ' + i,
+    format: 'Gen 4 Ubers',
+  }));
+  const operation_id = crypto.randomUUID();
+  for (let i = 0; i < batch.length; i += 5) {
+    const payload = {
+      drafts: batch.slice(i, i + 5),
+      chunk: { operation_id, chunk_index: i / 5 },
+    };
+    const first = await req('import', payload, cookie);
+    assert.equal(first.status, 200);
+    bulkIds.push(...first.data.ids);
+    assert.deepEqual(await req('import', payload, cookie), first);
+  }
+  assert.equal(
+    (await req('get', { id: bulkIds[0] }, cookie)).data.format,
+    'gen4ubers',
+  );
+  const selected = await req(
+    'select',
+    { query: 'team:"' + bulkTitle + '"' },
+    cookie,
+  );
+  assert.equal(selected.status, 200);
+  assert.equal(selected.data.ids.length, 7);
+  assert.equal(selected.data.teams, undefined);
+  const tags = {
+    ids: bulkIds.slice(0, 5),
+    patch: { tags: ['HTTP retry'] },
+    chunk: { operation_id: crypto.randomUUID(), chunk_index: 0 },
+  };
+  assert.equal((await req('bulk', tags, cookie)).data.count, 5);
+  assert.equal((await req('bulk', tags, cookie)).data.count, 5);
+  assert.equal(
+    (
+      await req(
+        'list',
+        { query: 'team:"' + bulkTitle + '" tag:"HTTP retry"' },
+        cookie,
+      )
+    ).data.total,
+    5,
+  );
+  const deletion = crypto.randomUUID();
+  for (let i = 0; i < bulkIds.length; i += 5) {
+    const payload = {
+      ids: bulkIds.slice(i, i + 5),
+      chunk: { operation_id: deletion, chunk_index: i / 5 },
+    };
+    const r = await req('bulk_delete', payload, cookie);
+    assert.equal(r.status, 200);
+    assert.deepEqual(await req('bulk_delete', payload, cookie), r);
+  }
+  assert.equal(
+    (await req('select', { query: 'team:"' + bulkTitle + '"' }, cookie)).data
+      .total,
+    0,
+  );
+  console.log(
+    'HTTP canonical formats, chunk replay, ID-only selection, bulk tags and bulk deletion passed.',
+  );
   console.log(
     'HTTP integration: authentication, current Save, immutable checkpoints/restoration, private builder state, search, sharing, revocation, origin checks, and permanent deletion passed.',
   );
@@ -256,4 +321,5 @@ try {
   process.exitCode = 1;
 } finally {
   if (cookie && disposable) await req('delete', { id: disposable }, cookie);
+  if (cookie) for (const id of bulkIds) await req('delete', { id }, cookie);
 }

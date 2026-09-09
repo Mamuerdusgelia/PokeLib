@@ -1322,3 +1322,50 @@
   display: block;
   margin-top: 6px;
 }
+
+.format-picker {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.format-picker-trigger {
+  justify-content: flex-start;
+  width: 100%;
+  font-size: 0.875rem;
+  white-space: normal;
+  text-align: left;
+}
+.format-picker-panel {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 1rem;
+}
+.format-picker-panel label {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+}
+.format-picker-panel [cmdk-list] {
+  max-height: 16rem;
+}
+
+.import-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+}
+.import-progress {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+.import-progress progress {
+  width: 100%;
+  accent-color: var(--primary);
+}
+.batch-preview .format-picker {
+  width: 100%;
+}

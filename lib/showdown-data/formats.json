@@ -1,0 +1,2059 @@
+{
+  "source": "https://github.com/smogon/pokemon-showdown/blob/cc089d36b7717dec78ce8ab5d1745c03ad5c97e4/config/formats.ts",
+  "revision": "cc089d36b7717dec78ce8ab5d1745c03ad5c97e4",
+  "sha256": "543d5f21949180a1d9a4ca9f9c4b0562d27e416f18d04dd6c6a0f62e6c45e28a",
+  "license": "MIT",
+  "formats": [
+    {
+      "id": "gen9ou",
+      "name": "[Gen 9] OU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9ubers",
+      "name": "[Gen 9] Ubers",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9uu",
+      "name": "[Gen 9] UU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9ru",
+      "name": "[Gen 9] RU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9nu",
+      "name": "[Gen 9] NU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9pu",
+      "name": "[Gen 9] PU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9lc",
+      "name": "[Gen 9] LC",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9monotype",
+      "name": "[Gen 9] Monotype",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9cap",
+      "name": "[Gen 9] CAP",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9bssregi",
+      "name": "[Gen 9] BSS Reg I",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9customgame",
+      "name": "[Gen 9] Custom Game",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "S/V Singles"
+    },
+    {
+      "id": "gen9doublesou",
+      "name": "[Gen 9] Doubles OU",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9doublesubers",
+      "name": "[Gen 9] Doubles Ubers",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9doublesuu",
+      "name": "[Gen 9] Doubles UU",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9doubleslc",
+      "name": "[Gen 9] Doubles LC",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9vgc2023regc",
+      "name": "[Gen 9] VGC 2023 Reg C",
+      "mod": "gen9predlc",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9vgc2023regd",
+      "name": "[Gen 9] VGC 2023 Reg D",
+      "mod": "gen9predlc",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9vgc2025regi",
+      "name": "[Gen 9] VGC 2025 Reg I",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9doublescustomgame",
+      "name": "[Gen 9] Doubles Custom Game",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "S/V Doubles"
+    },
+    {
+      "id": "gen9championsou",
+      "name": "[Gen 9 Champions] OU",
+      "mod": "champions",
+      "battle": "singles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsuu",
+      "name": "[Gen 9 Champions] UU",
+      "mod": "champions",
+      "battle": "singles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsbssregmc",
+      "name": "[Gen 9 Champions] BSS Reg M-C",
+      "mod": "champions",
+      "battle": "singles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsbssregmb",
+      "name": "[Gen 9 Champions] BSS Reg M-B",
+      "mod": "championsregmb",
+      "battle": "singles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsvgc2026regmc",
+      "name": "[Gen 9 Champions] VGC 2026 Reg M-C",
+      "mod": "champions",
+      "battle": "doubles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsvgc2026regmcbo3",
+      "name": "[Gen 9 Champions] VGC 2026 Reg M-C (Bo3)",
+      "mod": "champions",
+      "battle": "doubles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsvgc2026regmb",
+      "name": "[Gen 9 Champions] VGC 2026 Reg M-B",
+      "mod": "championsregmb",
+      "battle": "doubles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsvgc2026regmbbo3",
+      "name": "[Gen 9 Champions] VGC 2026 Reg M-B (Bo3)",
+      "mod": "championsregmb",
+      "battle": "doubles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championscustomgame",
+      "name": "[Gen 9 Champions] Custom Game",
+      "mod": "champions",
+      "battle": "singles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen9championsdoublescustomgame",
+      "name": "[Gen 9 Champions] Doubles Custom Game",
+      "mod": "champions",
+      "battle": "doubles",
+      "section": "Champions"
+    },
+    {
+      "id": "gen91v1",
+      "name": "[Gen 9] 1v1",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen92v2doubles",
+      "name": "[Gen 9] 2v2 Doubles",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9champions4v4doublesuu",
+      "name": "[Gen 9 Champions] 4v4 Doubles UU",
+      "mod": "championsregmb",
+      "battle": "doubles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9anythinggoes",
+      "name": "[Gen 9] Anything Goes",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9zu",
+      "name": "[Gen 9] ZU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9freeforall",
+      "name": "[Gen 9] Free-For-All",
+      "mod": "gen9",
+      "battle": "freeforall",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9lcuu",
+      "name": "[Gen 9] LC UU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9monocolor",
+      "name": "[Gen 9] Monocolor",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9statmons",
+      "name": "[Gen 9] Statmons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9ubersuu",
+      "name": "[Gen 9] Ubers UU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Unofficial Metagames"
+    },
+    {
+      "id": "gen9draft",
+      "name": "[Gen 9] Draft",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen96v6doublesdraft",
+      "name": "[Gen 9] 6v6 Doubles Draft",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen94v4doublesdraft",
+      "name": "[Gen 9] 4v4 Doubles Draft",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen9natdexdraft",
+      "name": "[Gen 9] NatDex Draft",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen9natdex6v6doublesdraft",
+      "name": "[Gen 9] NatDex 6v6 Doubles Draft",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen9natdexlcdraft",
+      "name": "[Gen 9] NatDex LC Draft",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen9championsdraft",
+      "name": "[Gen 9 Champions] Draft",
+      "mod": "champions",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen9champions4v4doublesdraft",
+      "name": "[Gen 9 Champions] 4v4 Doubles Draft",
+      "mod": "champions",
+      "battle": "doubles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen9championsnatdexdraft",
+      "name": "[Gen 9 Champions] NatDex Draft",
+      "mod": "champions",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen8draft",
+      "name": "[Gen 8] Draft",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen8natdexdraft",
+      "name": "[Gen 8] NatDex Draft",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen8natdex4v4doublesdraft",
+      "name": "[Gen 8] NatDex 4v4 Doubles Draft",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen7draft",
+      "name": "[Gen 7] Draft",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen6draft",
+      "name": "[Gen 6] Draft",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen5draft",
+      "name": "[Gen 5] Draft",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen4draft",
+      "name": "[Gen 4] Draft",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen3draft",
+      "name": "[Gen 3] Draft",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Draft"
+    },
+    {
+      "id": "gen9noholdsbarred",
+      "name": "[Gen 9] No Holds Barred!",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen9fortemons",
+      "name": "[Gen 9] Fortemons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen9tiershiftaaa",
+      "name": "[Gen 9] Tier Shift AAA",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen9nfe",
+      "name": "[Gen 9] NFE",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen9nationaldex35pokes",
+      "name": "[Gen 9] National Dex 35 Pokes",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen2uu",
+      "name": "[Gen 2] UU",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen1nu",
+      "name": "[Gen 1] NU",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen9vgc2024regg",
+      "name": "[Gen 9] VGC 2024 Reg G",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Ladder Spotlight"
+    },
+    {
+      "id": "gen9almostanyability",
+      "name": "[Gen 9] Almost Any Ability",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen9balancedhackmons",
+      "name": "[Gen 9] Balanced Hackmons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen9godlygift",
+      "name": "[Gen 9] Godly Gift",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen9mixandmega",
+      "name": "[Gen 9] Mix and Mega",
+      "mod": "mixandmega",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen9pokebilitiesaaa",
+      "name": "[Gen 9] Pokebilities AAA",
+      "mod": "pokebilities",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen9sharedpower",
+      "name": "[Gen 9] Shared Power",
+      "mod": "sharedpower",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen9stabmons",
+      "name": "[Gen 9] STABmons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen6purehackmons",
+      "name": "[Gen 6] Pure Hackmons",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "Other Metagames"
+    },
+    {
+      "id": "gen912switch",
+      "name": "[Gen 9] 1-2 Switch",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9350cup",
+      "name": "[Gen 9] 350 Cup",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9alphabetcup",
+      "name": "[Gen 9] Alphabet Cup",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9badnboosted",
+      "name": "[Gen 9] Bad 'n Boosted",
+      "mod": "",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9battlefields",
+      "name": "[Gen 9] Battlefields",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9biomechmons",
+      "name": "[Gen 9] Bio Mech Mons",
+      "mod": "biomechmons",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9camomons",
+      "name": "[Gen 9] Camomons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9categoryswap",
+      "name": "[Gen 9] Category Swap",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9convergence",
+      "name": "[Gen 9] Convergence",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9crossevolution",
+      "name": "[Gen 9] Cross Evolution",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9ferventimpersonation",
+      "name": "[Gen 9] Fervent Impersonation",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9flipped",
+      "name": "[Gen 9] Flipped",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9foresighters",
+      "name": "[Gen 9] Foresighters",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9formemons",
+      "name": "[Gen 9] Formemons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9franticfusions",
+      "name": "[Gen 9] Frantic Fusions",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9fullpotential",
+      "name": "[Gen 9] Full Potential",
+      "mod": "fullpotential",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9inheritance",
+      "name": "[Gen 9] Inheritance",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9inverse",
+      "name": "[Gen 9] Inverse",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9linked",
+      "name": "[Gen 9] Linked",
+      "mod": "linked",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9natureswap",
+      "name": "[Gen 9] Nature Swap",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9partnersincrime",
+      "name": "[Gen 9] Partners in Crime",
+      "mod": "partnersincrime",
+      "battle": "doubles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9passiveaggressive",
+      "name": "[Gen 9] Passive Aggressive",
+      "mod": "passiveaggressive",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9pokebilities",
+      "name": "[Gen 9] Pokebilities",
+      "mod": "pokebilities",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9pokemoves",
+      "name": "[Gen 9] Pokemoves",
+      "mod": "pokemoves",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9purehackmons",
+      "name": "[Gen 9] Pure Hackmons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9relayrace",
+      "name": "[Gen 9] Relay Race",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9revelationmons",
+      "name": "[Gen 9] Revelationmons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9sharingiscaring",
+      "name": "[Gen 9] Sharing is Caring",
+      "mod": "sharingiscaring",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9sketchmons",
+      "name": "[Gen 9] Sketchmons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9teradonation",
+      "name": "[Gen 9] Tera Donation",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9teraoverride",
+      "name": "[Gen 9] Tera Override",
+      "mod": "teraoverride",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9thecardgame",
+      "name": "[Gen 9] The Card Game",
+      "mod": "thecardgame",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9thelosersgame",
+      "name": "[Gen 9] The Loser's Game",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9tiershift",
+      "name": "[Gen 9] Tier Shift",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9trademarked",
+      "name": "[Gen 9] Trademarked",
+      "mod": "trademarked",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9triples",
+      "name": "[Gen 9] Triples",
+      "mod": "gen9",
+      "battle": "triples",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9typesplit",
+      "name": "[Gen 9] Type Split",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9voltturnmayhem",
+      "name": "[Gen 9] VoltTurn Mayhem",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen7purehackmons",
+      "name": "[Gen 7] Pure Hackmons",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "Challengeable OMs"
+    },
+    {
+      "id": "gen9aaadoubles",
+      "name": "[Gen 9] AAA Doubles",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9aaadraft",
+      "name": "[Gen 9] AAA Draft",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9aaaubers",
+      "name": "[Gen 9] AAA Ubers",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9aaauu",
+      "name": "[Gen 9] AAA UU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen8almostanyability",
+      "name": "[Gen 8] Almost Any Ability",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen8balancedhackmons",
+      "name": "[Gen 8] Balanced Hackmons",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen7balancedhackmons",
+      "name": "[Gen 7] Balanced Hackmons",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9mixandmegalc",
+      "name": "[Gen 9] Mix and Mega LC",
+      "mod": "mixandmega",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9mixandmegadoubles",
+      "name": "[Gen 9] Mix and Mega Doubles",
+      "mod": "mixandmega",
+      "battle": "doubles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9nationaldexubersunobtainableformes",
+      "name": "[Gen 9] National Dex Ubers (!Unobtainable Formes)",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9natdexcamovechaos",
+      "name": "[Gen 9] NatDex Camove Chaos",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "Temporary Tour Metas"
+    },
+    {
+      "id": "gen9nationaldex",
+      "name": "[Gen 9] National Dex",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex"
+    },
+    {
+      "id": "gen8nationaldex",
+      "name": "[Gen 8] National Dex",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "National Dex"
+    },
+    {
+      "id": "gen9nationaldexubers",
+      "name": "[Gen 9] National Dex Ubers",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexuu",
+      "name": "[Gen 9] National Dex UU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexru",
+      "name": "[Gen 9] National Dex RU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexlc",
+      "name": "[Gen 9] National Dex LC",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexmonotype",
+      "name": "[Gen 9] National Dex Monotype",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexdoubles",
+      "name": "[Gen 9] National Dex Doubles",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexdoublesubers",
+      "name": "[Gen 9] National Dex Doubles Ubers",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldex1v1",
+      "name": "[Gen 9] National Dex 1v1",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexag",
+      "name": "[Gen 9] National Dex AG",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexaaa",
+      "name": "[Gen 9] National Dex AAA",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexbh",
+      "name": "[Gen 9] National Dex BH",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexgodlygift",
+      "name": "[Gen 9] National Dex Godly Gift",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexmonoletter",
+      "name": "[Gen 9] National Dex Monoletter",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexstabmons",
+      "name": "[Gen 9] National Dex STABmons",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen8nationaldexubers",
+      "name": "[Gen 8] National Dex Ubers",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9nationaldexubersuu",
+      "name": "[Gen 9] National Dex Ubers UU",
+      "mod": "gen9",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen8nationaldexuu",
+      "name": "[Gen 8] National Dex UU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen8nationaldexru",
+      "name": "[Gen 8] National Dex RU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen8nationaldexdoubles",
+      "name": "[Gen 8] National Dex Doubles",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen8nationaldexmonotype",
+      "name": "[Gen 8] National Dex Monotype",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen8dlc1nationaldexag",
+      "name": "[Gen 8 DLC 1] National Dex AG",
+      "mod": "gen8dlc1",
+      "battle": "singles",
+      "section": "National Dex Other Tiers"
+    },
+    {
+      "id": "gen9deltamon",
+      "name": "[Gen 9] Deltamon",
+      "mod": "gen9deltamon",
+      "battle": "singles",
+      "section": "Pet Mods"
+    },
+    {
+      "id": "gen9metronomebattle",
+      "name": "[Gen 9] Metronome Battle",
+      "mod": "gen9",
+      "battle": "doubles",
+      "section": "Randomized Metas"
+    },
+    {
+      "id": "gen8ou",
+      "name": "[Gen 8] OU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen7ou",
+      "name": "[Gen 7] OU",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen6ou",
+      "name": "[Gen 6] OU",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen5ou",
+      "name": "[Gen 5] OU",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen4ou",
+      "name": "[Gen 4] OU",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen3ou",
+      "name": "[Gen 3] OU",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen2ou",
+      "name": "[Gen 2] OU",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen1ou",
+      "name": "[Gen 1] OU",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Gens OU"
+    },
+    {
+      "id": "gen8doublesou",
+      "name": "[Gen 8] Doubles OU",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "Past Gens Doubles OU"
+    },
+    {
+      "id": "gen7doublesou",
+      "name": "[Gen 7] Doubles OU",
+      "mod": "gen7",
+      "battle": "doubles",
+      "section": "Past Gens Doubles OU"
+    },
+    {
+      "id": "gen6doublesou",
+      "name": "[Gen 6] Doubles OU",
+      "mod": "gen6",
+      "battle": "doubles",
+      "section": "Past Gens Doubles OU"
+    },
+    {
+      "id": "gen5doublesou",
+      "name": "[Gen 5] Doubles OU",
+      "mod": "gen5",
+      "battle": "doubles",
+      "section": "Past Gens Doubles OU"
+    },
+    {
+      "id": "gen4doublesou",
+      "name": "[Gen 4] Doubles OU",
+      "mod": "gen4",
+      "battle": "doubles",
+      "section": "Past Gens Doubles OU"
+    },
+    {
+      "id": "gen3doublesou",
+      "name": "[Gen 3] Doubles OU",
+      "mod": "gen3",
+      "battle": "doubles",
+      "section": "Past Gens Doubles OU"
+    },
+    {
+      "id": "gen8ubers",
+      "name": "[Gen 8] Ubers",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8uu",
+      "name": "[Gen 8] UU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8ru",
+      "name": "[Gen 8] RU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8nu",
+      "name": "[Gen 8] NU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8pu",
+      "name": "[Gen 8] PU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8lc",
+      "name": "[Gen 8] LC",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8monotype",
+      "name": "[Gen 8] Monotype",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen81v1",
+      "name": "[Gen 8] 1v1",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8anythinggoes",
+      "name": "[Gen 8] Anything Goes",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8zu",
+      "name": "[Gen 8] ZU",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8cap",
+      "name": "[Gen 8] CAP",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8battlestadiumsingles",
+      "name": "[Gen 8] Battle Stadium Singles",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8bdspou",
+      "name": "[Gen 8 BDSP] OU",
+      "mod": "gen8bdsp",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8bdspubers",
+      "name": "[Gen 8 BDSP] Ubers",
+      "mod": "gen8bdsp",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8customgame",
+      "name": "[Gen 8] Custom Game",
+      "mod": "gen8",
+      "battle": "singles",
+      "section": "Sw/Sh Singles"
+    },
+    {
+      "id": "gen8doublesubers",
+      "name": "[Gen 8] Doubles Ubers",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen8doublesuu",
+      "name": "[Gen 8] Doubles UU",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen8vgc2022",
+      "name": "[Gen 8] VGC 2022",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen8vgc2021",
+      "name": "[Gen 8] VGC 2021",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen8vgc2020",
+      "name": "[Gen 8] VGC 2020",
+      "mod": "gen8dlc1",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen8bdspdoublesou",
+      "name": "[Gen 8 BDSP] Doubles OU",
+      "mod": "gen8bdsp",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen8bdspbattlefestivaldoubles",
+      "name": "[Gen 8 BDSP] Battle Festival Doubles",
+      "mod": "gen8bdsp",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen8doublescustomgame",
+      "name": "[Gen 8] Doubles Custom Game",
+      "mod": "gen8",
+      "battle": "doubles",
+      "section": "Sw/Sh Doubles"
+    },
+    {
+      "id": "gen7ubers",
+      "name": "[Gen 7] Ubers",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7uu",
+      "name": "[Gen 7] UU",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7ru",
+      "name": "[Gen 7] RU",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7nu",
+      "name": "[Gen 7] NU",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7pu",
+      "name": "[Gen 7] PU",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7lc",
+      "name": "[Gen 7] LC",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7monotype",
+      "name": "[Gen 7] Monotype",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen71v1",
+      "name": "[Gen 7] 1v1",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7anythinggoes",
+      "name": "[Gen 7] Anything Goes",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7zu",
+      "name": "[Gen 7] ZU",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7cap",
+      "name": "[Gen 7] CAP",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7battlespotsingles",
+      "name": "[Gen 7] Battle Spot Singles",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7letsgoou",
+      "name": "[Gen 7 Let's Go] OU",
+      "mod": "gen7letsgo",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7customgame",
+      "name": "[Gen 7] Custom Game",
+      "mod": "gen7",
+      "battle": "singles",
+      "section": "US/UM Singles"
+    },
+    {
+      "id": "gen7doublesuu",
+      "name": "[Gen 7] Doubles UU",
+      "mod": "gen7",
+      "battle": "doubles",
+      "section": "US/UM Doubles"
+    },
+    {
+      "id": "gen7vgc2019",
+      "name": "[Gen 7] VGC 2019",
+      "mod": "gen7",
+      "battle": "doubles",
+      "section": "US/UM Doubles"
+    },
+    {
+      "id": "gen7vgc2018",
+      "name": "[Gen 7] VGC 2018",
+      "mod": "gen7",
+      "battle": "doubles",
+      "section": "US/UM Doubles"
+    },
+    {
+      "id": "gen7vgc2017",
+      "name": "[Gen 7] VGC 2017",
+      "mod": "gen7sm",
+      "battle": "doubles",
+      "section": "US/UM Doubles"
+    },
+    {
+      "id": "gen7battlespotdoubles",
+      "name": "[Gen 7] Battle Spot Doubles",
+      "mod": "gen7",
+      "battle": "doubles",
+      "section": "US/UM Doubles"
+    },
+    {
+      "id": "gen7letsgodoublesou",
+      "name": "[Gen 7 Let's Go] Doubles OU",
+      "mod": "gen7letsgo",
+      "battle": "doubles",
+      "section": "US/UM Doubles"
+    },
+    {
+      "id": "gen7doublescustomgame",
+      "name": "[Gen 7] Doubles Custom Game",
+      "mod": "gen7",
+      "battle": "doubles",
+      "section": "US/UM Doubles"
+    },
+    {
+      "id": "gen6ubers",
+      "name": "[Gen 6] Ubers",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6uu",
+      "name": "[Gen 6] UU",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6ru",
+      "name": "[Gen 6] RU",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6nu",
+      "name": "[Gen 6] NU",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6pu",
+      "name": "[Gen 6] PU",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6lc",
+      "name": "[Gen 6] LC",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6monotype",
+      "name": "[Gen 6] Monotype",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen61v1",
+      "name": "[Gen 6] 1v1",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6anythinggoes",
+      "name": "[Gen 6] Anything Goes",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6zu",
+      "name": "[Gen 6] ZU",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6cap",
+      "name": "[Gen 6] CAP",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6battlespotsingles",
+      "name": "[Gen 6] Battle Spot Singles",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6customgame",
+      "name": "[Gen 6] Custom Game",
+      "mod": "gen6",
+      "battle": "singles",
+      "section": "OR/AS Singles"
+    },
+    {
+      "id": "gen6vgc2016",
+      "name": "[Gen 6] VGC 2016",
+      "mod": "gen6",
+      "battle": "doubles",
+      "section": "OR/AS Doubles/Triples"
+    },
+    {
+      "id": "gen6vgc2015",
+      "name": "[Gen 6] VGC 2015",
+      "mod": "gen6",
+      "battle": "doubles",
+      "section": "OR/AS Doubles/Triples"
+    },
+    {
+      "id": "gen6vgc2014",
+      "name": "[Gen 6] VGC 2014",
+      "mod": "gen6xy",
+      "battle": "doubles",
+      "section": "OR/AS Doubles/Triples"
+    },
+    {
+      "id": "gen6battlespotdoubles",
+      "name": "[Gen 6] Battle Spot Doubles",
+      "mod": "gen6",
+      "battle": "doubles",
+      "section": "OR/AS Doubles/Triples"
+    },
+    {
+      "id": "gen6doublescustomgame",
+      "name": "[Gen 6] Doubles Custom Game",
+      "mod": "gen6",
+      "battle": "doubles",
+      "section": "OR/AS Doubles/Triples"
+    },
+    {
+      "id": "gen6battlespottriples",
+      "name": "[Gen 6] Battle Spot Triples",
+      "mod": "gen6",
+      "battle": "triples",
+      "section": "OR/AS Doubles/Triples"
+    },
+    {
+      "id": "gen6triplescustomgame",
+      "name": "[Gen 6] Triples Custom Game",
+      "mod": "gen6",
+      "battle": "triples",
+      "section": "OR/AS Doubles/Triples"
+    },
+    {
+      "id": "gen5ubers",
+      "name": "[Gen 5] Ubers",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5uu",
+      "name": "[Gen 5] UU",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5ru",
+      "name": "[Gen 5] RU",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5nu",
+      "name": "[Gen 5] NU",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5pu",
+      "name": "[Gen 5] PU",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5monotype",
+      "name": "[Gen 5] Monotype",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5lc",
+      "name": "[Gen 5] LC",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen51v1",
+      "name": "[Gen 5] 1v1",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5cap",
+      "name": "[Gen 5] CAP",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5zu",
+      "name": "[Gen 5] ZU",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5bw1ou",
+      "name": "[Gen 5] BW1 OU",
+      "mod": "gen5bw1",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5gbusingles",
+      "name": "[Gen 5] GBU Singles",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5customgame",
+      "name": "[Gen 5] Custom Game",
+      "mod": "gen5",
+      "battle": "singles",
+      "section": "B2/W2 Singles"
+    },
+    {
+      "id": "gen5vgc2013",
+      "name": "[Gen 5] VGC 2013",
+      "mod": "gen5",
+      "battle": "doubles",
+      "section": "B2/W2 Doubles"
+    },
+    {
+      "id": "gen5vgc2012",
+      "name": "[Gen 5] VGC 2012",
+      "mod": "gen5bw1",
+      "battle": "doubles",
+      "section": "B2/W2 Doubles"
+    },
+    {
+      "id": "gen5vgc2011",
+      "name": "[Gen 5] VGC 2011",
+      "mod": "gen5bw1",
+      "battle": "doubles",
+      "section": "B2/W2 Doubles"
+    },
+    {
+      "id": "gen5doublescustomgame",
+      "name": "[Gen 5] Doubles Custom Game",
+      "mod": "gen5",
+      "battle": "doubles",
+      "section": "B2/W2 Doubles"
+    },
+    {
+      "id": "gen5triplescustomgame",
+      "name": "[Gen 5] Triples Custom Game",
+      "mod": "gen5",
+      "battle": "triples",
+      "section": "B2/W2 Doubles"
+    },
+    {
+      "id": "gen4ubers",
+      "name": "[Gen 4] Ubers",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4uu",
+      "name": "[Gen 4] UU",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4nu",
+      "name": "[Gen 4] NU",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4lc",
+      "name": "[Gen 4] LC",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4anythinggoes",
+      "name": "[Gen 4] Anything Goes",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen41v1",
+      "name": "[Gen 4] 1v1",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4cap",
+      "name": "[Gen 4] CAP",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4pu",
+      "name": "[Gen 4] PU",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4zu",
+      "name": "[Gen 4] ZU",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4platinumou",
+      "name": "[Gen 4] Platinum OU",
+      "mod": "gen4pt",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4customgame",
+      "name": "[Gen 4] Custom Game",
+      "mod": "gen4",
+      "battle": "singles",
+      "section": "DPP Singles"
+    },
+    {
+      "id": "gen4vgc2010",
+      "name": "[Gen 4] VGC 2010",
+      "mod": "gen4",
+      "battle": "doubles",
+      "section": "DPP Doubles"
+    },
+    {
+      "id": "gen4vgc2009",
+      "name": "[Gen 4] VGC 2009",
+      "mod": "gen4pt",
+      "battle": "doubles",
+      "section": "DPP Doubles"
+    },
+    {
+      "id": "gen4doublescustomgame",
+      "name": "[Gen 4] Doubles Custom Game",
+      "mod": "gen4",
+      "battle": "doubles",
+      "section": "DPP Doubles"
+    },
+    {
+      "id": "gen3ubers",
+      "name": "[Gen 3] Ubers",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3uu",
+      "name": "[Gen 3] UU",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3ru",
+      "name": "[Gen 3] RU",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3nu",
+      "name": "[Gen 3] NU",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3pu",
+      "name": "[Gen 3] PU",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen31v1",
+      "name": "[Gen 3] 1v1",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3uubl",
+      "name": "[Gen 3] UUBL",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3zu",
+      "name": "[Gen 3] ZU",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3lc",
+      "name": "[Gen 3] LC",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3frlgou",
+      "name": "[Gen 3] FRLG OU",
+      "mod": "gen3frlg",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3adv200",
+      "name": "[Gen 3] ADV 200",
+      "mod": "gen3rs",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3adv200doubles",
+      "name": "[Gen 3] ADV 200 Doubles",
+      "mod": "gen3rs",
+      "battle": "doubles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3orrecolosseum",
+      "name": "[Gen 3] Orre Colosseum",
+      "mod": "gen3colosseum",
+      "battle": "doubles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3hoennstadium",
+      "name": "[Gen 3] Hoenn Stadium",
+      "mod": "gen3colosseum",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3customgame",
+      "name": "[Gen 3] Custom Game",
+      "mod": "gen3",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen3doublescustomgame",
+      "name": "[Gen 3] Doubles Custom Game",
+      "mod": "gen3",
+      "battle": "doubles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen2ubers",
+      "name": "[Gen 2] Ubers",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen2nu",
+      "name": "[Gen 2] NU",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen2pu",
+      "name": "[Gen 2] PU",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen21v1",
+      "name": "[Gen 2] 1v1",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen2zu",
+      "name": "[Gen 2] ZU",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen2nc2000",
+      "name": "[Gen 2] NC 2000",
+      "mod": "gen2stadium2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen2stadiumou",
+      "name": "[Gen 2] Stadium OU",
+      "mod": "gen2stadium2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen2customgame",
+      "name": "[Gen 2] Custom Game",
+      "mod": "gen2",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1ubers",
+      "name": "[Gen 1] Ubers",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1uu",
+      "name": "[Gen 1] UU",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1pu",
+      "name": "[Gen 1] PU",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1zu",
+      "name": "[Gen 1] ZU",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1lc",
+      "name": "[Gen 1] LC",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen11v1",
+      "name": "[Gen 1] 1v1",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1nc1997",
+      "name": "[Gen 1] NC 1997",
+      "mod": "gen1jpn",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1japaneseou",
+      "name": "[Gen 1] Japanese OU",
+      "mod": "gen1jpn",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1stadiumou",
+      "name": "[Gen 1] Stadium OU",
+      "mod": "gen1stadium",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1stadiumrentals",
+      "name": "[Gen 1] Stadium Rentals",
+      "mod": "gen1stadium",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1tradebacksou",
+      "name": "[Gen 1] Tradebacks OU",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    },
+    {
+      "id": "gen1customgame",
+      "name": "[Gen 1] Custom Game",
+      "mod": "gen1",
+      "battle": "singles",
+      "section": "Past Generations"
+    }
+  ]
+}

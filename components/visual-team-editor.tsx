@@ -8,6 +8,8 @@ import {
   cancelBuilderTiming,
   recordBuilderRender,
 } from '@/lib/builder-performance';
+import { FormatPicker } from './format-picker';
+import { assistanceFormat } from '@/lib/formats';
 import { api } from '@/lib/client';
 import {
   cleanMeta,
@@ -82,7 +84,7 @@ export function TeamEditor({
       return {
         ...readVisualTeam(
           draft.showdown_text,
-          draft.format,
+          assistanceFormat(draft.format, draft.format_context),
           [],
           draft.set_notes,
           draft.set_editing,
@@ -112,16 +114,24 @@ export function TeamEditor({
   }, []);
   useEffect(() => {
     // Warm generation catalogs after the draft is usable, before the species picker is needed.
-    const id = window.requestIdleCallback?.(() => builderCatalog(draft.format));
+    const id = window.requestIdleCallback?.(() =>
+      builderCatalog(assistanceFormat(draft.format, draft.format_context)),
+    );
     const fallback =
       id === undefined
-        ? setTimeout(() => builderCatalog(draft.format), 40)
+        ? setTimeout(
+            () =>
+              builderCatalog(
+                assistanceFormat(draft.format, draft.format_context),
+              ),
+            40,
+          )
         : undefined;
     return () => {
       if (id !== undefined) window.cancelIdleCallback(id);
       clearTimeout(fallback);
     };
-  }, [draft.format]);
+  }, [draft.format, draft.format_context]);
   useEffect(() => {
     if (busy) afterBuilderPaint('save-feedback');
   }, [busy]);
@@ -137,7 +147,7 @@ export function TeamEditor({
   function reconcile() {
     const next = readVisualTeam(
       draft.showdown_text,
-      draft.format,
+      assistanceFormat(draft.format, draft.format_context),
       slots,
       slots.length ? [] : draft.set_notes,
       slots.length ? [] : draft.set_editing,
@@ -172,7 +182,12 @@ export function TeamEditor({
     updateSlots(
       slots.map((s, i) =>
         i === active
-          ? patchAuthoredSlot(s, p, draft.format, manualAttackIv)
+          ? patchAuthoredSlot(
+              s,
+              p,
+              assistanceFormat(draft.format, draft.format_context),
+              manualAttackIv,
+            )
           : s,
       ),
     );
@@ -194,11 +209,18 @@ export function TeamEditor({
       if (editorMode === 'visual' && mode !== 'metadata') {
         finalDraft = {
           ...draft,
-          ...completeAuthoredTeam(slots, draft.showdown_text, draft.format),
+          ...completeAuthoredTeam(
+            slots,
+            draft.showdown_text,
+            assistanceFormat(draft.format, draft.format_context),
+          ),
         };
       }
       if (mode !== 'metadata') {
-        parseShowdown(finalDraft.showdown_text, draft.format);
+        parseShowdown(
+          finalDraft.showdown_text,
+          assistanceFormat(draft.format, draft.format_context),
+        );
         if (orphans.length)
           throw Error('Assign or discard the unassigned notes before saving.');
         if (editorMode === 'text') {
@@ -285,12 +307,11 @@ export function TeamEditor({
             <div className="editor-team-header">
               <div className="editor-format">
                 <Field label="Format">
-                  <input
-                    aria-label="Team format"
+                  <FormatPicker
                     value={draft.format}
-                    placeholder="Choose a format"
-                    onChange={(e) =>
-                      setDraft({ ...draft, format: e.target.value })
+                    context={draft.format_context}
+                    onChange={(format, format_context) =>
+                      setDraft({ ...draft, format, format_context })
                     }
                   />
                 </Field>
@@ -348,7 +369,7 @@ export function TeamEditor({
             {editorMode === 'visual' ? (
               <>
                 <PokemonSlotBar
-                  format={draft.format}
+                  format={assistanceFormat(draft.format, draft.format_context)}
                   slots={slots}
                   addButtonRef={addButtonRef}
                   selected={active}
@@ -367,7 +388,10 @@ export function TeamEditor({
                     slot={slots[active]}
                     index={active}
                     count={slots.length}
-                    format={draft.format}
+                    format={assistanceFormat(
+                      draft.format,
+                      draft.format_context,
+                    )}
                     target={
                       editTarget?.slot === active ? editTarget : undefined
                     }

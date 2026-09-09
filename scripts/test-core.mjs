@@ -1,3 +1,4 @@
+import { testLargeWorkflows } from './test-large-workflows.mjs';
 import { snapshotRevision } from '../.test-build/domain.mjs';
 import assert from 'node:assert/strict';
 import { testSaveModel, argsFor, draftOf } from './test-save-model.mjs';
@@ -693,4 +694,34 @@ await check(
     }
   },
 );
+await check(
+  'bulk deletion rechecks ownership/existence inside its transaction',
+  async () => {
+    const { ids } = await a.import([demoDrafts[0], demoDrafts[1]]);
+    const key = { operation_id: crypto.randomUUID(), chunk_index: 0 };
+    const racing = new DemoStore(
+      {
+        prepare: d1.prepare,
+        batch: async (statements) => {
+          await a.delete(ids[0]);
+          return d1.batch(statements);
+        },
+      },
+      'owner-a',
+    );
+    await assert.rejects(
+      () => racing.bulkDelete(ids, key),
+      /deleted elsewhere/,
+    );
+    assert.ok(await a.get(ids[1]));
+    assert.equal(
+      db
+        .prepare('SELECT count(*) n FROM operation_chunks WHERE operation_id=?')
+        .get(key.operation_id).n,
+      0,
+    );
+    await a.delete(ids[1]);
+  },
+);
+await testLargeWorkflows(a, b, check, 1000);
 console.log('SQLite + domain: ' + passed + ' checks passed.');

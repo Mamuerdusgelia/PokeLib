@@ -5,6 +5,7 @@ import {
   type SetEditing,
 } from './domain';
 import { parseShowdown } from './showdown';
+import { assistanceFormat } from './formats';
 export function makeSnapshot(
   d: Draft,
   team_id: string,
@@ -18,7 +19,10 @@ export function makeSnapshot(
     d.set_notes?.some((n) => typeof n !== 'string' || n.length > 10000)
   )
     throw Error('Notes exceed the storage limit.');
-  const { sets } = parseShowdown(d.showdown_text, d.format);
+  const { sets } = parseShowdown(
+    d.showdown_text,
+    assistanceFormat(d.format, d.format_context),
+  );
   const id = crypto.randomUUID();
   return {
     id,

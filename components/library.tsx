@@ -69,6 +69,7 @@ import {
 import { TeamEditor, ImportTeams } from './team-editor';
 import { SearchFilters } from './search-filters';
 import { FormatNavigator } from './format-navigator';
+import { BulkActionDialog as BulkDialog } from './bulk-actions';
 import { TeamCard } from './team-card';
 import type { SetEditTarget } from '@/lib/builder-data';
 import { InlineTeamMetadata } from './inline-team-metadata';
@@ -86,6 +87,7 @@ type Facets = {
   all: number;
   favourites: number;
   archived: number;
+  format_contexts?: Record<string, import('@/lib/formats').FormatContext>;
 };
 const blank: Facets = {
   formats: [],
@@ -139,9 +141,11 @@ export default function Library() {
       | 'settings'
       | 'share'
       | 'bulk'
+      | 'bulk_delete'
     >(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [selectionBusy, setSelectionBusy] = useState(false);
   const invalidateLibrary = useCallback(
     () => setRefreshTick((tick) => tick + 1),
     [],
@@ -209,8 +213,6 @@ export default function Library() {
         }
         setTeams(result.teams);
         setTotal(result.total);
-        const f = await api('facets', { include_archived: true }, signal);
-        if (!signal?.aborted) setFacets(f);
       } catch (e) {
         if ((e as Error).name !== 'AbortError') setError((e as Error).message);
       } finally {
@@ -227,6 +229,18 @@ export default function Library() {
       controller.abort();
     };
   }, [refresh, query, refreshTick]);
+  useEffect(() => {
+    if (!signed) return;
+    const controller = new AbortController();
+    api('facets', { include_archived: true }, controller.signal)
+      .then((f) => {
+        if (!controller.signal.aborted) setFacets(f);
+      })
+      .catch((e) => {
+        if (e.name !== 'AbortError') setError(e.message);
+      });
+    return () => controller.abort();
+  }, [signed, refreshTick]);
   async function openTeam(id: string, version?: number) {
     setDetailLoading(true);
     setError('');
@@ -566,6 +580,7 @@ export default function Library() {
           ))}
           <FormatNavigator
             formats={facets.formats}
+            contexts={facets.format_contexts}
             selected={chips.find((c) => c.field === 'format')?.value}
             onSelect={(value) => filter('format', value)}
           />
@@ -990,12 +1005,17 @@ export default function Library() {
                 <label className="select-page">
                   <Checkbox
                     aria-label="Select all teams on this page"
+                    disabled={selectionBusy || loading}
                     checked={
                       teams.length > 0 &&
                       teams.every((t) => selected.includes(t.id))
                     }
                     onCheckedChange={(v) =>
-                      setSelected(v ? teams.map((t) => t.id) : [])
+                      setSelected((s) =>
+                        v
+                          ? [...new Set([...s, ...teams.map((t) => t.id)])]
+                          : s.filter((id) => !teams.some((t) => t.id === id)),
+                      )
                     }
                   />
                   {selected.length
@@ -1005,8 +1025,16 @@ export default function Library() {
                 {selected.length ? (
                   <div className="bulk-controls">
                     <button
+                      disabled={selectionBusy}
+                      className="text-link danger"
+                      onClick={() => setModal('bulk_delete')}
+                    >
+                      Delete selected
+                    </button>
+                    <button
                       className="text-link"
                       onClick={() => setModal('bulk')}
+                      disabled={selectionBusy}
                     >
                       Apply tags & metadata
                     </button>
@@ -1014,20 +1042,28 @@ export default function Library() {
                       className="text-link"
                       onClick={async () => {
                         try {
+                          if (selected.length > 200)
+                            throw Error(
+                              'Export at most 200 selected teams at a time.',
+                            );
                           const ts = await Promise.all(
-                            selected.map((id) => api('get', { id })),
+                            selected
+                              .slice(0, 200)
+                              .map((id) => api('get', { id })),
                           );
                           downloadText(backupText(ts), 'teamvault-backup');
                         } catch (e) {
                           setError((e as Error).message);
                         }
                       }}
+                      disabled={selectionBusy}
                     >
                       Export selected
                     </button>
                     <button
                       className="text-link"
                       onClick={() => setSelected([])}
+                      disabled={selectionBusy}
                     >
                       Clear selection
                     </button>
@@ -1036,6 +1072,38 @@ export default function Library() {
                   <span>One team. Every version.</span>
                 )}
               </div>
+              {total > teams.length && (
+                <button
+                  disabled={selectionBusy || loading}
+                  type="button"
+                  className="text-link select-matching"
+                  onClick={async () => {
+                    setSelectionBusy(true);
+                    try {
+                      const r = await api('select', {
+                        query: queryWithFilters(chips, query),
+                        year: chips.some(
+                          (c) => c.field === 'year' && c.value === 'unknown',
+                        )
+                          ? 'unknown'
+                          : '',
+                        include_archived: true,
+                        favourite: section === 'Favourites',
+                      });
+                      setSelected(r.ids);
+                      setNotice(r.total + ' matching teams selected.');
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setSelectionBusy(false);
+                    }
+                  }}
+                >
+                  {selectionBusy
+                    ? 'Selecting matching teams…'
+                    : `Select all ${total} matching teams`}
+                </button>
+              )}
               {loading ? (
                 <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
                   {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -1191,14 +1259,19 @@ export default function Library() {
           }}
         />
       )}
-      {modal === 'bulk' && (
+      {(modal === 'bulk' || modal === 'bulk_delete') && (
         <BulkDialog
           ids={selected}
+          deleting={modal === 'bulk_delete'}
           tags={facets.tags}
           onClose={() => setModal(null)}
-          onSaved={() => {
+          onSaved={(count) => {
             setSelected([]);
-            void saved();
+            setModal(null);
+            setNotice(
+              `${count} of ${selected.length} selected teams ${modal === 'bulk_delete' ? 'deleted' : 'updated'}.`,
+            );
+            invalidateLibrary();
           }}
         />
       )}
@@ -1478,88 +1551,6 @@ function ShareDialog({
         </button>
       </div>
       {message && <p role="status">{message}</p>}
-    </Modal>
-  );
-}
-function BulkDialog({
-  ids,
-  tags,
-  onClose,
-  onSaved,
-}: {
-  ids: string[];
-  tags: string[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [values, setValues] = useState<string[]>([]),
-    [source, setSource] = useState(''),
-    [name, setName] = useState(''),
-    [year, setYear] = useState(''),
-    [error, setError] = useState(''),
-    [busy, setBusy] = useState(false);
-  async function apply() {
-    setBusy(true);
-    try {
-      if (year && !/^\d{4}$/.test(year))
-        throw Error('Enter a four-digit year.');
-      const patch: any = {};
-      if (values.length) patch.tags = values;
-      if (source) {
-        patch.source_type = source;
-        patch.source_name = name;
-      }
-      if (year) {
-        patch.team_date = year;
-        patch.team_date_precision = 'year';
-      }
-      await api('bulk', { ids, patch });
-      onSaved();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal
-      title={'Update ' + ids.length + ' teams'}
-      description="Add shared tags or replace source and historical year. Blank fields keep existing values."
-      onClose={onClose}
-    >
-      <Field label="Add tags">
-        <TagEditor tags={values} suggestions={tags} onChange={setValues} />
-      </Field>
-      <div className="field-row">
-        <Field label="Replace source type">
-          <Pick
-            value={source}
-            onChange={setSource}
-            label="Keep existing"
-            options={[['', 'Keep existing'], ...sourceTypes]}
-          />
-        </Field>
-        <Field label="Source name">
-          <input value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
-      </div>
-      <Field label="Set historical year">
-        <input
-          value={year}
-          placeholder="Keep existing"
-          onChange={(e) => setYear(e.target.value)}
-        />
-      </Field>
-      {error && <p className="error">{error}</p>}
-      <div className="modal-actions">
-        <button
-          className="button primary"
-          disabled={busy}
-          onClick={() => apply()}
-        >
-          {busy ? 'Saving…' : 'Apply changes'}
-        </button>
-      </div>
     </Modal>
   );
 }
