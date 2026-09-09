@@ -343,8 +343,12 @@ export function TeamEditor({
                     className="edit-value"
                     onClick={() => setRenaming(true)}
                     aria-label="Rename team"
+                    disabled={!!team?.family_id}
                   >
                     {draft.title}
+                    {team?.family_id
+                      ? ' · ' + (team.variant_name || 'Main')
+                      : ''}
                   </button>
                 </h3>
               )}

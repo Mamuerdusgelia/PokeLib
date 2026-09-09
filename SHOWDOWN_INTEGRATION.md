@@ -1,5 +1,7 @@
 # Showdown integration
 
+The 2026-09-10 variant layer wraps the existing builder without replacing its raw-text/default/learnset behavior. Each variant retains its own current Save, immutable history and restoration; Create variant copies an exact selected snapshot with fresh identities. See DECISIONS.md and SCHEMA_PLAN.md. The expanded suite currently has 199 checks; real staged Save/Create-variant profiling remains an active task.
+
 The sections before [Builder usability correction](#builder-usability-correction--2026-09-09) document the previous integration pass (fab8129). That later section describes the current Save model, migrations, 160-check suite and measurements; it supersedes older current-state claims below.
 
 ## Implementation plan and boundary

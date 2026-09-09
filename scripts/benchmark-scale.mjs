@@ -151,6 +151,49 @@ for (const n of [1000, 5000, 10000]) {
       sort: 'modified_desc',
     });
   const measurements = [];
+  // Extra sibling fixtures remain outside the n original conceptual families.
+  if (process.argv.includes('--variants')) {
+    for (let i = 0; i < n; i += 20) {
+      const t = await store.get('team-' + i);
+      if (t.family_id) continue;
+      await store.variant('variant_create', {
+        id: t.id,
+        name: 'Anti-Stall',
+        version_id: t.version.id,
+        expected: t.current_version_id,
+        expected_revision: t.version.edit_revision || t.version.id,
+        expected_updated_at: t.updated_at,
+        operation_id: crypto.randomUUID(),
+      });
+    }
+    for (const [name, payload] of [
+      ['family initial', { group_families: true }],
+      [
+        'family last page',
+        { group_families: true, page: Math.floor((n - 1) / 30) },
+      ],
+      [
+        'family same-set',
+        { group_families: true, plan: planQuery('Darkrai Ice Beam') },
+      ],
+      ['family select IDs', { group_families: true, ids_only: true }],
+      ['expand variants', { family_id: 'team-0' }],
+    ])
+      measurements.push(
+        await measure(name, () =>
+          store.list({
+            plan: planQuery(''),
+            include_archived: true,
+            ...payload,
+          }),
+        ),
+      );
+    measurements.push(
+      await measure('family facets', () =>
+        store.facets({ include_archived: true, group_families: true }),
+      ),
+    );
+  }
   for (const [name, fn] of [
     ['initial library', () => run('')],
     [
@@ -192,6 +235,7 @@ for (const n of [1000, 5000, 10000]) {
           include_archived: true,
           plan: planQuery(''),
           ids_only: true,
+          group_families: process.argv.includes('--variants'),
         }),
     ],
     [
@@ -201,6 +245,7 @@ for (const n of [1000, 5000, 10000]) {
           include_archived: true,
           plan: planQuery('Darkrai Ice Beam'),
           ids_only: true,
+          group_families: process.argv.includes('--variants'),
         }),
     ],
     [

@@ -10,6 +10,7 @@ import {
   type ChunkKey,
 } from './import-workflow';
 import { hashToken } from './demo-store';
+import { variantDetails, familySelection, variantPayload } from './variants';
 export class SupabaseStore {
   constructor(private client: SupabaseClient) {}
   async call(action: string, payload: any = {}) {
@@ -38,7 +39,7 @@ export class SupabaseStore {
         : p.plan,
     });
   }
-  facets(p: { include_archived?: boolean } = {}) {
+  facets(p: { include_archived?: boolean; group_families?: boolean } = {}) {
     return this.call('facets', p).then((r) => ({
       ...r,
       formats: [
@@ -189,6 +190,36 @@ export class SupabaseStore {
     const { data, error } = await this.client.rpc('delete_team', { p_id: id });
     if (error) throw Error(error.message);
     return data;
+  }
+  async variant(action: string, input: unknown) {
+    let p: ReturnType<typeof variantPayload> & {
+      variant_key?: string;
+      request_hash?: string;
+    } = variantPayload(input);
+    if (action === 'variant_create' || action === 'variant_rename') {
+      const d = variantDetails(p);
+      p = {
+        ...p,
+        name: d.name,
+        variant_key: d.key,
+        description: d.description,
+      };
+    }
+    if (action === 'family_expand' || action === 'family_bulk_delete')
+      familySelection(p.ids, action === 'family_bulk_delete' ? 5 : 10000);
+    if (action === 'variant_create') {
+      validateChunk({ operation_id: p.operation_id, chunk_index: 0 });
+      p = { ...p, request_hash: await requestHash(p) };
+    }
+    if (action === 'family_bulk_delete') {
+      validateChunk(p.chunk);
+      if (!p.chunk) throw Error('A deletion operation is required.');
+      return this.call(action, {
+        ...p,
+        chunk: { ...p.chunk, request_hash: await requestHash(p.ids) },
+      });
+    }
+    return this.call(action, p);
   }
   async share(id: string, revoke = false) {
     if (revoke) return this.call('revoke', { id });

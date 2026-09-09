@@ -1,6 +1,6 @@
 # TeamVault
 
-A private library for competitive Pokémon teams: one conceptual team, an editable current version and frozen history, indexed same-set search, structured provenance, historical dates, notes, bulk import, and revocable read-only sharing.
+A private library for competitive Pokémon teams: conceptual team families, alternate variants with independent current builds and history, indexed same-set search, structured provenance, historical dates, notes, bulk import, and revocable read-only sharing.
 
 ## What runs now
 
@@ -9,6 +9,9 @@ The Sites deployment uses an account-isolated, persistent Cloudflare D1 **demo w
 The complete PostgreSQL/Supabase adapter and migration are included. No Supabase project was available during implementation. The migration and RLS/RPC behavior are tested against embedded PostgreSQL (PGlite), but real Supabase email delivery and hosted Supabase connectivity must be checked after you connect your project.
 
 ## Architecture
+
+- **Families, variants, history:** library rows group sibling builds into one conceptual family. Expand to load matching variants, 30 per request. Create/Duplicate variant copies the displayed snapshot into revision 1 of a sibling; Rename/Delete variant are separate from History. The final variant requires the explicit Delete team family action. Legacy teams appear as Main without changing their IDs or snapshots.
+- A family owns its title. Rename the title in the detail heading to update all siblings atomically. Each variant owns its format, tags, source, date, notes and history. Bulk library selection means whole families: metadata expands to all their variants, while family deletion cascades every sibling. Existing share links expose one variant and its numbered history only.
 
 - New Team opens an unsaved blank six-slot builder immediately, inheriting the active format filter. The first nonempty save creates the team; abandoning the draft creates no record.
 - Click displayed species, item, ability, nature, move or stats to edit that set. Save updates the current version; Save as new version preserves it in history. Historical edits/restores always create a new version. Generation-aware selectors show types, abilities, base stats, descriptions and move data. Species can be filtered by two types, ability and move, and sorted by each stat or total. Move availability uses pinned Showdown teambuilder tables and adapted traversal, including Gen 9/National Dex differences. This is individual move availability, not full competitive legality; special-mod limits are documented in SHOWDOWN_INTEGRATION.md.
@@ -26,7 +29,7 @@ The complete PostgreSQL/Supabase adapter and migration are included. No Supabase
 - lib/demo-store.ts: D1 demo persistence, parameterized queries, server-side ownership checks, transactional imports/version creation.
 - lib/showdown.ts: maintained @pkmn/sets and @pkmn/dex. Original export and structured full set JSON are retained. Unknown lines remain in the stored export.
 - lib/search.ts: longest entity matching plus explicit syntax; related Pokémon predicates are correlated to the same version and slot. Metadata words use relational search-term indexes. No library-wide browser scans.
-- Versions contain parsed sets, Showdown text, original text, team notes, per-slot notes, parent version ID, revision tokens and optional private authoring-default flags. Tags/provenance/date belong to the conceptual team.
+- Versions contain parsed sets, Showdown text, original text, team notes, per-slot notes, parent version ID, revision tokens and optional private authoring-default flags. Tags/provenance/date belong to the variant and apply across its history.
 
 ## Local setup
 

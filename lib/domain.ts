@@ -59,6 +59,12 @@ export const snapshotRevision = (snapshot: Snapshot) =>
 export type TeamRecord = TeamMeta & {
   id: string;
   owner_id?: string;
+  family_id?: string | null;
+  family_key?: string;
+  variant_name?: string;
+  variant_description?: string;
+  variant_count?: number;
+  matching_variant_count?: number;
   current_version_id: string;
   favourite: boolean;
   archived: boolean;

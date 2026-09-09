@@ -1,4 +1,5 @@
 import { testLargeWorkflows } from './test-large-workflows.mjs';
+import { testVariants } from './test-variants.mjs';
 import { snapshotRevision } from '../.test-build/domain.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import assert from 'node:assert/strict';
@@ -632,5 +633,6 @@ const otherClient = {
   },
 };
 await testLargeWorkflows(store, new SupabaseStore(otherClient), check);
+await testVariants(store, new SupabaseStore(otherClient), check);
 console.log('PostgreSQL: ' + passed + ' checks passed.');
 await pg.close();

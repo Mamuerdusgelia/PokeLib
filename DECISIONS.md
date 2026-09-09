@@ -1,5 +1,16 @@
 # Product and technical decisions
 
+## Team families and variants — 2026-09-10
+
+- A family is the conceptual team; a variant is an intentional alternate build; history records changes to one variant. These concepts must remain distinct. Existing team IDs remain variant IDs and old snapshot rows are untouched.
+- Legacy teams are virtual Main families (family_id null, effective family ID = team ID). The first sibling lazily materializes team_families and attaches the original row. Sibling names are case-insensitively unique. Clone copies the exact selected snapshot's raw/original text, notes, parsed data, comment and private authoring flags into revision 1, with fresh identities and no cross-variant parent. Creation has an owner-scoped retry receipt.
+- Family title is synchronized into sibling metadata/title/search tokens by an explicit atomic rename. Variant format/tags/provenance/date can differ. Normal Save cannot rename a materialized family; use its detail heading. Save/new history/restore keep the existing three-token stale-write guards.
+- The library groups matching variants in SQL before snapshot joins; expansion is separately paginated and honors the active search. A matching representative is Main when available, otherwise the most recently modified matching variant. Family counts and bulk selection are conceptual-family counts.
+- Bulk metadata resolves all selected siblings before confirmation and freezes their IDs; it explicitly includes siblings outside the query. Family deletion is a separate five-family atomic, replay-safe operation. Deleting a variant never removes siblings; deleting the final materialized variant is blocked even through old deletion APIs.
+- Existing team links remain variant-scoped, including numbered history. Public projections add only the shared variant's name/description, never sibling IDs/counts or private authoring flags. Showdown exports remain ordinary text, not a lossless family/history backup.
+- PostgreSQL uses a transaction advisory write lock per owner before delegating to older RPCs. This deliberately serializes one owner's mutations to cover first-family materialization and avoid inverted family/team lock order; different owners can write independently. D1 batches retain atomic guards. Revisit lock granularity only with measured concurrency demand.
+- SQLite migrations are additive and backed up locally before application. Drizzle 0.31's generated ADD COLUMN omitted ON DELETE CASCADE and its expression-index SQL incorrectly split commas; both generated SQL statements were corrected and exercised by adapter/migration tests. Inspect generated SQL rather than trusting schema declarations alone.
+
 ## Builder usability and current Save — 2026-09-09
 
 These decisions supersede earlier statements that every edit creates an immutable snapshot.

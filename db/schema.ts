@@ -6,15 +6,27 @@ import {
   uniqueIndex,
   primaryKey,
 } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 export const profiles = sqliteTable('profiles', {
   id: text().primaryKey(),
   created_at: text().notNull(),
+});
+export const families = sqliteTable('team_families', {
+  id: text().primaryKey(),
+  owner_id: text().notNull(),
+  title: text().notNull(),
+  created_at: text().notNull(),
+  updated_at: text().notNull(),
 });
 export const teams = sqliteTable(
   'teams',
   {
     id: text().primaryKey(),
     owner_id: text().notNull(),
+    family_id: text().references(() => families.id, { onDelete: 'cascade' }),
+    variant_name: text().notNull().default('Main'),
+    variant_key: text().notNull().default('main'),
+    variant_description: text().notNull().default(''),
     title: text().notNull(),
     format: text().notNull(),
     team_date: text(),
@@ -34,6 +46,12 @@ export const teams = sqliteTable(
     index('teams_owner_modified_id').on(t.owner_id, t.updated_at, t.id),
     index('teams_owner_format_id').on(t.owner_id, t.format, t.id),
     index('teams_owner_created_id').on(t.owner_id, t.created_at, t.id),
+    index('teams_owner_family').on(t.owner_id, t.family_id, t.id),
+    index('teams_owner_effective_family').on(
+      t.owner_id,
+      sql`coalesce(${t.family_id},${t.id})`,
+    ),
+    uniqueIndex('variants_family_name').on(t.family_id, t.variant_key),
   ],
 );
 export const versions = sqliteTable(

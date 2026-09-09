@@ -36,6 +36,20 @@
       "when": 1788961441626,
       "tag": "0004_slow_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788966512600,
+      "tag": "0005_nifty_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788967670927,
+      "tag": "0006_uneven_ben_urich",
+      "breakpoints": true
     }
   ]
 }

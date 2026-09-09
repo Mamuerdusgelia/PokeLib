@@ -2,6 +2,7 @@ import { Trash2, Star, FolderClosed, Clock3 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatLabel, dateLabel, type TeamRecord } from '@/lib/domain';
 import { PokemonLine } from './vault-ui';
+import { FamilyVariants } from './variants';
 type Props = {
   team: TeamRecord;
   index: number;
@@ -12,6 +13,10 @@ type Props = {
   onOpen: () => void;
   onHistory: () => void;
   onFilter: (field: string, value: string) => void;
+  query?: string;
+  year?: string;
+  favourite?: boolean;
+  onVariant: (id: string) => void;
 };
 export function TeamCard({
   team: t,
@@ -23,6 +28,10 @@ export function TeamCard({
   onOpen,
   onHistory,
   onFilter,
+  query,
+  year,
+  favourite,
+  onVariant,
 }: Props) {
   return (
     <article className="team-card" key={t.id}>
@@ -42,11 +51,11 @@ export function TeamCard({
         <div className="card-select">
           <button
             className="card-delete"
-            aria-label={'Delete ' + t.title}
+            aria-label={'Delete team family ' + t.title}
             onClick={() => onDelete()}
           >
             <Trash2 size={14} />
-            Delete
+            Delete family
           </button>
           <Checkbox
             aria-label={'Select ' + t.title}
@@ -64,8 +73,23 @@ export function TeamCard({
       </div>
       <button className="card-open" onClick={() => onOpen()}>
         <h2>{t.title}</h2>
+        {(t.variant_count || 1) > 1 && (
+          <small>
+            ↳ {t.variant_name || 'Main'}
+            {(t.matching_variant_count || 1) < (t.variant_count || 1)
+              ? ' · matching variant'
+              : ''}
+          </small>
+        )}
         <PokemonLine sets={t.version.parsed_team} />
       </button>
+      <FamilyVariants
+        team={t}
+        query={query}
+        year={year}
+        favourite={favourite}
+        onOpen={onVariant}
+      />
       <div className="tags">
         {t.tags.map((tag, j) => (
           <button

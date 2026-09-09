@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/client';
 import { IMPORT_CHUNK_SIZE } from '@/lib/import-workflow';
 import { sourceTypes, type TeamMeta } from '@/lib/domain';
@@ -26,6 +26,20 @@ export function BulkActionDialog({
     [done, setDone] = useState(0),
     [started, setStarted] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [expandedTargets, setTargets] = useState<string[] | null>(null);
+  const targets = deleting ? ids : expandedTargets;
+  useEffect(() => {
+    if (deleting) return;
+    const controller = new AbortController();
+    api('family_expand', { ids }, controller.signal)
+      .then((r) => {
+        if (!controller.signal.aborted) setTargets(r.ids);
+      })
+      .catch((e) => {
+        if (e.name !== 'AbortError') setError(e.message);
+      });
+    return () => controller.abort();
+  }, [ids, deleting]);
   const job = useRef<{
     id: string;
     ids: string[];
@@ -38,7 +52,7 @@ export function BulkActionDialog({
     else onClose();
   }
   async function apply() {
-    if (busy) return;
+    if (busy || !targets) return;
     setError('');
     setBusy(true);
     try {
@@ -59,7 +73,7 @@ export function BulkActionDialog({
           throw Error('Choose a tag or metadata change first.');
         job.current = {
           id: crypto.randomUUID(),
-          ids: [...ids],
+          ids: [...targets],
           patch,
           next: 0,
         };
@@ -68,7 +82,7 @@ export function BulkActionDialog({
       const op = job.current;
       while (op.next < op.ids.length) {
         const chunk = op.ids.slice(op.next, op.next + IMPORT_CHUNK_SIZE);
-        await api(deleting ? 'bulk_delete' : 'bulk', {
+        await api(deleting ? 'family_bulk_delete' : 'bulk', {
           ids: chunk,
           patch: op.patch,
           chunk: {
@@ -95,13 +109,17 @@ export function BulkActionDialog({
       title={
         (deleting ? 'Delete ' : 'Update ') +
         ids.length +
-        ' teams' +
+        ' team families' +
         (deleting ? '?' : '')
       }
       description={
         deleting
-          ? 'Permanently delete these teams, all their history, notes and share links. Other teams remain.'
-          : 'Add tags or replace source and historical year. Blank fields keep existing values.'
+          ? 'Permanently delete every variant in these families, including all their history, notes and share links.'
+          : targets
+            ? 'Update all ' +
+              targets.length +
+              ' variants across these families, including siblings outside the current search. Blank fields keep existing values.'
+            : 'Resolving all variants in the selected families…'
       }
       onClose={close}
     >
@@ -135,10 +153,11 @@ export function BulkActionDialog({
           <progress
             aria-label="Bulk action progress"
             value={done}
-            max={ids.length}
+            max={targets?.length || ids.length}
           />
           <output aria-live="polite">
-            {done} / {ids.length} {deleting ? 'deleted' : 'updated'}
+            {done} / {targets?.length || ids.length}{' '}
+            {deleting ? 'families deleted' : 'variants updated'}
           </output>
         </div>
       )}
@@ -160,7 +179,7 @@ export function BulkActionDialog({
         <button
           type="button"
           className={'button ' + (deleting ? 'danger' : 'primary')}
-          disabled={busy}
+          disabled={busy || !targets}
           onClick={apply}
         >
           {busy
@@ -168,7 +187,7 @@ export function BulkActionDialog({
             : started
               ? 'Retry'
               : deleting
-                ? 'Delete ' + ids.length + ' teams'
+                ? 'Delete ' + ids.length + ' team families'
                 : 'Apply changes'}
         </button>
       </div>

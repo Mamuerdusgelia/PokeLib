@@ -12,7 +12,7 @@ async function req(action, payload = {}, cookie = '') {
   });
   return { status: r.status, data: await r.json() };
 }
-let cookie, disposable;
+let cookie, disposable, variantFamily;
 const bulkIds = [];
 try {
   assert.equal((await req('list')).status, 401);
@@ -295,6 +295,76 @@ try {
     ).data.total,
     5,
   );
+  const variantImport = await req(
+    'import',
+    {
+      drafts: [
+        {
+          ...parsed.data[0].draft,
+          title: 'HTTP variants ' + crypto.randomUUID(),
+        },
+      ],
+    },
+    cookie,
+  );
+  variantFamily = variantImport.data.ids[0];
+  const main = (await req('get', { id: variantFamily }, cookie)).data;
+  const variantPayload = {
+    id: main.id,
+    name: 'Anti-Stall',
+    version_id: main.version.id,
+    expected: main.current_version_id,
+    expected_revision: main.version.edit_revision || main.version.id,
+    expected_updated_at: main.updated_at,
+    operation_id: crypto.randomUUID(),
+  };
+  const clone = await req('variant_create', variantPayload, cookie);
+  assert.equal(clone.status, 200, JSON.stringify(clone.data));
+  assert.equal(
+    (await req('variant_create', variantPayload, cookie)).data.id,
+    clone.data.id,
+  );
+  const grouped = await req(
+    'families',
+    { query: 'team:"' + main.title + '"' },
+    cookie,
+  );
+  assert.equal(grouped.data.total, 1);
+  assert.equal(grouped.data.teams[0].variant_count, 2);
+  assert.equal(
+    (await req('family_variants', { family_id: main.id }, cookie)).data.total,
+    2,
+  );
+  assert.equal(
+    (await req('family_expand', { ids: [main.id] }, cookie)).data.ids.length,
+    2,
+  );
+  const shareVariant = await req('share', { id: clone.data.id }, cookie);
+  const sharedVariant = await (
+    await fetch(origin + '/api/share/' + shareVariant.data.token)
+  ).json();
+  assert.equal(sharedVariant.variant_name, 'Anti-Stall');
+  assert.equal(sharedVariant.family_id, undefined);
+  assert.equal(sharedVariant.variant_count, undefined);
+  const removeFamily = {
+    ids: [main.id],
+    chunk: { operation_id: crypto.randomUUID(), chunk_index: 0 },
+  };
+  assert.equal(
+    (await req('family_bulk_delete', removeFamily, cookie)).data.count,
+    1,
+  );
+  assert.equal(
+    (await req('family_bulk_delete', removeFamily, cookie)).data.count,
+    1,
+  );
+  assert.equal(
+    (await fetch(origin + '/api/share/' + shareVariant.data.token)).status,
+    404,
+  );
+  console.log(
+    'HTTP variants: clone replay, grouped library, sibling expansion, restricted shares and family deletion passed.',
+  );
   const deletion = crypto.randomUUID();
   for (let i = 0; i < bulkIds.length; i += 5) {
     const payload = {
@@ -320,6 +390,15 @@ try {
   console.error(e.stack);
   process.exitCode = 1;
 } finally {
+  if (cookie && variantFamily)
+    await req(
+      'family_bulk_delete',
+      {
+        ids: [variantFamily],
+        chunk: { operation_id: crypto.randomUUID(), chunk_index: 0 },
+      },
+      cookie,
+    );
   if (cookie && disposable) await req('delete', { id: disposable }, cookie);
   if (cookie) for (const id of bulkIds) await req('delete', { id }, cookie);
 }

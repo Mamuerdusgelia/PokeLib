@@ -848,3 +848,71 @@
     margin: 8vh 20px;
   }
 }
+.variant-actions {
+  margin: 16px 0 24px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.variant-actions p {
+  margin: 5px 0;
+  color: var(--muted-foreground);
+}
+.variant-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.family-variants {
+  margin: 8px 0;
+  min-width: 0;
+}
+.variant-rows {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.variant-row {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 0;
+}
+.variant-row:hover {
+  background: var(--muted);
+}
+.variant-row small {
+  overflow-wrap: anywhere;
+}
+.variant-pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.team-list .family-variants {
+  grid-column: 1 / -1;
+  grid-row: 5;
+}
+.team-list .card-open small {
+  grid-column: 1;
+  grid-row: 2;
+}
+.team-list .card-open > .pokemon-line {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.team-list .variant-row .pokemon-line {
+  justify-content: flex-start;
+  width: auto;
+}
+.team-card .card-open small {
+  display: block;
+  margin: 6px 0;
+  color: var(--muted-foreground);
+}

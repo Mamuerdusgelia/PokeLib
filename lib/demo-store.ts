@@ -15,6 +15,7 @@ import { makeSnapshot, updateSnapshot } from './snapshot';
 import { indexTerms } from './search';
 import { demoDrafts } from './demo';
 import { canonicalFormat, formatSearchValues } from './formats';
+import { DemoVariants } from './demo-variants';
 import {
   validateChunk,
   requestHash,
@@ -38,6 +39,12 @@ export class DemoStore {
     return {
       ...JSON.parse(row.metadata),
       id: row.id,
+      family_id: row.family_id ?? null,
+      family_key: row.family_id || row.id,
+      variant_name: row.variant_name || 'Main',
+      variant_description: row.variant_description || '',
+      variant_count: row.variant_count ?? 1,
+      matching_variant_count: row.matching_variant_count ?? 1,
       current_version_id: row.current_version_id,
       favourite: !!row.favourite,
       archived: !!row.archived,
@@ -93,7 +100,7 @@ export class DemoStore {
   }
   async get(id: string) {
     const row = await this.stmt(
-      'SELECT t.*,v.snapshot FROM teams t JOIN team_versions v ON v.id=t.current_version_id AND v.team_id=t.id WHERE t.id=? AND t.owner_id=?',
+      'SELECT t.*,v.snapshot,CASE WHEN t.family_id IS NULL THEN 1 ELSE (SELECT count(*) FROM teams s WHERE s.family_id=t.family_id AND s.owner_id=t.owner_id) END variant_count FROM teams t JOIN team_versions v ON v.id=t.current_version_id AND v.team_id=t.id WHERE t.id=? AND t.owner_id=?',
       id,
       this.owner,
     ).first<Row>();
@@ -389,6 +396,8 @@ export class DemoStore {
       return this.get(id);
     }
     const t = await this.get(id);
+    if (p.expected_updated_at && p.expected_updated_at !== t.updated_at)
+      throw Error(editConflict);
     const m = cleanMeta({
       ...t,
       ...p,
@@ -551,6 +560,10 @@ export class DemoStore {
     const plan = p.plan as QueryPlan;
     const args: any[] = [this.owner];
     const clauses = ['t.owner_id=?'];
+    if (p.family_id) {
+      clauses.push('coalesce(t.family_id,t.id)=?');
+      args.push(p.family_id);
+    }
     if (p.include_archived !== true)
       clauses.push('t.archived=' + Number(p.archived === true));
     if (p.favourite) clauses.push('t.favourite=1');
@@ -653,6 +666,45 @@ export class DemoStore {
       source: 't.source_name ASC',
     };
     const where = clauses.join(' AND ');
+    if (p.group_families) {
+      const cte =
+        "WITH ranked AS (SELECT t.id,t.family_id,t.title,t.format,t.source_name,t.team_date,t.created_at,t.updated_at,count(*) OVER(PARTITION BY coalesce(t.family_id,t.id)) matching_variant_count,row_number() OVER(PARTITION BY coalesce(t.family_id,t.id) ORDER BY CASE WHEN t.variant_key='main' THEN 0 ELSE 1 END,t.updated_at DESC,t.id) rn FROM teams t WHERE " +
+        where +
+        '), grouped AS (SELECT * FROM ranked WHERE rn=1) ';
+      if (p.ids_only) {
+        const rows = await this.stmt(
+          'SELECT DISTINCT coalesce(t.family_id,t.id) id FROM teams t WHERE ' +
+            where +
+            ' ORDER BY id LIMIT 10001',
+          ...args,
+        ).all<Row>();
+        if (rows.results.length > 10000)
+          throw Error('Narrow the selection to at most 10,000 families.');
+        return {
+          ids: rows.results.map((r) => r.id),
+          total: rows.results.length,
+        };
+      }
+      const count = await this.stmt(
+        'SELECT count(DISTINCT coalesce(t.family_id,t.id)) n FROM teams t WHERE ' +
+          where,
+        ...args,
+      ).first<Row>();
+      const order = (orders[p.sort] || orders.modified_desc) + ',t.id';
+      const rows = await this.stmt(
+        cte +
+          ' ,page AS MATERIALIZED (SELECT t.* FROM grouped t ORDER BY ' +
+          order +
+          ' LIMIT 30 OFFSET ?) SELECT t.*,page.matching_variant_count,v.snapshot,CASE WHEN t.family_id IS NULL THEN 1 ELSE (SELECT count(*) FROM teams s WHERE s.family_id=t.family_id AND s.owner_id=t.owner_id) END variant_count FROM page JOIN teams t ON t.id=page.id JOIN team_versions v ON v.id=t.current_version_id AND v.team_id=t.id ORDER BY ' +
+          order,
+        ...args,
+        Math.max(0, Math.min(100000, Number(p.page) || 0)) * 30,
+      ).all<Row>();
+      return {
+        teams: rows.results.map((r) => this.hydrate(r)),
+        total: count?.n ?? 0,
+      };
+    }
     if (p.ids_only === true) {
       const rows = await this.stmt(
         'SELECT t.id FROM teams t WHERE ' +
@@ -692,7 +744,9 @@ export class DemoStore {
       this.owner,
     ).all<Row>();
     const counts = await this.stmt(
-      'SELECT count(*) all_count,coalesce(sum(CASE WHEN ?=1 OR archived=0 THEN 1 ELSE 0 END),0) visible_count,coalesce(sum(CASE WHEN favourite=1 AND (?=1 OR archived=0) THEN 1 ELSE 0 END),0) favourites,coalesce(sum(archived),0) archived FROM teams WHERE owner_id=?',
+      p.group_families
+        ? 'SELECT count(DISTINCT CASE WHEN ?=1 OR archived=0 THEN coalesce(family_id,id) END) visible_count,count(DISTINCT CASE WHEN favourite=1 AND (?=1 OR archived=0) THEN coalesce(family_id,id) END) favourites,count(DISTINCT CASE WHEN archived=1 THEN coalesce(family_id,id) END) archived FROM teams WHERE owner_id=?'
+        : 'SELECT count(*) all_count,coalesce(sum(CASE WHEN ?=1 OR archived=0 THEN 1 ELSE 0 END),0) visible_count,coalesce(sum(CASE WHEN favourite=1 AND (?=1 OR archived=0) THEN 1 ELSE 0 END),0) favourites,coalesce(sum(archived),0) archived FROM teams WHERE owner_id=?',
       Number(p.include_archived === true),
       Number(p.include_archived === true),
       this.owner,
@@ -736,6 +790,9 @@ export class DemoStore {
     ).run();
     if (!result.meta.changes) throw Error('Team not found.');
     return { deleted: true };
+  }
+  variant(action: string, payload: unknown) {
+    return new DemoVariants(this.db, this.owner, this).run(action, payload);
   }
   async share(id: string, revoke = false) {
     await this.get(id);
@@ -798,6 +855,8 @@ export async function resolveDemoShare(
   return {
     ...JSON.parse(r.metadata),
     id: r.id,
+    variant_name: r.variant_name || 'Main',
+    variant_description: r.variant_description || '',
     current_version_id: r.current_version_id,
     version: publicVersion,
   };

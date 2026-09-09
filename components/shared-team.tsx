@@ -65,6 +65,8 @@ export default function SharedTeam({ token }: { token: string }) {
             <div>
               <span className="format">{formatLabel(team.format)}</span>
               <h1>{team.title}</h1>
+              <p>Variant: {team.variant_name || 'Main'}</p>
+              {team.variant_description && <p>{team.variant_description}</p>}
               <p>
                 v{team.version.version_number} · {team.version.version_comment}
               </p>

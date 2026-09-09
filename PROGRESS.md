@@ -14,6 +14,20 @@ The large-library brief in attachment efab8b97 is active. User requested continu
 
 ## Verification at the foundation
 
+Foundation was committed as 9ad90b5 (canonical formats, indexed large libraries and replay-safe bulk workflows).
+
+## Variants completed after the foundation
+
+- Additive D1 0005/0006 and PostgreSQL 202609100003 implement lazy families, legacy Main, sibling names/descriptions and independent current/history. Create/Duplicate copies exact snapshot content into revision 1 with a durable retry receipt; Rename variant and explicit family rename are atomic. Last-variant deletion is guarded at the database boundary.
+- Library pages/counts/select-all group families. Expand loads matching siblings only, 30/page. Bulk metadata explicitly resolves all sibling IDs before confirmation; family deletion is a separate atomic chunk including all sibling history/shares. Existing variant shares expose only that variant's name/description and history.
+- Both adapters pass the expanded 199-check suite (74 D1/domain, 56 PostgreSQL, other suites unchanged). HTTP variants/clone replay/grouping/expansion/restricted shares/family deletion pass alongside the existing suite. TypeScript PASS; production build PASS across all five Vinext phases with regenerated corresponding source. Lint remains at 66 pre-existing diagnostics, with none in the new variant/bulk components and helpers.
+- Browser: imported disposable QA Variant acceptance, renamed Main to Standard, created Anti-Stall, saved Ice Beam only on Anti-Stall, searched same-set and expanded the single matching sibling. Whole-family metadata dialog named 1 family / 2 variants; applying year 2020 updated both without altering either raw build. Family delete confirmation names every variant/history/share and focuses Cancel. QA family removed.
+- Exact local backup: .artifacts/library-scale/dev-before-variants.sqlite (SQLite backup API). Original six teams, 13 snapshot rows and share rows compared unchanged after migrations and final HTTP/browser fixture cleanup; foreign_key_check is empty. Local migrations applied with --persist-to .wrangler/state.
+- Grouped 1k/5k/10k family benchmarks include 5% extra siblings. Initial 10k-family median 305.24→123.90 ms after narrowing grouping and counting distinct IDs directly; expansion 10.77→0.70 ms after expression index. These are local SQLite measurements, not hosted D1 latency; see PERFORMANCE.md.
+- New key files: lib/variants.ts; lib/demo-variants.ts; components/variants.tsx; scripts/test-variants.mjs; both variant migrations. Keep family title/variant metadata/history boundaries and owner write-lock order from DECISIONS.md.
+
+## Foundation verification (historical)
+
 - Automated suite PASS: 183 checks (66 D1/domain, 48 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 8 formats).
 - HTTP integration PASS after final functional fixes: authentication, Save/history/restore/share plus format normalization, import replay, ID-only selection, bulk tags/deletion, origin rejection.
 - TypeScript PASS. Lint remains FAIL: 66 existing diagnostics (previous checkpoint 67); no diagnostics in the new format/import/bulk/test helpers. Production build PASS (all five Vinext phases; 184-file corresponding-source archive). The Sites 0.1.66 build helper failed in Windows command quoting; the same package build succeeded through PowerShell with a command-scoped safe.directory exception for this checkout. No global Git setting changed.
@@ -21,17 +35,15 @@ The large-library brief in attachment efab8b97 is active. User requested continu
 
 ## Next work, in priority order
 
-1. Commit the verified format/scale/bulk foundation before starting schema work.
-2. Complete variants end-to-end in both adapters: nullable/lazy family mapping, one Main build for legacy teams, independent current/history, clone/rename/delete variant and explicit whole-family deletion, paginated family grouping/matching-variant expansion, ownership/race/migration tests and browser QA. Follow SCHEMA_PLAN.md; never leave a partially migrated variant schema or relabel history as variants.
-3. Safe allowlisted PokéPaste server import (JSON/raw, title/author/URL provenance, Unknown date); test a real URL and SSRF rejection.
-4. Private saved-query Collections CRUD and canonical filters; no duplicate memberships/folders.
-5. Live collection capability sharing, rotate/revoke, membership checked at every detail read, matching variants grouped, no client query override.
-6. Repeated one/six-set real Save/new history/Create variant timing stages, before/after medians/outliers, preserve persistence-confirmed Saved and three-token guards.
-7. Re-run complete adapter/HTTP/type/build verification, update all docs/source offer, commit clean, publish owner-only, verify deployed source and access.
+1. Safe allowlisted PokéPaste server import (JSON/raw, title/author/URL provenance, Unknown date); test a real URL and SSRF rejection.
+2. Private saved-query Collections CRUD and canonical filters; no duplicate memberships/folders.
+3. Live collection capability sharing, rotate/revoke, membership checked at every detail read, matching variants grouped, no client query override.
+4. Repeated one/six-set real Save/new history/Create variant timing stages, before/after medians/outliers, preserve persistence-confirmed Saved and three-token guards.
+5. Re-run complete adapter/HTTP/type/build verification, update all docs/source offer, commit clean, publish owner-only, verify deployed source and access.
 
 ## Limits / decisions to preserve
 
-- Variant and collection schemas are designed only, not yet started. Existing Save and shares retain their original team/history semantics.
+- Variants are implemented; collections remain design-only. Existing Save/history now belong to individual variants, and old share links remain variant scoped.
 - In-dialog retry works; refreshing/remounting loses the UI operation descriptor. Receipts persist indefinitely for safe replay; retention/expiry and durable UI resumption need design. Legacy unchunked API/WebMCP import and selected export still have a 200-team request bound; large archives use the new Import dialog.
 - Custom identifiers are still grouped/searched by name. Reusing one unknown identifier in multiple generation/battle contexts is ambiguous in the single format facet map; preserve per-team context and revisit compound facets if needed.
 - Full current snapshot DTOs are returned for each 30-team page. No 10k full objects reach the library browser; selection is ID-only. Large per-team history/detail remains unpaginated. 20 MB is an input ceiling, not a promise that every complex 10,000-block archive fits a hosted isolate's memory/CPU limits.

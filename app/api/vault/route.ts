@@ -17,12 +17,19 @@ export async function POST(request: Request) {
     let result: any;
     switch (action) {
       case 'list':
+      case 'families':
+      case 'family_variants':
         await store.initialize();
-        result = await store.list({ ...p, plan: planQuery(p.query || '') });
+        result = await store.list({
+          ...p,
+          group_families: action === 'families',
+          plan: planQuery(p.query || ''),
+        });
         break;
       case 'facets':
         result = await store.facets({
           include_archived: p.include_archived === true,
+          group_families: p.group_families === true,
         });
         break;
       case 'get':
@@ -34,6 +41,14 @@ export async function POST(request: Request) {
           plan: planQuery(p.query || ''),
           ids_only: true,
         });
+        break;
+      case 'variant_create':
+      case 'variant_rename':
+      case 'variant_delete':
+      case 'family_rename':
+      case 'family_expand':
+      case 'family_bulk_delete':
+        result = await store.variant(action, p);
         break;
       case 'parse':
         result = parseBatch(p.text, p.format, p.format_context);

@@ -13,6 +13,8 @@ for (const name of [
   'demo',
   'snapshot',
   'demo-store',
+  'variants',
+  'demo-variants',
   'supabase-store',
   'visual-team',
   'format-groups',

@@ -71,6 +71,8 @@ import { SearchFilters } from './search-filters';
 import { FormatNavigator } from './format-navigator';
 import { BulkActionDialog as BulkDialog } from './bulk-actions';
 import { TeamCard } from './team-card';
+import { VariantActions } from './variants';
+import { familyKey } from '@/lib/variants';
 import type { SetEditTarget } from '@/lib/builder-data';
 import { InlineTeamMetadata } from './inline-team-metadata';
 import {
@@ -192,7 +194,7 @@ export default function Library() {
       setError('');
       try {
         const result = await api(
-          'list',
+          'families',
           {
             query: queryWithFilters(chips, query),
             sort,
@@ -232,7 +234,11 @@ export default function Library() {
   useEffect(() => {
     if (!signed) return;
     const controller = new AbortController();
-    api('facets', { include_archived: true }, controller.signal)
+    api(
+      'facets',
+      { include_archived: true, group_families: true },
+      controller.signal,
+    )
       .then((f) => {
         if (!controller.signal.aborted) setFacets(f);
       })
@@ -430,7 +436,14 @@ export default function Library() {
     setMetadataBusy(true);
     const id = detail.id;
     try {
-      const updated: TeamRecord = await api('patch', { id, patch });
+      const updated: TeamRecord =
+        patch.title !== undefined && detail.family_id
+          ? await api('family_rename', {
+              id,
+              title: patch.title,
+              expected_updated_at: detail.updated_at,
+            })
+          : await api('patch', { id, patch });
       const metadata = Object.fromEntries(
         (Object.keys(patch) as (keyof TeamMeta)[]).map((key) => [
           key,
@@ -734,6 +747,13 @@ export default function Library() {
                   </button>
                 </div>
               </div>
+              <VariantActions
+                key={detail.id}
+                team={detail}
+                onOpen={(id) => void openTeam(id)}
+                onSaved={(t) => void saved(t.id, t)}
+                onDeleteFamily={() => setDeleteTarget(detail)}
+              />
               {isHistory && (
                 <div className="callout">
                   <History size={16} />
@@ -751,7 +771,7 @@ export default function Library() {
                 <TabsList variant="line" className="detail-tabs">
                   <TabsTrigger value="team">Team & notes</TabsTrigger>
                   <TabsTrigger value="history">
-                    Version history <span>{detail.history?.length}</span>
+                    History <span>{detail.history?.length}</span>
                   </TabsTrigger>
                   <TabsTrigger value="export">Showdown text</TabsTrigger>
                 </TabsList>
@@ -901,7 +921,7 @@ export default function Library() {
                     onClick={() => setDeleteTarget(detail)}
                   >
                     <Trash2 size={14} />
-                    Delete team
+                    Delete team family
                   </button>
                 </div>
               </footer>
@@ -1004,23 +1024,25 @@ export default function Library() {
               <div className="results-heading">
                 <label className="select-page">
                   <Checkbox
-                    aria-label="Select all teams on this page"
+                    aria-label="Select all team families on this page"
                     disabled={selectionBusy || loading}
                     checked={
                       teams.length > 0 &&
-                      teams.every((t) => selected.includes(t.id))
+                      teams.every((t) => selected.includes(familyKey(t)))
                     }
                     onCheckedChange={(v) =>
                       setSelected((s) =>
                         v
-                          ? [...new Set([...s, ...teams.map((t) => t.id)])]
-                          : s.filter((id) => !teams.some((t) => t.id === id)),
+                          ? [...new Set([...s, ...teams.map(familyKey)])]
+                          : s.filter(
+                              (id) => !teams.some((t) => familyKey(t) === id),
+                            ),
                       )
                     }
                   />
                   {selected.length
-                    ? selected.length + ' selected'
-                    : total + ' teams'}
+                    ? selected.length + ' families selected'
+                    : total + ' team families'}
                 </label>
                 {selected.length ? (
                   <div className="bulk-controls">
@@ -1042,14 +1064,17 @@ export default function Library() {
                       className="text-link"
                       onClick={async () => {
                         try {
-                          if (selected.length > 200)
+                          const expanded = await api('family_expand', {
+                            ids: selected,
+                          });
+                          if (expanded.ids.length > 200)
                             throw Error(
-                              'Export at most 200 selected teams at a time.',
+                              'Export at most 200 selected variants at a time.',
                             );
                           const ts = await Promise.all(
-                            selected
-                              .slice(0, 200)
-                              .map((id) => api('get', { id })),
+                            (expanded.ids as string[]).map((id) =>
+                              api('get', { id }),
+                            ),
                           );
                           downloadText(backupText(ts), 'teamvault-backup');
                         } catch (e) {
@@ -1069,7 +1094,7 @@ export default function Library() {
                     </button>
                   </div>
                 ) : (
-                  <span>One team. Every version.</span>
+                  <span>One family. Alternate builds. Separate history.</span>
                 )}
               </div>
               {total > teams.length && (
@@ -1081,6 +1106,7 @@ export default function Library() {
                     setSelectionBusy(true);
                     try {
                       const r = await api('select', {
+                        group_families: true,
                         query: queryWithFilters(chips, query),
                         year: chips.some(
                           (c) => c.field === 'year' && c.value === 'unknown',
@@ -1091,7 +1117,7 @@ export default function Library() {
                         favourite: section === 'Favourites',
                       });
                       setSelected(r.ids);
-                      setNotice(r.total + ' matching teams selected.');
+                      setNotice(r.total + ' matching families selected.');
                     } catch (e) {
                       setError((e as Error).message);
                     } finally {
@@ -1100,8 +1126,8 @@ export default function Library() {
                   }}
                 >
                   {selectionBusy
-                    ? 'Selecting matching teams…'
-                    : `Select all ${total} matching teams`}
+                    ? 'Selecting matching families…'
+                    : `Select all ${total} matching families`}
                 </button>
               )}
               {loading ? (
@@ -1119,13 +1145,25 @@ export default function Library() {
                 <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
                   {teams.map((t, i) => (
                     <TeamCard
-                      key={t.id}
+                      key={familyKey(t)}
                       team={t}
                       index={i}
-                      selected={selected.includes(t.id)}
+                      selected={selected.includes(familyKey(t))}
+                      query={queryWithFilters(chips, query)}
+                      year={
+                        chips.some(
+                          (c) => c.field === 'year' && c.value === 'unknown',
+                        )
+                          ? 'unknown'
+                          : ''
+                      }
+                      favourite={section === 'Favourites'}
+                      onVariant={(id) => void openTeam(id)}
                       onSelect={(v) =>
                         setSelected((s) =>
-                          v ? [...s, t.id] : s.filter((id) => id !== t.id),
+                          v
+                            ? [...new Set([...s, familyKey(t)])]
+                            : s.filter((id) => id !== familyKey(t)),
                         )
                       }
                       onDelete={() => setDeleteTarget(t)}
@@ -1250,10 +1288,13 @@ export default function Library() {
           team={deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onDeleted={() => {
-            setSelected((ids) => ids.filter((id) => id !== deleteTarget.id));
+            setSelected((ids) =>
+              ids.filter((id) => id !== familyKey(deleteTarget)),
+            );
             setDeleteTarget(null);
-            if (detail?.id === deleteTarget.id) closeDetail();
-            setNotice('Team permanently deleted.');
+            if (detail && familyKey(detail) === familyKey(deleteTarget))
+              closeDetail();
+            setNotice('Team family permanently deleted.');
             if (page > 0) setPage(0);
             else invalidateLibrary();
           }}
@@ -1269,7 +1310,7 @@ export default function Library() {
             setSelected([]);
             setModal(null);
             setNotice(
-              `${count} of ${selected.length} selected teams ${modal === 'bulk_delete' ? 'deleted' : 'updated'}.`,
+              `${count} ${modal === 'bulk_delete' ? 'team families deleted' : 'variants updated across the selected families'}.`,
             );
             invalidateLibrary();
           }}
@@ -1382,6 +1423,7 @@ function DeleteTeamDialog({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const deletionOperation = useRef(crypto.randomUUID());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -1390,7 +1432,10 @@ function DeleteTeamDialog({
     setBusy(true);
     setError('');
     try {
-      await api('delete', { id: team.id });
+      await api('family_bulk_delete', {
+        ids: [familyKey(team)],
+        chunk: { operation_id: deletionOperation.current, chunk_index: 0 },
+      });
       onDeleted();
     } catch (e) {
       setError((e as Error).message);
@@ -1410,11 +1455,12 @@ function DeleteTeamDialog({
       >
         <AlertDialogHeader>
           <AlertDialogTitle className="break-words">
-            Delete “{team.title}”?
+            Delete team family “{team.title}”?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes the team, all saved versions, and their
-            notes. Its share links will stop working. This can’t be undone.
+            This permanently deletes every variant in this family, all their
+            history and notes. All their share links will stop working. This
+            can’t be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
@@ -1469,8 +1515,8 @@ function ShareDialog({
   }
   return (
     <Modal
-      title="Share this team"
-      description="A living, read-only team document. The same link follows the current version."
+      title={'Share variant: ' + (team.variant_name || 'Main')}
+      description="This link shares only this variant and its history. It follows this variant’s current build; siblings stay private."
       onClose={onClose}
     >
       <div className="share-intro">

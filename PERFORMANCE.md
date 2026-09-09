@@ -63,3 +63,21 @@ The browser imported 1,000 one-set fixtures in one dialog, with 50 editable prev
 Grouping search/tag inserts with JSON table expansion reduced statement count substantially, particularly for six sets. A separate after run during development compilation was slower (six-set current Save median 5.67, max 16.73 ms); this variability is why the counts are stronger evidence than small local CPU differences. Three-token stale-write guards, immutable historical rows and actual persistence confirmation remain intact.
 
 Still required: repeated real one/six-set browser current Save, new history and Create variant traces separating click, request start, database commit, response, React and visible Saved. Existing ?profile=1 diagnostics report feedback/persisted/visible plus API/render timings, but database-stage instrumentation and variant measurements are not yet complete. Hosted production timings and mobile/touch percentiles are not established.
+# Variant grouping — 2026-09-10
+
+Five repeated samples per operation in isolated Node SQLite, with 1,000 / 5,000 / 10,000 conceptual families plus one sibling for every twentieth family (1,050 / 5,250 / 10,500 stored variants). Six-set fixtures retain formats, dates, tags and provenance. This is adapter latency, excluding browser/network and hosted D1. Run after tests:
+
+`node scripts/benchmark-scale.mjs .artifacts/library-scale/variants-scale-optimized.json --variants`
+
+| Operation | 1k median / max ms | 5k median / max ms | 10k median / max ms |
+|---|---:|---:|---:|
+| Grouped initial page | 8.93 / 10.42 | 61.07 / 85.66 | 123.90 / 137.66 |
+| Grouped last page | 9.13 / 10.97 | 70.53 / 101.95 | 158.51 / 181.67 |
+| Grouped same-set search | 5.72 / 13.74 | 33.80 / 36.52 | 71.91 / 92.48 |
+| All family IDs | 1.02 / 1.68 | 8.52 / 13.01 | 19.42 / 19.54 |
+| Expand two siblings | 0.64 / 1.64 | 0.57 / 0.80 | 0.70 / 0.90 |
+| Family facets | 4.92 / 24.34 | 27.18 / 37.69 | 54.51 / 58.88 |
+
+Initial grouped implementation carried full metadata through two window queries: 10k initial median/max 305.24/389.90 ms, last page 432.96/504.58, expansion 10.77/11.03. The measured correction groups narrow rows, counts/selects distinct effective family IDs directly, joins full snapshots only after pagination, and indexes owner + coalesce(family_id,id).
+
+The 10k first page returns 30 current snapshots, 127,412 JSON bytes in these fixtures. Expansion returns two snapshots, 9,117 bytes; selection returns only IDs. Synthetic family IDs are short, so real UUID selection payloads are larger. Large history remains unpaginated on detail, and bulk metadata expansion has a 10,000-variant bound.
