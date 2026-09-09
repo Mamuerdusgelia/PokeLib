@@ -4,7 +4,7 @@
 
 The Showdown integration pass is implemented. This document supersedes the older Showdown UX-pass handoff. The existing library, authentication/storage adapters, relational search, metadata, versions, notes, sharing and deletion contracts are retained; no schema migrations were added in this pass.
 
-Branch: main. Starting HEAD: 3f2029d; previous application implementation: b9256f1. The current private publication still uses source 3644466 until the deployment result below is updated. Use git log -3 --oneline and git status --short to resolve the final implementation/documentation commits.
+Branch: main. Starting HEAD: 3f2029d; previous application implementation: b9256f1. Implementation commit fab8129775aaf6c1d8cd1490ed6ed766a0fbbdcd (fab8129) is now privately published. A documentation-only follow-up records that result; use git log -3 --oneline and git status --short to resolve the latest documentation commit and working-tree state.
 
 ## Completed this session
 
@@ -57,13 +57,12 @@ The disposable Showdown Integration QA team (d64a9c11-b423-44db-b932-6fcfddadb79
 
 ## Exact next tasks, in priority order
 
-1. Finish/verify the recorded private publication and its source download if publication is still pending below; retain owner-only access.
-2. Review special-format support deliberately: shared format classification, explicit unsupported-format messaging, aliases and mod data. Add fixtures before claiming full parity. Avoid growing a second hand-maintained legality engine.
-3. Measure initial request graph and first-use latency, then isolate builder/catalog imports where helpful. Preserve global search and sprite rendering.
-4. Test real phone/touch and screen reader keyboard flows, including picker no-result Tab and old-generation reverse navigation; change only observed defects.
-5. Configure Supabase when the user supplies a project, apply all existing migrations, and verify real sign-in/email, two-account isolation and sharing.
-6. Triage touched-area lint and asynchronous error recovery; plan full-fidelity backup/migration and atomic D1 bulk operations before broader rollout.
-7. Choose deferred PokéPaste/folder or other product scope only after a new user request.
+1. Review special-format support deliberately: shared format classification, explicit unsupported-format messaging, aliases and mod data. Add fixtures before claiming full parity. Avoid growing a second hand-maintained legality engine.
+2. Measure initial request graph and first-use latency, then isolate builder/catalog imports where helpful. Preserve global search and sprite rendering.
+3. Test real phone/touch and screen reader keyboard flows, including picker no-result Tab and old-generation reverse navigation; change only observed defects.
+4. Configure Supabase when the user supplies a project, apply all existing migrations, and verify real sign-in/email, two-account isolation and sharing.
+5. Triage touched-area lint and asynchronous error recovery; plan full-fidelity backup/migration and atomic D1 bulk operations before broader rollout.
+6. Choose deferred PokéPaste/folder or other product scope only after a new user request.
 
 ## Files most relevant to follow-up
 
@@ -95,4 +94,13 @@ git log -3 --oneline
 
 ## Publication
 
-Awaiting the final source push/package/private deployment for this pass. Existing site: https://teamvault-library.internetscaryuwu.chatgpt.site/. Owner-only access was reverified (one owner, no external visitors or groups). Project ID: appgprj_6a9d7930f9208191b3e0b14aae68961d. Do not change its access policy. This section will receive the actual deployment outcome in a documentation-only follow-up commit.
+Published successfully at https://teamvault-library.internetscaryuwu.chatgpt.site/ on 2026-09-09 at 03:04:20 UTC. Owner-only access was reverified after publication (one owner, no external visitors or groups); no access policy, environment or schema changes were made.
+
+- Project ID: appgprj_6a9d7930f9208191b3e0b14aae68961d.
+- Saved version: 4, appgprj_6a9d7930f9208191b3e0b14aae68961d~appgver_05a91010266c8191a728ac723ea42577.
+- Deployment ID: appgdep_6aa0cc702ac88191ac7e31240776496d; terminal status: succeeded.
+- Deployed source commit: fab8129775aaf6c1d8cd1490ed6ed766a0fbbdcd. The exact commit was pushed before the built archive was saved and published.
+- Hosted corresponding-source smoke check: authenticated GET /source/teamvault-source.tar returned HTTP 200, 12,390,912 bytes, identical to the locally verified archive containing 160 source files. An initial sandbox network denial and an authorization-header failure were resolved using a fresh owner token with the Bearer prefix.
+- App browser handoff was requested; open_in_codex returned queued. Interactive browser acceptance above was performed locally, not repeated on the hosted build.
+
+This publication record is a documentation-only follow-up to fab8129. The deployed source archive correctly describes that application commit rather than the later publication-status notes. Retain owner-only access.
