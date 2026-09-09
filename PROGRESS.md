@@ -35,13 +35,14 @@ Foundation was committed as 9ad90b5 (canonical formats, indexed large libraries 
 
 ## Next work, in priority order
 
-1. Safe allowlisted PokéPaste server import (JSON/raw, title/author/URL provenance, Unknown date); test a real URL and SSRF rejection.
-2. Private saved-query Collections CRUD and canonical filters; no duplicate memberships/folders.
-3. Live collection capability sharing, rotate/revoke, membership checked at every detail read, matching variants grouped, no client query override.
-4. Repeated one/six-set real Save/new history/Create variant timing stages, before/after medians/outliers, preserve persistence-confirmed Saved and three-token guards.
-5. Re-run complete adapter/HTTP/type/build verification, update all docs/source offer, commit clean, publish owner-only, verify deployed source and access.
+1. Private saved-query Collections CRUD and canonical filters; no duplicate memberships/folders.
+2. Live collection capability sharing, rotate/revoke, membership checked at every detail read, matching variants grouped, no client query override.
+3. Repeated one/six-set real Save/new history/Create variant timing stages, before/after medians/outliers, preserve persistence-confirmed Saved and three-token guards.
+4. Re-run complete adapter/HTTP/type/build verification, update all docs/source offer, commit clean, publish owner-only, verify deployed source and access.
 
 ## Limits / decisions to preserve
+
+Variants were committed clean as 28c747a. PokéPaste import is now implemented after that commit: authenticated allowlisted /json read, bounded streaming/timeout/no redirects, normal preview/chunked persistence, title/author/URL/notes and Unknown date. Supabase 202609100004 adds its provenance type; no D1 schema change. Automated tests pass (207 checks: 75 D1/domain, 57 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 8 formats, 6 PokéPaste). TypeScript and live HTTP PASS; lint remains the existing 66 diagnostics. Production build/source regeneration will run after the remaining scope. The separate real-service test succeeded against https://pokepast.es/a47bb2a45883213e (Mono Hoenn by Moldy). Browser preview/import also retained author/URL/Unknown date; its exact QA family was verified and deleted via HTTP after the browser tab closed. No fixture remains.
 
 - Variants are implemented; collections remain design-only. Existing Save/history now belong to individual variants, and old share links remain variant scoped.
 - In-dialog retry works; refreshing/remounting loses the UI operation descriptor. Receipts persist indefinitely for safe replay; retention/expiry and durable UI resumption need design. Legacy unchunked API/WebMCP import and selected export still have a 200-team request bound; large archives use the new Import dialog.

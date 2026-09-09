@@ -15,6 +15,32 @@ const clone = (t, name) => ({
   operation_id: crypto.randomUUID(),
 });
 export async function testVariants(store, other, check) {
+  await check(
+    'PokéPaste provenance persists in the adapter with Unknown date',
+    async () => {
+      const id = (
+        await store.import([
+          {
+            ...demoDrafts[0],
+            title: 'Pokepaste storage fixture',
+            source_type: 'PokéPaste',
+            source_name: 'Alice',
+            source_url: 'https://pokepast.es/0123456789abcdef',
+            source_note: 'PokéPaste: Test',
+            team_date: null,
+            team_date_precision: 'unknown',
+            imported: true,
+          },
+        ])
+      ).ids[0];
+      const t = await store.get(id);
+      assert.equal(t.source_type, 'PokéPaste');
+      assert.equal(t.source_name, 'Alice');
+      assert.equal(t.team_date, null);
+      assert.ok(t.imported_at);
+      await store.delete(id);
+    },
+  );
   let main = await store.get(
     (
       await store.import([

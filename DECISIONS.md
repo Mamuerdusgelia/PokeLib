@@ -1,5 +1,12 @@
 # Product and technical decisions
 
+## PokéPaste import — 2026-09-10
+
+- Import is an authenticated preview operation, followed by the existing explicit Import confirmation and chunked writes. It never creates a team just because a URL is pasted.
+- Construct the fetch URL from a validated 16-digit hex ID on the exact HTTPS pokepast.es host. Do not follow redirects or forward cookies/auth headers. Bound both response headers and actual streamed bytes, use a timeout, validate JSON shape and keep Showdown parsing limits. This is not a general URL-fetching service.
+- Preserve title, author, URL and notes when supplied. Named source type is PokéPaste in both adapters; optional long metadata is bounded with visible warnings. Import time must not become Team Date. Unknown format remains unknown until the user chooses one.
+- Use the official /json read endpoint. No external key or publishing dependency. The live-service smoke test is separate from deterministic tests so upstream outages do not make the normal suite flaky.
+
 ## Team families and variants — 2026-09-10
 
 - A family is the conceptual team; a variant is an intentional alternate build; history records changes to one variant. These concepts must remain distinct. Existing team IDs remain variant IDs and old snapshot rows are untouched.

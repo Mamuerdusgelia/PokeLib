@@ -17,6 +17,8 @@ export function ImportTeams({
   onSaved: () => void;
 }) {
   const [text, setText] = useState('');
+  const [method, setMethod] = useState<'text' | 'pokepaste'>('text');
+  const [url, setUrl] = useState('');
   const [batch, setBatch] = useState<
     { draft: Draft; warnings: string[] }[] | null
   >(null);
@@ -44,13 +46,20 @@ export function ImportTeams({
     setBusy(true);
     setError('');
     try {
-      setBatch(
-        await api('parse', {
+      const preview = await api(
+        method === 'pokepaste' ? 'pokepaste' : 'parse',
+        {
           text,
+          url,
           format: common.format || 'unknown',
           format_context: common.format_context,
-        }),
+        },
       );
+      if (method === 'pokepaste') {
+        setBatch(preview.batch);
+        setText(preview.text);
+        setCommon((current) => ({ ...current, ...preview.common }));
+      } else setBatch(preview);
       setPage(0);
       operation.current = null;
       setCompleted(0);
@@ -117,44 +126,80 @@ export function ImportTeams({
     <Modal
       wide
       title="Import your teams"
-      description="Import Showdown text or a complete backup."
+      description="Import Showdown text, a complete backup, or a PokéPaste link."
       onClose={close}
     >
       {!batch ? (
         <>
-          <div className="import-drop">
-            <Upload size={25} />
-            <strong>Paste a team or Showdown backup</strong>
-            <p>
-              For multiple teams, keep the === [format] Team name === headers.
-            </p>
-            <label className="button">
-              Choose a .txt file
-              <input
-                type="file"
-                accept=".txt,.text"
-                className="sr-only"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (f) {
-                    if (f.size > 20000000) {
-                      setError('Choose an archive smaller than 20 MB.');
-                      return;
-                    }
-                    setText(await f.text());
-                  }
-                }}
-              />
-            </label>
+          <div className="heading-actions" aria-label="Import method">
+            <button
+              type="button"
+              className="button"
+              aria-pressed={method === 'text'}
+              disabled={busy}
+              onClick={() => setMethod('text')}
+            >
+              Showdown text or file
+            </button>
+            <button
+              type="button"
+              className="button"
+              aria-pressed={method === 'pokepaste'}
+              disabled={busy}
+              onClick={() => setMethod('pokepaste')}
+            >
+              PokéPaste URL
+            </button>
           </div>
-          <textarea
-            aria-label="Showdown import text"
-            className="code-editor"
-            rows={12}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Paste Pokémon Showdown export text here…"
-          />
+          {method === 'pokepaste' ? (
+            <Field label="PokéPaste URL">
+              <input
+                type="url"
+                aria-label="PokéPaste URL"
+                value={url}
+                maxLength={2048}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://pokepast.es/…"
+              />
+            </Field>
+          ) : (
+            <>
+              <div className="import-drop">
+                <Upload size={25} />
+                <strong>Paste a team or Showdown backup</strong>
+                <p>
+                  For multiple teams, keep the === [format] Team name ===
+                  headers.
+                </p>
+                <label className="button">
+                  Choose a .txt file
+                  <input
+                    type="file"
+                    accept=".txt,.text"
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        if (f.size > 20000000) {
+                          setError('Choose an archive smaller than 20 MB.');
+                          return;
+                        }
+                        setText(await f.text());
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <textarea
+                aria-label="Showdown import text"
+                className="code-editor"
+                rows={12}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Paste Pokémon Showdown export text here…"
+              />
+            </>
+          )}
           <Field label="Format for teams without a format header">
             <FormatPicker
               label="Fallback import format"
@@ -176,7 +221,7 @@ export function ImportTeams({
             <strong>{batch.length} teams detected</strong>
             {!locked && (
               <button className="text-link" onClick={() => setBatch(null)}>
-                Edit pasted text
+                Edit import
               </button>
             )}
           </div>
@@ -281,13 +326,17 @@ export function ImportTeams({
         </button>
         <button
           className="button primary"
-          disabled={busy || (!batch && !text.trim())}
+          disabled={
+            busy || (!batch && !(method === 'pokepaste' ? url : text).trim())
+          }
           onClick={batch ? save : parse}
         >
           {busy
             ? batch
               ? 'Importing…'
-              : 'Parsing…'
+              : method === 'pokepaste'
+                ? 'Loading PokéPaste…'
+                : 'Parsing…'
             : batch
               ? locked
                 ? 'Retry remaining teams'

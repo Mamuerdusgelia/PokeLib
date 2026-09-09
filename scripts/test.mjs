@@ -14,6 +14,7 @@ for (const name of [
   'snapshot',
   'demo-store',
   'variants',
+  'pokepaste',
   'demo-variants',
   'supabase-store',
   'visual-team',
@@ -59,6 +60,7 @@ try {
   await import('./test-showdown.mjs');
   await import('./test-defaults.mjs');
   await import('./test-formats.mjs');
+  await import('./test-pokepaste.mjs');
 } catch (e) {
   console.error({
     message: e.message,

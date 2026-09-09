@@ -2,6 +2,7 @@ import { storeFor, mutationOrigin } from '@/lib/runtime';
 import { planQuery } from '@/lib/search';
 import { parseBatch, parseShowdown } from '@/lib/showdown';
 import { demoDrafts } from '@/lib/demo';
+import { previewPokepaste } from '@/lib/pokepaste';
 export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
         break;
       case 'preview':
         result = parseShowdown(p.text, p.format);
+        break;
+      case 'pokepaste':
+        result = await previewPokepaste(p.url, p.format, p.format_context);
         break;
       case 'import':
         result = await store.import(p.drafts, p.chunk);

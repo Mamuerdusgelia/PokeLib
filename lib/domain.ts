@@ -97,6 +97,7 @@ export const sourceTypes = [
   'Adapted from',
   'Tournament',
   'Website',
+  'PokéPaste',
   'Discord',
   'Other',
 ];

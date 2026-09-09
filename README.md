@@ -31,6 +31,14 @@ The complete PostgreSQL/Supabase adapter and migration are included. No Supabase
 - lib/search.ts: longest entity matching plus explicit syntax; related Pokémon predicates are correlated to the same version and slot. Metadata words use relational search-term indexes. No library-wide browser scans.
 - Versions contain parsed sets, Showdown text, original text, team notes, per-slot notes, parent version ID, revision tokens and optional private authoring-default flags. Tags/provenance/date belong to the variant and apply across its history.
 
+## PokéPaste import
+
+Import teams → PokéPaste URL accepts `https://pokepast.es/<16-character hex ID>`. The authenticated server reads the official JSON representation, then uses the existing Showdown parser/preview and chunked import. Title, author, original URL and paste notes are retained as provenance/team notes. Team Date starts Unknown; format is not inferred when the paste supplies none. Review the canonical format picker before saving if needed.
+
+Only the exact HTTPS pokepast.es host is supported, with no credentials, custom ports, queries, fragments or redirects. Responses have a 10-second timeout, 1 MB streaming limit and 150k-character team-text bound. Oversized optional metadata has a visible preview warning. No API key, arbitrary URL proxy, or PokéPaste publishing is introduced. The response contract is verified against [PokéPaste's official server](https://github.com/felixphew/pokepaste/blob/v3/server.go).
+
+Optional live-service test (localhost and outbound HTTPS required): `node scripts/test-pokepaste-http.mjs`. Normal automated tests use deterministic responses and cover invalid hosts, redirects, malformed data, response limits, provenance and both persistence adapters. Supabase must apply `202609100004_pokepaste_source.sql` to allow the named PokéPaste provenance type.
+
 ## Local setup
 
 Requires Node 22.13+ (Node 24 recommended) and pnpm.
