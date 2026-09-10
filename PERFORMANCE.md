@@ -1,4 +1,32 @@
-# TeamVault performance evidence — 2026-09-10
+# PokéLib search polish — current evidence (2026-09-10)
+
+Five samples per operation, isolated in-memory Node 24.19 SQLite. Each dataset contains 1,000 / 5,000 / 10,000 families and 1,050 / 5,250 / 10,500 variants, using six-set templates (the existing six demos plus two deterministic composition fixtures). The library remains SQL-paginated at 30 snapshots; no browser whole-library scan. **These are development adapter timings, excluding browser/network and hosted D1/Supabase latency.** Values are milliseconds, median / slowest observed sample, not production percentiles. The run overlapped local development compilation/test activity; variability must not be interpreted as a hosted service guarantee.
+
+| Query | 1k families | 5k families | 10k families |
+|---|---:|---:|---:|
+| core two members | 5.01 / 6.38 | 28.89 / 36.58 | 65.83 / 95.65 |
+| core three members | 7.27 / 9.66 | 59.35 / 75.74 | 80.94 / 94.99 |
+| core qualified sets | 4.81 / 6.04 | 48.65 / 51.26 | 74.16 / 98.33 |
+| core and format | 4.59 / 5.56 | 42.18 / 50.46 | 79.41 / 112.89 |
+| core and metadata | 5.34 / 5.86 | 39.22 / 45.67 | 86.27 / 102.18 |
+
+Queries, in table order: `Mega Gengar + Zygarde`; `Kyogre + Tornadus + Incineroar`; `Mega Gengar Shadow Ball + Zygarde Thousand Arrows`; `Mega Gengar + Zygarde format:gen7ubers`; `Kyogre + Tornadus tag:"Tournament Grade" source:"Strange Name"`. All return nonempty results. At 10k they match 1,250 / 2,500 / 1,250 / 1,250 / 1,250 families. Each grouped response executes two SQL reads (count and page). The report includes every sample, payload bytes and actual query plans.
+
+All captured member and same-slot predicates use the covering `terms_lookup` index, including multi-index OR for Mega's direct/base representation. Owner enumeration uses owner indexes; family grouping/sorting still uses temporary B-trees. There is no search-term full-table scan or snapshot JSON scan for predicates. More clauses and broader result sets add work; no constant-time claim is made. Existing indexes suffice; no schema/reindex change is needed in D1.
+
+Reproduce from the repository root:
+
+`node scripts/test.mjs`
+
+`node scripts/benchmark-scale.mjs .artifacts/library-scale/core-search.json --variants --core`
+
+Request feedback is separate from SQL timing: preserve the existing 250 ms input debounce, start the feedback timer when the request begins, and display Searching… only after 200 ms pending. Deterministic clock tests verify no fast flash, immediate completion clearing, and stale/aborted completion isolation. Local browser acceptance used `scripts/search-qa-proxy.mjs` at localhost:3001 with 4,000 ms artificial response delay, observed the pending label, retained rows and enabled input, then superseded the request. Proxy logs confirmed cancellation; the final three-member query displayed only QA Search rain and cleared feedback. The proxy initially needed HMR WebSocket forwarding; that test-harness issue was fixed and is not shipped into the application.
+
+Browser checks cover desktop 1440×900 and 390×844: distinct dark surfaces, matching sibling identification, library, builder, species/move results, import, collections, settings and confirmation dialogs. Mobile document width was 375 CSS pixels inside the 390px viewport (scrollbar included); editor scrollWidth equalled its 327px clientWidth. No horizontal overflow was observed. Geometry of library rows and builder controls remains unchanged. Primary/secondary text and focus styling were reviewed; physical touch and a complete assistive-technology audit are not claimed.
+
+---
+
+# TeamVault performance evidence — historical checkpoint (2026-09-10)
 
 ## Boundary and reproduction
 

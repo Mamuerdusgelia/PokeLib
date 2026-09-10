@@ -34,7 +34,7 @@ export function TeamCard({
   onVariant,
 }: Props) {
   return (
-    <article className="team-card" key={t.id}>
+    <article className={'team-card' + (selected ? ' selected' : '')} key={t.id}>
       <div className="card-top">
         <span
           className={

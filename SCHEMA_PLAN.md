@@ -4,6 +4,8 @@ Originally designed at c3a93a9; canonical formats, grouped variants, chunked bul
 
 ## Existing boundary
 
+The final search polish adds only PostgreSQL migration `202609100006_team_core_search.sql`, replacing private query helpers to support clause AND and same-slot Mega equivalents. D1 uses its existing schema/indexes. Both engines retain prior collection plans without data rewriting, reindexing or new membership tables.
+
 `teams` currently holds owner, metadata and the current pointer; `team_versions` holds editable current/frozen historical snapshots. Search terms are relational and correlated by team/version/slot. Tags are reusable owner concepts. Capability shares authorize one current team and its numbered history. D1 uses atomic batches; PostgreSQL uses owner-checked RPCs and row locks. Library pages return 30 records but currently contain full current snapshots; facets aggregate metadata in SQL.
 
 ## Canonical formats

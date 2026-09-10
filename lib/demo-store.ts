@@ -615,23 +615,44 @@ export class DemoStore {
           : [term.value]),
       );
     }
-    if (plan.set.length || plan.free.length) {
-      let parts = [
+    for (const clause of [plan, ...(plan.clauses || [])]) {
+      if (!clause.set.length && !clause.free.length) continue;
+      const parts = [
         's.team_id=t.id',
         's.version_id=t.current_version_id',
         's.slot>=0',
       ];
-      if (plan.set.length) {
-        parts.push('s.field=?', 's.value=?');
-        args.push(plan.set[0].field, plan.set[0].value);
-      }
-      for (const term of plan.set) {
+      if (clause.set.length) {
+        const first = clause.set[0];
+        const anchors = [first, ...(first.equivalent?.slice(0, 1) || [])];
         parts.push(
-          'EXISTS(SELECT 1 FROM search_terms x WHERE x.team_id=t.id AND x.version_id=s.version_id AND x.slot=s.slot AND x.field=? AND x.value=?)',
+          '(' +
+            anchors
+              .map((a) => {
+                args.push(a.field, a.value);
+                return '(s.field=? AND s.value=?)';
+              })
+              .join(' OR ') +
+            ')',
         );
-        args.push(term.field, term.value);
       }
-      for (const value of plan.free) {
+      for (const term of clause.set) {
+        const has = (t: { field: string; value: string }) => {
+          args.push(t.field, t.value);
+          return 'EXISTS(SELECT 1 FROM search_terms x WHERE x.team_id=t.id AND x.version_id=s.version_id AND x.slot=s.slot AND x.field=? AND x.value=?)';
+        };
+        const direct = has(term);
+        parts.push(
+          term.equivalent?.length
+            ? '(' +
+                direct +
+                ' OR (' +
+                term.equivalent.map(has).join(' AND ') +
+                '))'
+            : direct,
+        );
+      }
+      for (const value of clause.free) {
         parts.push(
           "EXISTS(SELECT 1 FROM search_terms x WHERE x.team_id=t.id AND (x.version_id='' OR (x.version_id=s.version_id AND x.slot=s.slot)) AND x.value=?)",
         );
@@ -641,12 +662,12 @@ export class DemoStore {
         'EXISTS(SELECT 1 FROM search_terms s WHERE ' +
         parts.join(' AND ') +
         ')';
-      if (plan.fallback?.length) {
+      if (clause.fallback?.length) {
         predicate =
           '(' +
           predicate +
           ' OR (' +
-          plan.fallback
+          clause.fallback
             .map((value) => {
               args.push(value);
               return "EXISTS(SELECT 1 FROM search_terms f WHERE f.team_id=t.id AND f.version_id='' AND f.value=?)";

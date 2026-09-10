@@ -52,6 +52,19 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* PokéLib's shared dark surface levels. Geometry remains compact. */
+:root {
+  --surface-page: #191d22;
+  --surface-nav: #21262c;
+  --surface-workspace: #282e35;
+  --surface-card: #323a43;
+  --surface-editor: #363f49;
+  --surface-input: #242c34;
+  --surface-popup: #414c58;
+  --surface-hover: #46515d;
+  --surface-selected: #40523d;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

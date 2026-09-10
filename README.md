@@ -79,6 +79,14 @@ Normalized search_terms records are indexed on field/value/team/version/slot. Th
 
 ## Search
 
+Use `+` for another team-member condition: `Mega Gengar + Zygarde` requires both in the same current variant; `Kyogre + Tornadus + Incineroar` requires all three. Each clause keeps same-set relationships: `Mega Gengar Shadow Ball + Zygarde Thousand Arrows`. Metadata stays global, e.g. `Mega Gengar + Zygarde year:2017` or `Kyogre + Tornadus tag:"Tournament Grade"`. Spaces around `+` are optional; quote literal plus signs in metadata. Up to six nonempty conditions are supported; repeated conditions may match the same slot. Empty trailing conditions are ignored while typing. Without `+`, `Darkrai Ice Beam` and `Focus Sash Rayquaza` retain their existing meaning.
+
+Known aliases use the pinned Dex. Mega names accept `Mega Gengar` and `Gengar-Mega`, matching either explicit imported forms or their base species with the required item/move on that same set. Base `Gengar` keeps exact base-species matching. Current variants are filtered before family grouping; a matching sibling is named in the row, and expansion shows only matching variants. Existing saved collections remain valid; new core collections are live queries too.
+
+Search keeps its existing 250 ms typing debounce. A request still pending after 200 ms shows a quiet `Searching…` label by the input; fast responses show no loading animation. Existing rows remain usable. Query/navigation changes abort obsolete requests, including a guard against late decoded responses or errors. Dark surfaces now distinguish the page, navigation, workspace, rows, editor, inputs and result panels without expanding compact rows or the builder.
+
+SQLite needs no new schema or reindex. Supabase installations must apply the append-only `202609100006_team_core_search.sql` matcher migration before using core searches. This repository includes and tests it; no Supabase setup was performed.
+
 The unified search bar offers From, Tag, Year, Format, Pokémon, Move, Item and Ability suggestions. Choose values to create removable chips, then keep typing ordinary text. `from:` is an alias for `source:`. Source/year/format/Pokémon/item/ability chips replace their previous value; tags and moves can combine. Year means historical Team Date; Unknown is an explicit date filter.
 
 The collapsible format navigator uses Singles/Doubles → generation/game → competitive format. National Dex OU/Ubers belong to Singles; National Dex Doubles belongs to Doubles. The searchable picker uses a pinned, generated official Showdown format registry. Known names/case normalize to IDs (including contextual Gen 4 Ubers); bare Ubers with no generation means Gen 9. Existing search-index aliases remain searchable without rewriting historical snapshots. Unknown imported names are preserved; Custom / Other stores explicit generation/battle context and warns that assistance is incomplete. Formats are pinned metadata, not a live registry or full legality engine. Per-format counts are not included.
@@ -174,16 +182,20 @@ D1 detail reads now fetch current state/history/share status in one owner-scoped
 
 ## Tests
 
-- pnpm test: 228 checks (84 domain/D1, 67 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 authored defaults, 10 formats and 6 PokéPaste). Includes 1,000-team import/replay, variant/history isolation, collection privacy/live membership, ownership and concurrency.
+- pnpm test: 247 checks (92 domain/D1, 75 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 authored defaults, 10 formats, 6 PokéPaste and 3 delayed-request checks). Includes 1,000-team import/replay, composition/same-set matching, variant/history isolation, collection privacy/live membership, ownership and concurrency.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
 
 PostgreSQL tests use PGlite with a minimal auth.uid() shim and real anon/authenticated roles. They do not test Supabase's email provider or live hosted policies. Test databases are ephemeral and isolated. HTTP tests create a disposable team, exercise its share links, then delete it.
 
-Browser QA verified blank/contextual creation, constructing a full set visually, each direct selector entry, keyboard selection, combined species filters/stat sorting, EV caps/nature updates, preserved raw fields/notes, per-set clipboard export, v2 editing and v1 restoration into v3. Inline title/source/year/tag edits preserved history; combined search, explicit set-note search and two-team bulk import with a reusable tag/Unknown dates passed. The inherited narrow desktop preview was visually inspected. Full-width desktop density and real phone/touch behavior still need a dedicated review. See PROGRESS.md for the detailed verification boundary. The older UX Review test team remains because the user has interacted with it.
+Prior browser QA covered builder/raw/history workflows documented in PROGRESS.md. This pass inspected 1440×900 desktop and 390×844 mobile library, builder, selectors, import, collections, settings and confirmation dialogs, plus composition, matching siblings and deliberately delayed/superseded requests. Compact geometry is preserved and no horizontal overflow was observed. Real phone/touch and full assistive-technology testing remain unclaimed.
 
-WebMCP search_teams and import_showdown_teams are registered and were visible to the browser, but their calls were not exercised. Live Supabase authentication still requires external setup. Repository-wide lint currently reports pre-existing scaffold/application issues; a clean lint result is not claimed.
+WebMCP search_teams and import_showdown_teams are registered and were visible to the browser, but their calls were not exercised. Live Supabase authentication still requires external setup. Repository-wide lint has 64 inherited findings (65 at the starting checkpoint), with no new findings in this pass.
+
+Relocation verification used a clean tracked-source checkout and a frozen-lockfile install with fresh dependencies; all required generated data/migrations are tracked. Never copy node_modules from another directory: its package-store links can contain absolute paths. Run all commands from the repository root. Normal tests regenerate .test-build and use isolated in-memory databases; source packaging regenerates ignored downloads.
+
+For focused browser reproduction, start the documented POKELIB_QA server, run `node scripts/search-browser-fixtures.mjs seed`, then `node scripts/search-qa-proxy.mjs`. Browse localhost:3001 and write `{"delay":4000}` to `.artifacts/search-delay.json` to delay family-search responses (0 restores normal speed). The proxy is localhost-only test infrastructure, outside the application. After inspection run `node scripts/search-browser-fixtures.mjs cleanup`. Both fixture commands verify the isolated QA database before mutating.
 
 ## Deployment
 

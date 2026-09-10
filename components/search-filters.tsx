@@ -29,6 +29,7 @@ type Suggestion = {
   label: string;
 };
 export function SearchFilters({
+  searching = false,
   text,
   chips,
   facets,
@@ -38,6 +39,7 @@ export function SearchFilters({
   onRemove,
   onClear,
 }: {
+  searching?: boolean;
   text: string;
   chips: SearchChip[];
   facets: Facets;
@@ -120,8 +122,19 @@ export function SearchFilters({
   }
   function choose(item: Suggestion) {
     if (item.value !== undefined) {
-      onAdd({ field: item.field, value: item.value });
-      onText(active?.prefix || '');
+      if (
+        active &&
+        text.includes('+') &&
+        ['pokemon', 'move', 'item', 'ability'].includes(item.field)
+      ) {
+        // A clause-local choice must not become a chip on the first member.
+        onText(
+          `${active.prefix} ${item.field}:"${item.value.replace(/["\r\n]/g, ' ')}"`,
+        );
+      } else {
+        onAdd({ field: item.field, value: item.value });
+        onText(active?.prefix || '');
+      }
       setOpen(false);
     } else {
       onText(item.field + ':');
@@ -212,7 +225,7 @@ export function SearchFilters({
             </ComboboxList>
             {!items.length && (
               <p className="picker-hint">
-                Search your team names, notes and metadata.
+                Use + for another team member, e.g. Gengar + Zygarde.
               </p>
             )}
           </ComboboxContent>
@@ -237,6 +250,9 @@ export function SearchFilters({
             <X size={17} />
           </button>
         )}
+        <output className="search-pending" aria-live="polite">
+          {searching ? 'Searching…' : ''}
+        </output>
       </div>
     </div>
   );

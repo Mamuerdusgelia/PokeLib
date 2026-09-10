@@ -83,12 +83,19 @@ export type Draft = TeamMeta & {
   original_text?: string;
   imported?: boolean;
 };
-export type Term = { field: string; value: string };
-export type QueryPlan = {
-  meta: Term[];
+export type Term = {
+  field: string;
+  value: string;
+  equivalent?: Array<{ field: string; value: string }>;
+};
+export type SetClause = {
   set: Term[];
   free: string[];
   fallback?: string[];
+};
+export type QueryPlan = SetClause & {
+  meta: Term[];
+  clauses?: SetClause[];
 };
 export const sourceTypes = [
   'Self-built',

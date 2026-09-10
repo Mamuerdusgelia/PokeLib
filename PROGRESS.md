@@ -1,4 +1,19 @@
-# PokéLib pre-beta usability pass — current state (2026-09-10)
+# PokéLib final search and usability polish — current state (2026-09-10)
+
+Started from clean main at 89c6ce87264e6de00ff74646940a1542741daf14. Completed the bounded composition-search, pending-feedback and dark-surface pass. No Supabase setup, backup/restore, organisation expansion, publishing feature, special-format, AI, simulator or replay work was started.
+
+- Unquoted + requires all same-set clauses in one current variant. Species/move/item relationships remain slot-correlated; metadata remains global. Up to six conditions, quoted literal pluses, existing alias support, explicit/builder Mega forms, old saved plans and live collections are covered. Filter before family grouping and identify matching siblings. New PostgreSQL matcher migration is append-only; D1 needs no migration/reindex.
+- Existing 250 ms typing debounce retained. Searching… appears only after a request is pending for 200 ms; old rows remain visible and input remains enabled. Layout cleanup aborts obsolete requests and guards late response/error application. Fast, delayed and superseded cases have deterministic tests and focused browser checks.
+- Shared charcoal palette distinguishes page/navigation/workspace/cards/dialogs/inputs/results. Green focus and selected states remain restrained; row/editor geometry stays compact. Desktop and 390px library, builder, Pokémon/move selectors, import, collections, settings and confirmation surfaces reviewed with no horizontal overflow observed.
+- 247 automated checks passed: 92 domain/SQLite, 75 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 10 formats, 6 PokéPaste and 3 request-timing checks. Existing HTTP integration, live collection HTTP, new core HTTP fixtures and TypeScript passed. Full lint has 64 inherited diagnostics versus the measured 65 at starting HEAD; no new findings. All five production build phases and source-offer validation passed. Publication completion is recorded in the final checkpoint report. Sites helper Windows launch failures were reproduced; the established direct build and PowerShell packaging fallback remain necessary on this host.
+- PERFORMANCE.md records all five requested query classes at 1k/5k/10k, median/max and index-plan evidence. At 10k median range 65.83–86.27 ms, maximum 112.89 ms; this is local SQLite adapter timing, not hosted production latency.
+- Relocation audit found all 215 starting tracked source files, all 13 generated Showdown JSONs, 8 D1 migrations and 10 original PostgreSQL migrations. The 11 generated pool hashes and lengths match provenance. A clean git-archive checkout installed all 575 packages from the unchanged frozen lockfile and passed all 228 starting tests using fresh dependencies and isolated in-memory databases. The final 222-file corresponding source was extracted into that checkout, every manifest hash verified, and all 247 tests plus the complete production build passed without .git or ignored application inputs. Build-generated files are reproducible; no required application source was found only in ignored/untracked files. Old absolute-directory instructions are replaced with repository-relative commands. New corresponding source retains AGPL/notices and the identical legacy download alias.
+
+Remaining limits: hosted/cold-start latency and physical-device/assistive-tech measurements remain unclaimed; existing Vinext beta/bundle warnings, 10k selection bounds, long unpaginated history and reload-lost in-dialog bulk resume state remain. Special-format parity stays out of scope. Existing base-species searches remain exact; + means conjunction, not distinct-slot cardinality. See README and DECISIONS for current semantics.
+
+---
+
+# PokéLib pre-beta usability pass — historical checkpoint (2026-09-10)
 
 The focused brief in attachment 7d97586f is implemented on top of ec42344, including the prior README correction. No unrelated major feature was started. The application is now PokéLib; existing site/project infrastructure and stored data identities remain intact.
 
@@ -196,7 +211,7 @@ Current version is editable; historical versions are frozen, and restore always 
 
 ## Local commands
 
-Run from C:\Users\24650\.codex\.chatgpt-projects\g-p-6a9d6190c39c8191988ca1de0c290ae4\teamvault with Node >=22.13, pnpm and native tar. Local demo mode needs no external account/key. Existing localhost:3000 dev server may already be running; avoid duplicate servers.
+Run from the repository root.
 
 ```powershell
 pnpm --config.node-linker=isolated install --frozen-lockfile

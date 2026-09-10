@@ -670,6 +670,7 @@ await check('collection RLS and private helper permissions', async () => {
   );
   for (const fn of [
     "private.list_family_teams(auth.uid(),'{}')",
+    "private.matches_clause(gen_random_uuid(),gen_random_uuid(),'{}')",
     'private.get_collection(gen_random_uuid(),auth.uid())',
     "public.vault_before_collections('list','{}')",
   ])

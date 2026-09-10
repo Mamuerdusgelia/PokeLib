@@ -5,6 +5,9 @@ import { demoDrafts } from '../.test-build/demo.mjs';
 import { makeSnapshot } from '../.test-build/snapshot.mjs';
 import { cleanMeta } from '../.test-build/domain.mjs';
 import { indexTerms, planQuery } from '../.test-build/search.mjs';
+import { coreBenchDrafts } from './search-fixtures.mjs';
+const coreMode = process.argv.includes('--core');
+let plans;
 const db = new DatabaseSync(':memory:');
 await fs.mkdir('.artifacts/library-scale', { recursive: true });
 for (const n of (await fs.readdir('drizzle'))
@@ -23,10 +26,18 @@ class Statement {
   }
   async first() {
     sqlCount++;
+    if (plans)
+      plans.push(
+        db.prepare('EXPLAIN QUERY PLAN ' + this.sql).all(...this.args),
+      );
     return db.prepare(this.sql).get(...this.args) || null;
   }
   async all() {
     sqlCount++;
+    if (plans)
+      plans.push(
+        db.prepare('EXPLAIN QUERY PLAN ' + this.sql).all(...this.args),
+      );
     return { results: db.prepare(this.sql).all(...this.args) };
   }
   async run() {
@@ -67,11 +78,13 @@ const tagInsert = db.prepare(
 const joinTag = db.prepare(
   'INSERT OR IGNORE INTO team_tags(team_id,tag_id) SELECT ?,id FROM tags WHERE owner_id=? AND normalized_name=?',
 );
-const templates = demoDrafts.map((d) => ({
-  d,
-  m: cleanMeta(d),
-  v: makeSnapshot(d, 'template', 1, null),
-}));
+const templates = [...demoDrafts, ...(coreMode ? coreBenchDrafts : [])].map(
+  (d) => ({
+    d,
+    m: cleanMeta(d),
+    v: makeSnapshot(d, 'template', 1, null),
+  }),
+);
 let seeded = 0;
 const results = [];
 async function measure(name, fn) {
@@ -151,6 +164,7 @@ for (const n of [1000, 5000, 10000]) {
       sort: 'modified_desc',
     });
   const measurements = [];
+  const queryPlans = {};
   // Extra sibling fixtures remain outside the n original conceptual families.
   if (process.argv.includes('--variants')) {
     for (let i = 0; i < n; i += 20) {
@@ -193,6 +207,32 @@ for (const n of [1000, 5000, 10000]) {
         store.facets({ include_archived: true, group_families: true }),
       ),
     );
+  }
+  if (coreMode) {
+    for (const [name, query] of [
+      ['core two members', 'Mega Gengar + Zygarde'],
+      ['core three members', 'Kyogre + Tornadus + Incineroar'],
+      [
+        'core qualified sets',
+        'Mega Gengar Shadow Ball + Zygarde Thousand Arrows',
+      ],
+      ['core and format', 'Mega Gengar + Zygarde format:gen7ubers'],
+      [
+        'core and metadata',
+        'Kyogre + Tornadus tag:"Tournament Grade" source:"Strange Name"',
+      ],
+    ]) {
+      const payload = {
+        plan: planQuery(query),
+        group_families: true,
+        include_archived: true,
+      };
+      measurements.push(await measure(name, () => store.list(payload)));
+      plans = [];
+      await store.list(payload);
+      queryPlans[name] = plans;
+      plans = undefined;
+    }
   }
   for (const [name, fn] of [
     ['initial library', () => run('')],
@@ -298,6 +338,7 @@ for (const n of [1000, 5000, 10000]) {
   });
   results.push({
     teams: n,
+    ...(coreMode ? { queryPlans } : {}),
     seedMilliseconds: +(performance.now() - before).toFixed(1),
     measurements,
   });

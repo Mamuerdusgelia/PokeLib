@@ -37,7 +37,7 @@ export function cleanDefinition(input: unknown) {
   const query = p.query
     .trim()
     .replace(
-      /\b(team|pokemon|move|item|ability|nature|tera|tag|source|from|year|format|note):(?:"([^"]+)"|([^\s]+))/gi,
+      /\b(team|pokemon|move|item|ability|nature|tera|tag|source|from|year|format|note):(?:"([^"]+)"|([^\s+]+))/gi,
       (original, field, quoted, single) =>
         field.toLowerCase() !== 'format'
           ? original

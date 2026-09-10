@@ -11,6 +11,7 @@ for (const name of [
   'public-config',
   'showdown',
   'search',
+  'search-request',
   'demo',
   'snapshot',
   'demo-store',
@@ -65,6 +66,7 @@ try {
   await import('./test-defaults.mjs');
   await import('./test-formats.mjs');
   await import('./test-pokepaste.mjs');
+  await import('./test-search-request.mjs');
 } catch (e) {
   console.error({
     message: e.message,

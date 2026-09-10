@@ -23,10 +23,58 @@ function dictionary() {
       entities.set(normalize(v.name), { field, value: normalize(v.name) });
     }
   }
+  for (const species of Dex.species.all()) {
+    if (species.forme?.startsWith('Mega')) {
+      const entity: Term = {
+        field: 'pokemon',
+        value: normalize(species.name),
+        ...(species.requiredItem || species.requiredMove
+          ? {
+              equivalent: [
+                { field: 'pokemon', value: normalize(species.baseSpecies) },
+                species.requiredItem
+                  ? { field: 'item', value: normalize(species.requiredItem) }
+                  : { field: 'move', value: normalize(species.requiredMove!) },
+              ],
+            }
+          : {}),
+      };
+      entities.set(normalize(species.name), entity);
+      entities.set(
+        normalize(`Mega ${species.baseSpecies} ${species.forme.slice(4)}`),
+        entity,
+      );
+    }
+  }
+  // Resolve upstream aliases to the existing canonical index values; no reindex.
+  for (const [alias, name] of Object.entries(Dex.data.Aliases)) {
+    if (typeof name !== 'string') continue;
+    const entity = entities.get(normalize(name));
+    if (entity && !entities.has(normalize(alias)))
+      entities.set(normalize(alias), entity);
+  }
   return entities;
 }
 export function planQuery(q: string): QueryPlan {
   if (q.length > 400) throw Error('Keep search below 400 characters.');
+  // Only unquoted + separates members. Metadata belongs to the whole variant.
+  const parts = [''];
+  let quoted = false;
+  for (const char of q) {
+    if (char === '"') quoted = !quoted;
+    if (char === '+' && !quoted) parts.push('');
+    else parts[parts.length - 1] += char;
+  }
+  if (parts.length === 1) return planClause(q);
+  const parsed = parts.map(planClause);
+  const clauses = parsed
+    .filter((p) => p.set.length || p.free.length)
+    .map(({ set, free }) => ({ set, free }));
+  if (clauses.length > 6)
+    throw Error('Use at most six team-member conditions.');
+  return { meta: parsed.flatMap((p) => p.meta), set: [], free: [], clauses };
+}
+function planClause(q: string): QueryPlan {
   const plan: QueryPlan = { meta: [], set: [], free: [] };
   const explicit =
     /\b(team|pokemon|move|item|ability|nature|tera|tag|source|from|year|format|note):(?:"([^"]+)"|([^\s]+))/gi;
@@ -42,10 +90,17 @@ export function planQuery(q: string): QueryPlan {
       'tera',
     ].includes(field);
     if (set || field === 'tag' || field === 'format' || field === 'year') {
-      (set ? plan.set : plan.meta).push({
-        field,
-        value: normalize(field === 'format' ? canonicalFormat(value) : value),
-      });
+      const entity = set ? dictionary().get(normalize(value)) : undefined;
+      (set ? plan.set : plan.meta).push(
+        entity && entity.field === field
+          ? entity
+          : {
+              field,
+              value: normalize(
+                field === 'format' ? canonicalFormat(value) : value,
+              ),
+            },
+      );
     } else {
       for (const v of words(value)) plan.meta.push({ field, value: v });
     }
@@ -165,26 +220,34 @@ export function matchesPlan(terms: IndexedTerm[], plan: QueryPlan) {
   const slots = [
     ...new Set(terms.filter((t) => t.slot >= 0).map((t) => t.slot)),
   ];
-  return (
-    (!!plan.fallback?.length &&
-      plan.fallback.every((value) =>
-        metadata.some((t) => t.value === value),
-      )) ||
-    slots.some(
-      (slot) =>
-        plan.set.every((q) =>
-          terms.some(
-            (t) =>
-              t.slot === slot && t.field === q.field && t.value === q.value,
+  return [plan, ...(plan.clauses || [])].every(
+    (clause) =>
+      (!clause.set.length && !clause.free.length) ||
+      (!!clause.fallback?.length &&
+        clause.fallback.every((value) =>
+          metadata.some((t) => t.value === value),
+        )) ||
+      slots.some(
+        (slot) =>
+          clause.set.every((q) => {
+            const has = (term: Term) =>
+              terms.some(
+                (t) =>
+                  t.slot === slot &&
+                  t.field === term.field &&
+                  t.value === term.value,
+              );
+            return (
+              has(q) || (!!q.equivalent?.length && q.equivalent.every(has))
+            );
+          }) &&
+          clause.free.every((value) =>
+            terms.some(
+              (t) => (t.slot < 0 || t.slot === slot) && t.value === value,
+            ),
           ),
-        ) &&
-        plan.free.every((value) =>
-          terms.some(
-            (t) => (t.slot < 0 || t.slot === slot) && t.value === value,
-          ),
-        ),
-    ) ||
-    (!plan.set.length &&
-      plan.free.every((value) => metadata.some((t) => t.value === value)))
+      ) ||
+      (!clause.set.length &&
+        clause.free.every((value) => metadata.some((t) => t.value === value))),
   );
 }

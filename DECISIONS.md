@@ -1,6 +1,15 @@
 # PokéLib product and technical decisions
 
-## Pre-beta usability and rebranding — 2026-09-10 (current)
+## Final search and surface polish — 2026-09-10 (current)
+
+- Unquoted `+` is AND between independently correlated same-set clauses on one current variant. Metadata applies globally. Composition clauses require actual indexed members and cannot fall back to title mentions. No-plus plans and previously saved v1 collection definitions keep their existing semantics. Quoted metadata preserves literal plus signs, including during collection canonicalization.
+- The plan adds optional clauses and same-slot Mega equivalents derived from pinned Dex required items/moves. Base species searches remain exact. A maximum of six nonempty clauses bounds SQL work; duplicate conditions need not occupy distinct slots, and an empty trailing clause is ignored during typing. No raw snapshots/indexed history are rewritten.
+- D1 repeats anchored indexed predicates before pagination/grouping. PostgreSQL has an append-only private matcher migration with helper permissions revoked. Existing owner scopes, capability resolution, current/history rules and concurrency guards remain.
+- Preserve the 250 ms text debounce. The request owns a separate 200 ms feedback timer and abort signal; cleanup runs at layout-effect boundaries so stale results/errors cannot replace current state. Keep prior rows visible during refresh and cancel obsolete requests. Only selection stays blocked until its query scope is current.
+- Define shared charcoal surface levels in globals.css and apply them consistently to navigation, workspace, cards, dialogs, controls and selectors. Preserve compact geometry and restrained green accents; no decorative loading animation.
+- QA uses the existing isolated local database. A localhost-only test proxy delays responses and forwards Vite HMR; it is a test script, never an application runtime capability. Hosted latency, physical-device and full assistive-tech performance remain unmeasured.
+
+## Pre-beta usability and rebranding — 2026-09-10 (prior checkpoint; invariants retained)
 
 - **PokéLib** is the display name; **pokelib** is used for new technical names. Existing Sites project/URL, database identities and migration filenames stay unchanged. View preferences read the historical teamvault-view key as fallback; legacy X-TeamVault-Profile requests still work. Source is pokelib-source.tar with a byte-identical old-URL alias. AGPL and upstream notices remain.
 - Hide singleton variant counts and ordinary initial-revision badges. Keep numbered entries inside History, multi-revision indicators and expandable multi-variant families. No snapshots or revision identities are removed.

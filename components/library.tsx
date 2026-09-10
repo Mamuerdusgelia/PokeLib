@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { api, browserAuth } from '@/lib/client';
+import { searchRequest } from '@/lib/search-request';
 import {
   dateLabel,
   formatLabel,
@@ -168,6 +169,7 @@ export default function Library() {
     if (detail) commitSaveTrace();
   }, [detail]);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [searching, setSearching] = useState(false);
   const facetsReady = useRef(false);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const selectionRequest = useRef<AbortController | null>(null);
@@ -226,8 +228,9 @@ export default function Library() {
     return () => unsub?.();
   }, []);
   const refresh = useCallback(
-    async (signal?: AbortSignal) => {
+    async (request: ReturnType<typeof searchRequest>) => {
       if (!signed) return;
+      request.start();
       setLoading(true);
       setError('');
       try {
@@ -243,9 +246,9 @@ export default function Library() {
             include_archived: true,
             favourite: section === 'Favourites',
           },
-          signal,
+          request.signal,
         );
-        if (signal?.aborted) return;
+        if (!request.active()) return;
         const lastPage = Math.max(0, Math.ceil(result.total / 30) - 1);
         if (page > lastPage) {
           setPage(lastPage);
@@ -257,22 +260,24 @@ export default function Library() {
         setTeams(result.teams);
         setTotal(result.total);
       } catch (e) {
-        if ((e as Error).name !== 'AbortError') setError((e as Error).message);
+        if (request.active() && (e as Error).name !== 'AbortError')
+          setError((e as Error).message);
       } finally {
-        if (!signal?.aborted) setLoading(false);
+        if (request.active()) setLoading(false);
+        request.finish();
       }
     },
     [signed, query, sort, page, chips, section],
   );
   const libraryVisible =
     !detail && !detailLoading && modal !== 'new' && modal !== 'version';
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!libraryVisible) return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => refresh(controller.signal), query ? 250 : 0);
+    const request = searchRequest(setSearching);
+    const timer = setTimeout(() => refresh(request), query ? 250 : 0);
     return () => {
       clearTimeout(timer);
-      controller.abort();
+      request.cancel();
     };
   }, [refresh, query, refreshTick, libraryVisible]);
   useEffect(() => {
@@ -1067,6 +1072,7 @@ export default function Library() {
                 </div>
               )}
               <SearchFilters
+                searching={searching}
                 text={query}
                 chips={chips}
                 facets={facets}
@@ -1274,7 +1280,7 @@ export default function Library() {
                   </button>
                 </div>
               )}
-              {loading ? (
+              {loading && !loadedScope ? (
                 <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <Skeleton
@@ -1522,6 +1528,8 @@ export default function Library() {
             <div className="query-examples">
               {[
                 'Darkrai Ice Beam',
+                'Mega Gengar + Zygarde',
+                'Kyogre + Tornadus + Incineroar',
                 'Focus Sash Rayquaza',
                 'Tournament Grade Kyogre',
                 'source:"Strange Name"',

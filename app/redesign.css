@@ -1202,62 +1202,128 @@
   }
 }
 
-/* Surface hierarchy: workspace, dialog, set, then interactive controls. */
+/* Shared productivity surfaces; intentionally preserve row/builder dimensions. */
 :root,
 .dark {
-  --background: #191b1e;
-  --sidebar: #22252a;
-  --card: #282c31;
-  --popover: #33383f;
-  --input: #4b535d;
+  --background: var(--surface-page);
+  --sidebar: var(--surface-nav);
+  --card: var(--surface-card);
+  --popover: var(--surface-popup);
+  --muted: var(--surface-workspace);
+  --muted-foreground: #b6c0ca;
+  --secondary: var(--surface-card);
+  --accent: var(--surface-selected);
+  --accent-foreground: #e4eedf;
+  --border: #48525d;
+  --input: #65717d;
+  --sidebar-foreground: #b7c1ca;
+  --sidebar-accent: var(--surface-selected);
 }
 .main-shell {
-  background: #1d2024;
+  background: var(--surface-workspace);
 }
 .team-card,
-.set-card {
-  background: #282d33;
+.set-card,
+.notes-section,
+.variant-row {
+  background: var(--surface-card);
+  border-color: var(--border);
 }
-.team-card:hover {
-  background: #30363e;
+.team-card:hover,
+.variant-row:hover,
+.nav-item:hover,
+.format-category button:hover {
+  background: var(--surface-hover);
+}
+.team-card.selected,
+.nav-item.active,
+.format-category button.active {
+  background: var(--surface-selected);
 }
 .vault-modal {
-  background: #292e34 !important;
+  background: var(--surface-editor) !important;
 }
 .editor-save,
 .pokemon-slot-bar {
-  background: #292e34;
+  background: var(--surface-editor);
 }
 .pokemon-set-editor {
-  background: #343a42;
-  border-color: #4b5560;
+  background: var(--surface-card);
+  border-color: var(--border);
 }
 .pokemon-slot {
-  background: #363d44;
+  background: var(--surface-hover);
 }
 .pokemon-slot.active {
-  background: #45533e;
+  background: var(--surface-selected);
 }
 .empty-slot {
-  background: #252a30;
-  color: #a5b19c;
+  background: var(--surface-input);
+  color: #bdcbb5;
 }
 .set-selector {
-  background: #3b434c;
-  border-color: #8b9f7b;
+  background: var(--surface-popup);
+  border-color: #899b7d;
 }
-.set-selector [data-slot='input-group'] {
-  background: #282f37;
+.set-selector [data-slot='input-group'],
+.field input,
+.field textarea,
+.batch-preview input,
+.code-editor,
+.export-text,
+.builder-value,
+.ev-row input,
+.pick,
+.unified-search {
+  background: var(--surface-input);
+  color: var(--foreground);
+}
+.inline-metadata-form,
+.history-row.viewing,
+.import-drop,
+.parse-preview {
+  background: var(--surface-selected);
+}
+.selector-result:hover,
+.builder-value:hover {
+  background: var(--surface-hover);
 }
 .selector-result[data-selected='true'] {
-  background: #516148;
+  background: var(--surface-selected);
 }
 .selector-result small {
-  color: #c0cbd0;
+  color: #d0d8df;
 }
 .builder-value > span,
-.ev-labels {
-  color: #bac3cb;
+.ev-labels,
+.muted,
+.card-source,
+.team-card footer,
+.workspace small,
+.account small,
+.nav-section,
+.sidebar-note small,
+.suggestion-heading,
+.picker-hint,
+.import-drop p {
+  color: var(--muted-foreground);
+}
+input::placeholder,
+textarea::placeholder,
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #adb8c3;
+  opacity: 1;
+}
+.unified-search {
+  position: relative;
+}
+.search-pending {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #c3ceb9;
+  pointer-events: none;
 }
 .source-offer {
   display: flex;

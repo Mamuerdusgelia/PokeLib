@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { testTeamCore } from './test-team-core.mjs';
 import { cleanDefinition } from '../.test-build/collections.mjs';
 import { demoDrafts } from '../.test-build/demo.mjs';
 import { snapshotRevision } from '../.test-build/domain.mjs';
 import { argsFor, draftOf } from './test-save-model.mjs';
 export async function testCollections(store, other, resolve, check) {
+  await testTeamCore(store, other, resolve, check);
   const definition = {
     query: '',
     filters: [{ field: 'tag', value: 'Collectionfixture' }],

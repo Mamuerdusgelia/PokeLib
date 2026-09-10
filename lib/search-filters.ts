@@ -49,7 +49,7 @@ export function queryWithFilters(chips: SearchChip[], text: string) {
 }
 export function activeFilter(text: string) {
   const match = text.match(
-    /(?:^|\s)(from|source|tag|year|format|pokemon|move|item|ability):(?:(?:"([^"]*)"?)|([^\s]*))$/i,
+    /(?:^|(?<=[\s+]))(from|source|tag|year|format|pokemon|move|item|ability):(?:(?:"([^"]*)"?)|([^\s+]*))$/i,
   );
   return match
     ? {
