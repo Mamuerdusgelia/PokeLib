@@ -12,7 +12,7 @@ Restore validates the entire file for preview, waits for confirmation, validates
 
 The Sites deployment uses an account-isolated, persistent Cloudflare D1 **demo workspace**, with ChatGPT sign-in. A first demo account receives six realistic singles/doubles and older-generation examples; nothing is saved in browser storage except the view preference and Supabase's auth session when enabled.
 
-The complete PostgreSQL/Supabase adapter and migration are included. No Supabase project was available during implementation. The migration and RLS/RPC behavior are tested against embedded PostgreSQL (PGlite), but real Supabase email delivery and hosted Supabase connectivity must be checked after you connect your project.
+The existing PostgreSQL/Supabase adapter is connected locally to the real project. On 2026-09-10, all 12 migrations and the schema/permission audit passed on hosted PostgreSQL 17.6. Email sign-in and 24 hosted integration test groups passed using two distinct, confirmed Supabase Auth users. Test data was removed and both libraries were verified empty. The deployed Sites version remains the owner-only D1 demo; no Supabase deployment or audience change has been made. See PROGRESS.md for the evidence and production limitations.
 
 ## Architecture
 
@@ -66,18 +66,41 @@ Production demo authentication trusts Sites' dispatcher-injected identity header
 3. In Authentication → URL Configuration, set the site URL to your deployed PokéLib origin. Add that origin's / route and http://localhost:3000/ to the allowed redirect URLs used during development.
 4. Enable Email authentication. Magic-link sign-in is implemented. Configure production SMTP and review Auth rate limits before opening registration broadly.
 5. Copy .env.example to .env for local development and supply SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. The publishable (or legacy anon) key is public by design; **never use a service-role key**.
-6. For hosted Sites, set those two runtime environment values through Sites environment settings/tools, then redeploy. Runtime values are not stored in .openai/hosting.json.
+6. A future Supabase deployment will need those two runtime values in Sites environment settings. Runtime values are not stored in .openai/hosting.json. Deployment and audience changes remain deferred until the separately requested release review.
 7. Restart local development after changing environment values.
 8. Sign in by email. Your production account starts with an empty library; use Import or Settings → Add example teams.
 9. Test two distinct accounts and an anonymous share link on your actual project before inviting players. The private Sites access gate still applies until the site's audience is intentionally changed.
 
-Both variables must be supplied together. Demo teams remain in D1 and do not automatically move to Supabase. Use Settings → Data → Export PokéLib backup, then restore that file after signing into the destination account. Apply every included migration, including PostgreSQL `202609100007_backups.sql`. Showdown export remains available for text-only interchange. This pass does not configure an external Supabase project.
+Both variables must be supplied together in the ignored `.env`; Git tracks only the non-secret `.env.example`. Do not add duplicate `NEXT_PUBLIC_` variables. The local `/api/config` must report `demo: false`, and a private request without a Supabase bearer token must fail with 401. Demo teams remain in D1 and are not automatically moved. This setup did not copy or modify the existing demo library.
+
+The owner configured Site URL `https://teamvault-library.internetscaryuwu.chatgpt.site/` and allowed redirects `http://localhost:3000/` and that deployed URL. The existing magic-link code returns to `/`; it does not use an `/auth/callback` route. Email authentication and sign-up remain enabled, email confirmation remains required, and anonymous sign-in remains disabled.
+
+Supabase's [default email service](https://supabase.com/docs/guides/auth/auth-smtp) only delivers to organization members, currently at two messages per hour with best-effort delivery. Account A completed the app's email-link flow. The owner created a separate confirmed Auth test user B through Authentication → Users, then signed B in with its test password in a temporary local test page. This did not change project-wide confirmation settings or grant B organization access. The application continues to use magic links. Configure production SMTP before testing delivery to ordinary beta users.
 
 ## Database migrations
 
 D1 schema is defined in db/schema.ts. Run pnpm db:generate after schema changes. drizzle/0001_version_guards.sql adds the original history/pointer guards; 0002_edit_current_version.sql permits current-only Save with immutable identity and forward-only pointers. Applied migrations are append-only.
 
 Supabase migrations are separately managed PostgreSQL migrations. They enable RLS on every exposed table. Authenticated clients have owner-scoped reads; all writes go through a narrowly dispatched vault RPC, which independently checks auth.uid(). Version saves lock the owned team and compare the expected current pointer, edit revision and metadata timestamp. Private helper functions are not callable by application roles.
+
+The real empty project received these existing files in order, in one audited transaction:
+
+```text
+202609060001_teamvault.sql
+202609070001_delete_team.sql
+202609080001_include_archived.sql
+202609080002_search_set_notes.sql
+202609090001_edit_current_version.sql
+202609100001_scale_formats.sql
+202609100002_import_receipts.sql
+202609100003_variants.sql
+202609100004_pokepaste_source.sql
+202609100005_collections.sql
+202609100006_team_core_search.sql
+202609100007_backups.sql
+```
+
+Catalog verification matched 13 RLS tables, 33 indexes, 10 policies, 9 application triggers and 28 application functions, including role privileges. Supabase's existing postgres-owned `public.rls_auto_enable()` event-trigger function was preserved. The empty-project preflight initially stopped on that platform helper; the reviewed setup bundle allowed only its exact no-argument event-trigger signature and verified it was unchanged. Migration source files were unchanged. Do not rerun the empty-project bundle on an initialized project or remove a platform helper to pass a preflight.
 
 Normalized search_terms records are indexed on field/value/team/version/slot. The primary key also supports per-team correlated lookups. Teams have owner/modified, owner/title and owner/historical-date indexes. Search uses exact words and known Pokémon entity names; typo tolerance, Boolean grouping and arbitrary substring matching are not included.
 
@@ -89,7 +112,7 @@ Known aliases use the pinned Dex. Mega names accept `Mega Gengar` and `Gengar-Me
 
 Search keeps its existing 250 ms typing debounce. A request still pending after 200 ms shows a quiet `Searching…` label by the input; fast responses show no loading animation. Existing rows remain usable. Query/navigation changes abort obsolete requests, including a guard against late decoded responses or errors. Dark surfaces now distinguish the page, navigation, workspace, rows, editor, inputs and result panels without expanding compact rows or the builder.
 
-SQLite needs no new schema or reindex. Supabase installations must apply the append-only `202609100006_team_core_search.sql` matcher migration before using core searches. This repository includes and tests it; no Supabase setup was performed.
+SQLite needs no new schema or reindex. Supabase installations must apply the append-only `202609100006_team_core_search.sql` matcher migration before using core searches. It is applied and verified on the real project along with the other migrations listed above.
 
 The unified search bar offers From, Tag, Year, Format, Pokémon, Move, Item and Ability suggestions. Choose values to create removable chips, then keep typing ordinary text. `from:` is an alias for `source:`. Source/year/format/Pokémon/item/ability chips replace their previous value; tags and moves can combine. Year means historical Team Date; Unknown is an explicit date filter.
 
@@ -186,16 +209,16 @@ D1 detail reads now fetch current state/history/share status in one owner-scoped
 
 ## Tests
 
-- pnpm test: 247 checks (92 domain/D1, 75 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 authored defaults, 10 formats, 6 PokéPaste and 3 delayed-request checks). Includes 1,000-team import/replay, composition/same-set matching, variant/history isolation, collection privacy/live membership, ownership and concurrency.
-- pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
+- pnpm test: 263 checks (92 domain/D1, 75 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 authored defaults, 10 formats, 6 PokéPaste, 3 delayed-request and 16 backup checks). Includes 1,000-team import/replay, composition/same-set matching, variant/history isolation, collection privacy/live membership, ownership and concurrency.
+- pnpm test:http: D1 integration checks against the running local simulator. This is not the real Supabase test suite; do not use it as evidence of hosted Auth/RLS verification.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
 
-PostgreSQL tests use PGlite with a minimal auth.uid() shim and real anon/authenticated roles. They do not test Supabase's email provider or live hosted policies. Test databases are ephemeral and isolated. HTTP tests create a disposable team, exercise its share links, then delete it.
+The normal PostgreSQL tests use PGlite with a minimal auth.uid() shim and real anon/authenticated roles. Those databases are ephemeral and isolated. Separate real-service verification on 2026-09-10 passed 24 groups through the Supabase-backed local HTTP routes and direct hosted PostgREST requests using real Auth sessions. It covered authored/imported teams, live PokéPaste, Save/history/variants, tags/search/collections, both directions of owner isolation, role privileges, capability tampering/rotation/revocation, and full backup/additive restore with malicious ownership fields. These 24 groups are separate from the 263 deterministic checks. The temporary runner and its credentials-free results live under ignored `.artifacts/supabase-setup`; session tokens were kept only in runner memory and normal browser session storage. No test endpoint was added to the application.
 
-Prior browser QA covered builder/raw/history workflows documented in PROGRESS.md. This pass inspected 1440×900 desktop and 390×844 mobile library, builder, selectors, import, collections, settings and confirmation dialogs, plus composition, matching siblings and deliberately delayed/superseded requests. Compact geometry is preserved and no horizontal overflow was observed. Real phone/touch and full assistive-technology testing remain unclaimed.
+Prior browser QA covered builder/raw/history workflows documented in PROGRESS.md. That earlier pass inspected 1440×900 desktop and 390×844 mobile library, builder, selectors, import, collections, settings and confirmation dialogs, plus composition, matching siblings and deliberately delayed/superseded requests. Compact geometry was preserved and no horizontal overflow was observed. Real phone/touch and full assistive-technology testing remain unclaimed.
 
-WebMCP search_teams and import_showdown_teams are registered and were visible to the browser, but their calls were not exercised. Live Supabase authentication still requires external setup. Repository-wide lint has 64 inherited findings (65 at the starting checkpoint), with no new findings in this pass.
+WebMCP search_teams and import_showdown_teams are registered and were visible to the browser, but their calls were not exercised. Real Supabase authentication and isolation are verified as described above; production SMTP and a Supabase-backed deployment remain deferred. Repository-wide lint has 64 previously recorded inherited findings; this setup does not claim a fresh repository-wide lint run.
 
 Relocation verification used a clean tracked-source checkout and a frozen-lockfile install with fresh dependencies; all required generated data/migrations are tracked. Never copy node_modules from another directory: its package-store links can contain absolute paths. Run all commands from the repository root. Normal tests regenerate .test-build and use isolated in-memory databases; source packaging regenerates ignored downloads.
 

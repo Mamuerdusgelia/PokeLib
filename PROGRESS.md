@@ -1,4 +1,25 @@
-# PokéLib full-fidelity backup and restore — current state (2026-09-10)
+# PokéLib real Supabase verification — current state (2026-09-10)
+
+Starting HEAD: clean `546e1537bb4db859ae8d006416c1a1e4064f3e6d` in `C:\Dev\pokelib`. The existing adapter and auth implementation required no replacement or application changes. The owner populated the ignored `.env` with only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`; actual values, passwords and tokens are not committed. No service-role/secret key was requested or used.
+
+All 12 existing migrations, from `202609060001_teamvault.sql` through `202609100007_backups.sql`, were applied through the SQL Editor in filename order and one transaction. README.md records every filename. Hosted PostgreSQL 17.6 returned PASS for the exact catalog/permission comparison: 13 RLS tables, 33 indexes, 10 policies, 9 application triggers and 28 application functions. The audited setup preserved Supabase's postgres-owned `public.rls_auto_enable()` platform helper. Its original preflight failure happened before migrations, and the replacement bundle was additionally validated against PostgreSQL 17 and 18. No migration source was edited.
+
+The owner saved the deployed `/` URL as Site URL and both local/deployed `/` URLs as redirects. Account A completed magic-link registration/sign-in and opened an empty library. A separately created and confirmed Auth account B signed in through the temporary local test harness. Supabase `getUser` verified both distinct identities. The local app reported `demo: false`, matched the two configured public values and rejected unauthenticated private requests. Email confirmation remains enabled and anonymous sign-in disabled. Default SMTP limitations and the test-account method are documented in README.md; general beta email delivery remains unverified pending production SMTP.
+
+**24 hosted integration groups passed**, through actual local app HTTP routes plus direct Supabase SDK/PostgREST calls with real user tokens:
+
+- Auth token validation; new authored team and parsed/imported raw text; retry-safe import; current Save identity/revision guards; immutable history and independent variants; tags, same-set/core/note searches and archived visibility; live PokéPaste provenance; collection CRUD and stale edits.
+- A→B and B→A list/get/patch/save/version/delete/share/revoke and collection/variant ownership boundaries; owner-only direct reads including history; anonymous read denial and authenticated insert/update/delete denial on all 13 tables; revoked legacy RPC entry points.
+- Anonymous team/history and collection capabilities, restricted projections, matching-variant membership, owner/query/ID tampering, current-only collection details, link rotation and revocation. A nonmatching family returns an empty result; a nonmatching team detail returns 404.
+- PostgreSQL full backup with raw/source text, notes, authoring flags and history; owner identity/capability omission; invalid/owner-forged whole-file rejection without mutation; PostgreSQL rejection when server validation is bypassed; A→B and same-account additive restore, replay idempotency, fresh destination ownership/IDs, semantic preservation, unchanged preexisting records/links, private restored collections, restored Save/history and deletion.
+
+All test teams, materialized families, variants, revisions, collections and shares were removed through the existing owner-scoped APIs. The owner then ran the reviewed transaction to remove the nine unused test tags per account and exact recorded test operation/restore receipts. That transaction repeated the full schema/permission audit and returned PASS with two Auth users retained and zero teams, collections, tags or receipts. Follow-up authenticated SDK and local HTTP checks independently confirmed both libraries have zero families, variants, revisions, tags and collections. Auth users, profiles and monotonic generation counters remain; no reset or schema alteration was used.
+
+Validation: the existing 263 deterministic checks, TypeScript check and complete production build passed. The stale README count is corrected. The passing hosted run and final cleanup verification are recorded in ignored `hosted-results.json`, with exact disposable fixture/operation ledgers under `.artifacts/supabase-setup`. No application or security defect was found in this verification scope, and no application/schema changes were required. Documentation is the only tracked change. Environment values were absent from the tracked diff and compiled files; `.env` remains ignored.
+
+The Sites audience was read back as the existing owner-only policy. The deployed application and all existing D1 demo data are unchanged. No bulk demo migration, production SMTP configuration, public release or final release audit was performed. Hosted Worker performance/concurrency, real-phone/accessibility coverage and the existing beta-runtime/lint limitations remain separate work.
+
+# PokéLib full-fidelity backup and restore — prior checkpoint (2026-09-10)
 
 Starting checkpoint: clean main `1db66af1fa84479842d4582de9a7d399066adf30`. Implemented schema-v1 streamed JSON Lines/gzip backup and additive restore in Settings → Data. Detailed contract and recovery limits live in BACKUP_FORMAT.md.
 

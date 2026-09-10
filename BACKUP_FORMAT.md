@@ -2,6 +2,8 @@
 
 This is the portable recovery format for PokéLib product data. It is independent of D1 and PostgreSQL table layouts. Showdown text export is a separate, deliberately smaller interchange format.
 
+Real hosted PostgreSQL 17.6 verification passed on 2026-09-10 using two distinct Supabase Auth users and the existing HTTP upload/restore routes. It covered complete semantic preservation, fresh destination-owned IDs, same-account and cross-account additive restore, replay idempotency, private restored collections, preservation of existing data/live links, malformed and owner-forged input, and editing/history after restore. Direct RPC attacks also verified PostgreSQL's own backup field/owner boundaries. This evidence is separate from the embedded PostgreSQL tests and does not claim deployed Worker load/concurrency testing. See PROGRESS.md for the test and cleanup record.
+
 ## File and version contract
 
 The application prepares a Download backup link for `pokelib-backup-YYYY-MM-DD.jsonl.gz`: a gzip stream of UTF-8 JSON Lines. Each line is one JSON object followed by LF, including the last line. Line separators belong to the archive; embedded CRLF, blank lines, Unicode and other retained team text are JSON strings and are preserved. Gzip reduces repeated structure/history substantially and supports native browser/Worker streaming without another dependency. An uncompressed JSON Lines file below the upload limit is also accepted. A conventional single-object JSON or Showdown export is not this format.

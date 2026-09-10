@@ -1,5 +1,11 @@
 # Scale, variants and collections — implemented relationships
 
+## Hosted Supabase verification — 2026-09-10
+
+The existing 12 PostgreSQL migrations are now applied to the real project on PostgreSQL 17.6. Exact catalog and privilege verification passed for 13 RLS tables, 33 indexes, 10 policies, 9 application triggers and 28 application functions. Supabase's separate `public.rls_auto_enable()` event-trigger function was preserved and is not counted as a PokéLib function. No second schema or migration rewrite was introduced.
+
+Real distinct Auth users passed owner isolation through application RPCs and direct table reads. Anonymous table reads and authenticated direct inserts/updates/deletes were denied on all 13 tables; capability resolvers remained available with restricted results. Backup records were restored under the receiving user with fresh IDs, and forged owner fields were rejected. See PROGRESS.md for the complete hosted verification scope and cleanup status.
+
 ## Full-fidelity backup/restore additions — 2026-09-10
 
 D1 `0008_talented_rick_jones.sql` and PostgreSQL `202609100007_backups.sql` add `backup_generations` (owner-scoped monotonic portable-data generation), `backup_restores` (owner/operation, validated manifest hashes, namespace, progress, compact active-variant context), and `backup_teams_order` for keyset export. Portable-table insert/update/delete triggers update the generation transactionally; search terms, receipts and capabilities do not belong to portable state. New Drizzle metadata includes the hand-checked expression index.

@@ -1,6 +1,14 @@
 # PokéLib product and technical decisions
 
-## Full-fidelity backup and restore — 2026-09-10 (current)
+## Real Supabase setup and verification — 2026-09-10 (current)
+
+- Keep the existing dual-adapter application. Select Supabase using only the two existing variables in ignored `.env`; forward verified end-user bearer tokens and the public publishable key. No privileged application key or new auth boilerplate is needed.
+- Apply the 12 existing migrations unchanged through the documented SQL Editor workflow. A generated transactional bundle validates the schema and role privileges. Preserve the exact postgres-owned `public.rls_auto_enable()` event-trigger helper supplied by the platform; unexpected application objects still block an empty-project setup.
+- Use the actual magic-link redirect target `/`. Keep email confirmation enabled. The owner completes account A's email flow; a separately created, individually confirmed Auth test user B provides a second real user identity without organization membership or a project-wide confirmation change. Production SMTP remains a prerequisite for ordinary beta email delivery.
+- Verify HTTP behavior and direct hosted database permissions with both user identities and the anonymous role. The temporary loopback test runner holds sessions only in memory, and generated test pages live outside application/public source. Unique disposable fixture ledgers constrain cleanup. Full backup tests use the real hosted PostgreSQL implementation and preserve existing destination data.
+- Keep the existing deployed D1 application, demo data and owner-only audience unchanged. Deployment, audience changes and the final release audit require the user's later task.
+
+## Full-fidelity backup and restore — 2026-09-10 (prior checkpoint)
 
 - Use versioned, ordered UTF-8 JSON Lines with gzip and mandatory header/footer counts. Product records, ordinal IDs and grouped histories permit bounded whole-file validation without loading the library or a full revision graph into memory. Export pagination and compressed download buffers have explicit limits; never silently truncate. BACKUP_FORMAT.md is the normative contract.
 - Preserve stored raw/source/notes/parsed fields and private editing provenance, including history. Validate without Showdown reparsing. Rebuild current search terms and historical comment words using `indexTerms`; recompile live collection definitions with `cleanDefinition`.
