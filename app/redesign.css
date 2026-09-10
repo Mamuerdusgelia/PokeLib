@@ -1369,3 +1369,135 @@
 .batch-preview .format-picker {
   width: 100%;
 }
+
+/* PokéLib pre-beta: compact authoring and explicit selection scope. */
+.builder-modal.vault-modal {
+  gap: 10px !important;
+  padding: 20px !important;
+}
+.builder-modal .visual-team-workspace {
+  gap: 10px;
+}
+.builder-modal .editor-team-header {
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+.builder-modal .builder-team-title {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+.builder-modal .editor-team-header input {
+  font-size: 1rem;
+  font-weight: 400;
+}
+.editor-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.editor-options .editor-tag-row {
+  margin: 0;
+  flex: 1 1 200px;
+}
+.editor-options .tag-editor {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.builder-modal .visual-empty {
+  padding: 8px 12px;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.builder-modal .pokemon-slot {
+  min-height: 82px;
+  padding: 6px;
+}
+.builder-modal .pokemon-slot img {
+  height: 48px;
+}
+.selector-heading > .selector-filter-toggle {
+  margin-left: auto;
+}
+.selector-heading > .selector-filter-toggle + button {
+  margin-left: 0;
+}
+.format-result-category {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+.selection-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 14px;
+  border: 1px solid #56694c;
+  border-radius: 6px;
+  background: #222d22;
+  margin: 0 0 16px;
+  font-size: 0.875rem;
+}
+.selection-banner .select-matching {
+  margin: 0;
+  color: #d5e8c6;
+}
+.results-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.bulk-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.bulk-controls strong {
+  color: #e2ecd9;
+}
+.danger-zone {
+  border: 1px solid #8d4f4f;
+  border-radius: 7px;
+  padding: 16px;
+}
+.danger-zone h3 {
+  font-size: 1rem;
+  color: #f0b1ab;
+  margin-bottom: 8px;
+}
+.danger-zone p,
+.cleanup-scope {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+.cleanup-scope {
+  max-height: 8rem;
+  overflow: auto;
+}
+@media (max-width: 640px) {
+  .builder-modal.vault-modal {
+    padding: 14px !important;
+  }
+  .builder-modal .editor-team-header {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .builder-modal .editor-format {
+    width: 100%;
+  }
+  .editor-options {
+    gap: 6px;
+  }
+  .selection-banner .button {
+    width: 100%;
+  }
+}

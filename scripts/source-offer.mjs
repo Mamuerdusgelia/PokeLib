@@ -72,7 +72,7 @@ for (const required of [
     throw Error('Missing source-offer file ' + required);
 await fs.mkdir(path.join(root, '.artifacts'), { recursive: true });
 const temp = await fs.mkdtemp(path.join(root, '.artifacts', 'source-'));
-const stage = path.join(temp, 'teamvault');
+const stage = path.join(temp, 'pokelib');
 await fs.mkdir(stage);
 const hashes = {};
 for (const name of files) {
@@ -89,15 +89,20 @@ await fs.writeFile(
   JSON.stringify({ license: 'AGPL-3.0-only', files: hashes }, null, 2),
 );
 await fs.mkdir('public/source', { recursive: true });
-const archive = path.join(root, 'public/source/teamvault-source.tar');
-execFileSync('tar', ['-C', temp, '-cf', archive, 'teamvault']);
+const archive = path.join(root, 'public/source/pokelib-source.tar');
+execFileSync('tar', ['-C', temp, '-cf', archive, 'pokelib']);
 const entries = execFileSync('tar', ['-tf', archive], { encoding: 'utf8' });
 if (
-  !entries.includes('teamvault/LICENSE') ||
-  !entries.includes('teamvault/app/layout.tsx') ||
-  /teamvault\/\.env\n|\.sqlite|\.git\//.test(entries)
+  !entries.includes('pokelib/LICENSE') ||
+  !entries.includes('pokelib/app/layout.tsx') ||
+  /pokelib\/\.env\n|\.sqlite|\.git\//.test(entries)
 )
   throw Error('Source archive validation failed');
+// Retain the historical source URL with the same archive bytes.
+await fs.copyFile(
+  archive,
+  path.join(root, 'public/source/teamvault-source.tar'),
+);
 console.log(
   `Corresponding source: ${files.length} files; no runtime env, database or user content.`,
 );

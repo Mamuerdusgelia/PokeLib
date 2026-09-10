@@ -125,7 +125,7 @@ function CollectionList({ token, family }: { token: string; family?: string }) {
     <main className="shared-page">
       <header>
         <Link href="/" className="brand">
-          teamvault.
+          PokéLib
         </Link>
         <span className="muted">Read-only shared collection</span>
       </header>

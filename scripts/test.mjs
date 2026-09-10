@@ -5,6 +5,7 @@ const root = process.cwd();
 await fs.mkdir('.test-build', { recursive: true });
 for (const name of [
   'formats',
+  'library-cleanup',
   'import-workflow',
   'domain',
   'public-config',

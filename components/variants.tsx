@@ -73,6 +73,7 @@ export function FamilyVariants({
   }, [open, page, team, query, year, favourite, requestKey]);
   const count = team.variant_count || 1,
     matching = team.matching_variant_count || 1;
+  if (count < 2) return null;
   return (
     <div className="family-variants">
       <button

@@ -70,6 +70,7 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  className = '',
   initialFocus,
 }: {
   title: string;
@@ -77,13 +78,14 @@ export function Modal({
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  className?: string;
   initialFocus?: ComponentProps<typeof DialogContent>['initialFocus'];
 }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         initialFocus={initialFocus}
-        className={'vault-modal ' + (wide ? 'wide' : '')}
+        className={'vault-modal ' + (wide ? 'wide ' : '') + className}
       >
         <DialogTitle className="modal-title">{title}</DialogTitle>
         <DialogDescription>{description || ''}</DialogDescription>

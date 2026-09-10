@@ -77,6 +77,7 @@ import { SearchFilters } from './search-filters';
 import { FormatNavigator } from './format-navigator';
 import { BulkActionDialog as BulkDialog } from './bulk-actions';
 import { TeamCard } from './team-card';
+import { WorkspaceCleanup } from './workspace-cleanup';
 import { VariantActions } from './variants';
 import { familyKey } from '@/lib/variants';
 import { Collections } from './collections';
@@ -159,6 +160,8 @@ export default function Library() {
       | 'share'
       | 'bulk'
       | 'bulk_delete'
+      | 'tags'
+      | 'delete_all'
     >(null);
   const searchRef = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
@@ -167,6 +170,22 @@ export default function Library() {
   const [refreshTick, setRefreshTick] = useState(0);
   const facetsReady = useRef(false);
   const [selectionBusy, setSelectionBusy] = useState(false);
+  const selectionRequest = useRef<AbortController | null>(null);
+  const selectionScope = JSON.stringify([
+    queryWithFilters(chips, query),
+    section,
+  ]);
+  const [loadedScope, setLoadedScope] = useState('');
+  const [previousScope, setPreviousScope] = useState(selectionScope);
+  // Reset query-scoped presentation during render, before stale selections can be used.
+  if (previousScope !== selectionScope) {
+    setPreviousScope(selectionScope);
+    setSelected([]);
+    setSelectionBusy(false);
+  }
+  useLayoutEffect(() => {
+    return () => selectionRequest.current?.abort();
+  }, [selectionScope]);
   const invalidateLibrary = useCallback(
     () => setRefreshTick((tick) => tick + 1),
     [],
@@ -232,6 +251,9 @@ export default function Library() {
           setPage(lastPage);
           return;
         }
+        setLoadedScope(
+          JSON.stringify([queryWithFilters(chips, query), section]),
+        );
         setTeams(result.teams);
         setTotal(result.total);
       } catch (e) {
@@ -315,7 +337,9 @@ export default function Library() {
     return () => window.removeEventListener('keydown', key);
   }, [modal]);
   useEffect(() => {
-    const stored = localStorage.getItem('teamvault-view');
+    const stored =
+      localStorage.getItem('pokelib-view') ??
+      localStorage.getItem('teamvault-view');
     if (stored === 'list' || stored === 'grid') setView(stored);
   }, []);
   useEffect(() => {
@@ -532,7 +556,7 @@ export default function Library() {
     return (
       <div className="boot">
         <BookOpen size={28} />
-        <h1>TeamVault</h1>
+        <h1>PokéLib</h1>
         <p>{error || 'Opening your workspace…'}</p>
       </div>
     );
@@ -543,7 +567,7 @@ export default function Library() {
           <span className="brand-icon">
             <BookOpen size={20} />
           </span>
-          teamvault.
+          PokéLib
         </div>
         <h1>Your teams, together.</h1>
         <p>Sign in to your private team library.</p>
@@ -601,7 +625,7 @@ export default function Library() {
             <span className="brand-icon">
               <BookOpen size={20} />
             </span>
-            teamvault<span className="brand-dot">.</span>
+            PokéLib
           </a>
           <button className="workspace" onClick={() => setModal('settings')}>
             <span className="workspace-icon">P</span>
@@ -663,6 +687,7 @@ export default function Library() {
       </Sidebar>
       <SaveTimingPanel />
       <Collections
+        refreshKey={refreshTick}
         navTarget={collectionNav}
         current={{
           query,
@@ -758,7 +783,11 @@ export default function Library() {
                     >
                       Team date · {dateLabel(detail)}
                     </InlineTeamMetadata>
-                    <span>v{detail.version.version_number}</span>
+                    {((detail.history?.length || 1) > 1 ||
+                      isHistory ||
+                      tab === 'history') && (
+                      <span>v{detail.version.version_number}</span>
+                    )}
                     <button
                       className={
                         'star ' + (detail.favourite ? 'is-starred' : '')
@@ -835,7 +864,10 @@ export default function Library() {
                 <TabsList variant="line" className="detail-tabs">
                   <TabsTrigger value="team">Team & notes</TabsTrigger>
                   <TabsTrigger value="history">
-                    History <span>{detail.history?.length}</span>
+                    History{' '}
+                    {(detail.history?.length || 0) > 1 && (
+                      <span>{detail.history?.length}</span>
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="export">Showdown text</TabsTrigger>
                 </TabsList>
@@ -1090,7 +1122,7 @@ export default function Library() {
                         className={view === v ? 'selected' : ''}
                         onClick={() => {
                           setView(v);
-                          localStorage.setItem('teamvault-view', v);
+                          localStorage.setItem('pokelib-view', v);
                         }}
                       >
                         <Icon size={16} />
@@ -1103,7 +1135,9 @@ export default function Library() {
                 <label className="select-page">
                   <Checkbox
                     aria-label="Select all team families on this page"
-                    disabled={selectionBusy || loading}
+                    disabled={
+                      selectionBusy || loading || loadedScope !== selectionScope
+                    }
                     checked={
                       teams.length > 0 &&
                       teams.every((t) => selected.includes(familyKey(t)))
@@ -1118,12 +1152,24 @@ export default function Library() {
                       )
                     }
                   />
-                  {selected.length
-                    ? selected.length + ' families selected'
-                    : total + ' team families'}
+                  Select current page ({teams.length})
                 </label>
                 {selected.length ? (
-                  <div className="bulk-controls">
+                  <div
+                    className="bulk-controls"
+                    role="toolbar"
+                    aria-label="Selected team actions"
+                  >
+                    <strong aria-live="polite">
+                      {selected.length.toLocaleString()} selected
+                    </strong>
+                    <button
+                      className="text-link"
+                      disabled={selectionBusy}
+                      onClick={() => setModal('tags')}
+                    >
+                      Add tag
+                    </button>
                     <button
                       disabled={selectionBusy}
                       className="text-link danger"
@@ -1136,7 +1182,7 @@ export default function Library() {
                       onClick={() => setModal('bulk')}
                       disabled={selectionBusy}
                     >
-                      Apply tags & metadata
+                      Edit metadata
                     </button>
                     <button
                       className="text-link"
@@ -1154,7 +1200,7 @@ export default function Library() {
                               api('get', { id }),
                             ),
                           );
-                          downloadText(backupText(ts), 'teamvault-backup');
+                          downloadText(backupText(ts), 'pokelib-backup');
                         } catch (e) {
                           setError((e as Error).message);
                         }
@@ -1172,41 +1218,61 @@ export default function Library() {
                     </button>
                   </div>
                 ) : (
-                  <span>One family. Alternate builds. Separate history.</span>
+                  <span>{total.toLocaleString()} teams</span>
                 )}
               </div>
-              {total > teams.length && (
-                <button
-                  disabled={selectionBusy || loading}
-                  type="button"
-                  className="text-link select-matching"
-                  onClick={async () => {
-                    setSelectionBusy(true);
-                    try {
-                      const r = await api('select', {
-                        group_families: true,
-                        query: queryWithFilters(chips, query),
-                        year: chips.some(
-                          (c) => c.field === 'year' && c.value === 'unknown',
-                        )
-                          ? 'unknown'
-                          : '',
-                        include_archived: true,
-                        favourite: section === 'Favourites',
-                      });
-                      setSelected(r.ids);
-                      setNotice(r.total + ' matching families selected.');
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setSelectionBusy(false);
-                    }
-                  }}
-                >
-                  {selectionBusy
-                    ? 'Selecting matching families…'
-                    : `Select all ${total} matching families`}
-                </button>
+              {total > 0 && (
+                <div className="selection-banner">
+                  <span>
+                    {selected.length === total
+                      ? `All ${total.toLocaleString()} matching teams selected.`
+                      : `${selected.length.toLocaleString()} selected of ${total.toLocaleString()} matching teams.`}
+                  </span>
+                  <button
+                    disabled={selectionBusy || loading}
+                    type="button"
+                    className="button select-matching"
+                    onClick={async () => {
+                      selectionRequest.current?.abort();
+                      const controller = new AbortController();
+                      selectionRequest.current = controller;
+                      setSelectionBusy(true);
+                      try {
+                        const r = await api(
+                          'select',
+                          {
+                            group_families: true,
+                            query: queryWithFilters(chips, query),
+                            year: chips.some(
+                              (c) =>
+                                c.field === 'year' && c.value === 'unknown',
+                            )
+                              ? 'unknown'
+                              : '',
+                            include_archived: true,
+                            favourite: section === 'Favourites',
+                          },
+                          controller.signal,
+                        );
+                        if (controller.signal.aborted) return;
+                        setSelected(r.ids);
+                        setNotice(
+                          r.total +
+                            ' matching teams selected across all pages.',
+                        );
+                      } catch (e) {
+                        if (!controller.signal.aborted)
+                          setError((e as Error).message);
+                      } finally {
+                        if (!controller.signal.aborted) setSelectionBusy(false);
+                      }
+                    }}
+                  >
+                    {selectionBusy
+                      ? 'Selecting all matching teams…'
+                      : `Select all ${total.toLocaleString()} matching teams`}
+                  </button>
+                </div>
               )}
               {loading ? (
                 <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
@@ -1378,10 +1444,19 @@ export default function Library() {
           }}
         />
       )}
-      {(modal === 'bulk' || modal === 'bulk_delete') && (
+      {(modal === 'bulk' || modal === 'bulk_delete' || modal === 'tags') && (
         <BulkDialog
           ids={selected}
           deleting={modal === 'bulk_delete'}
+          tagsOnly={modal === 'tags'}
+          filterSummary={
+            [
+              section === 'Favourites' ? 'Favourites' : '',
+              queryWithFilters(chips, query),
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'All teams'
+          }
           tags={facets.tags}
           onClose={() => setModal(null)}
           onSaved={(count) => {
@@ -1391,6 +1466,25 @@ export default function Library() {
               `${count} ${modal === 'bulk_delete' ? 'team families deleted' : 'variants updated across the selected families'}.`,
             );
             invalidateLibrary();
+          }}
+        />
+      )}
+      {modal === 'delete_all' && (
+        <WorkspaceCleanup
+          onClose={() => setModal('settings')}
+          onSaved={(count, revoked) => {
+            setSelected([]);
+            setModal(null);
+            setPage(0);
+            closeDetail();
+            invalidateLibrary();
+            setCollectionMode(null);
+            setNotice(
+              count +
+                ' team families deleted; ' +
+                revoked +
+                ' collection links revoked. Reusable tags and saved collections kept.',
+            );
           }}
         />
       )}
@@ -1461,9 +1555,23 @@ export default function Library() {
           >
             Add example teams
           </button>
+          <section className="danger-zone" aria-label="Danger Zone">
+            <h3>Danger Zone</h3>
+            <p>
+              Permanently clear every team family in this workspace. Review the
+              exact scope and type DELETE ALL before anything is removed.
+            </p>
+            <button
+              type="button"
+              className="button danger"
+              onClick={() => setModal('delete_all')}
+            >
+              Delete all teams
+            </button>
+          </section>
           <p className="muted small">
-            Pokémon imagery from Pokémon Showdown. TeamVault is an independent
-            fan project, not affiliated with Nintendo or The Pokémon Company.
+            Pokémon imagery from Pokémon Showdown. PokéLib is an independent fan
+            project, not affiliated with Nintendo or The Pokémon Company.
             Parsing does not check format legality.
           </p>
           {config.demo ? (

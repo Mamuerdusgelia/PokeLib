@@ -2,6 +2,7 @@ import { Team, Teams } from '@pkmn/sets';
 import { Dex } from '@pkmn/dex';
 import {
   canonicalFormat,
+  knownFormat,
   cleanFormatContext,
   assistanceFormat,
   type FormatContext,
@@ -73,13 +74,30 @@ export function parseBatch(
       'Split archives larger than 10,000 teams into separate imports.',
     );
   return blocks.map((block, i) => {
-    const m = block.header.match(/^(?:\[([^\]]+)\]\s*)?(.*)$/);
-    const fallbackContext = !m?.[1] ? cleanFormatContext(context) : undefined;
-    const f = canonicalFormat(
-      m?.[1] || format,
-      fallbackContext?.generation || generationFor(format),
-    );
-    const title = m?.[2]?.trim() || 'Imported team ' + (i + 1);
+    // Showdown exportAllTeams: === [format[-box]] [folder/]name ===.
+    // Unlike its permissive legacy importer, never consume an unknown name prefix.
+    const m = block.header.match(/^\[([^\]]+)\](?:[ \t]+|$)/);
+    const candidate = m
+      ? canonicalFormat(
+          m[1].replace(/-box$/i, ''),
+          context?.generation || generationFor(format),
+        )
+      : '';
+    const recognized = candidate && knownFormat(candidate);
+    const fallbackContext = !headers.length
+      ? cleanFormatContext(context)
+      : undefined;
+    const f = recognized
+      ? candidate
+      : headers.length
+        ? 'unknown'
+        : canonicalFormat(
+            format,
+            fallbackContext?.generation || generationFor(format),
+          );
+    const title =
+      (recognized ? block.header.slice(m![0].length) : block.header) ||
+      'Imported team ' + (i + 1);
     const p = parseShowdown(block.body, assistanceFormat(f, fallbackContext));
     return {
       draft: {

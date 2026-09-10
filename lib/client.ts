@@ -23,7 +23,7 @@ export async function api(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(saveProfilingEnabled() ? { 'X-TeamVault-Profile': '1' } : {}),
+      ...(saveProfilingEnabled() ? { 'X-Pokelib-Profile': '1' } : {}),
       ...(session ? { Authorization: 'Bearer ' + session.access_token } : {}),
     },
     body,

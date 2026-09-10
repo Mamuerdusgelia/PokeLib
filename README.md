@@ -1,4 +1,6 @@
-# TeamVault
+# PokéLib
+
+Formerly developed as TeamVault. The temporary Sites URL and historical infrastructure identifiers are unchanged.
 
 A private library for competitive Pokémon teams: conceptual team families, alternate variants with independent current builds and history, indexed same-set search, structured provenance, historical dates, notes, bulk import, and revocable read-only sharing.
 
@@ -57,7 +59,7 @@ Production demo authentication trusts Sites' dispatcher-injected identity header
 
 1. Create a Supabase project.
 2. Apply every SQL file in supabase/migrations in filename order through the SQL editor, or use Supabase CLI migrations with supabase db push. Existing projects should apply only migrations they have not run yet: 202609070001_delete_team.sql adds permanent deletion, 202609080001_include_archived.sql preserves legacy archived visibility, and 202609080002_search_set_notes.sql fixes explicit note searches; 202609090001_edit_current_version.sql adds current Save, concurrency guards and private authoring flags.
-3. In Authentication → URL Configuration, set the site URL to your deployed TeamVault origin. Add that origin's / route and http://localhost:3000/ to the allowed redirect URLs used during development.
+3. In Authentication → URL Configuration, set the site URL to your deployed PokéLib origin. Add that origin's / route and http://localhost:3000/ to the allowed redirect URLs used during development.
 4. Enable Email authentication. Magic-link sign-in is implemented. Configure production SMTP and review Auth rate limits before opening registration broadly.
 5. Copy .env.example to .env for local development and supply SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. The publishable (or legacy anon) key is public by design; **never use a service-role key**.
 6. For hosted Sites, set those two runtime environment values through Sites environment settings/tools, then redeploy. Runtime values are not stored in .openai/hosting.json.
@@ -108,13 +110,39 @@ Power syntax:
 
 Species + move/item/ability/nature/Tera constraints must match a single set. Species mentions can also match team metadata where that does not weaken this rule. Search targets current set data and notes; all historical version comments are indexed. Explicit `note:` searches current team and set notes across the team; quoted note values are an AND of words, not an exact phrase. Historical set notes do not match current-library queries. The UI returns 30 teams per page.
 
+## Pre-beta usability and cleanup
+
+The product name is **PokéLib**. Singleton families show no variant-count indicator; initial revisions have no ordinary v1 badge. Multiple variants still expand lazily, and History remains available with its full revision list.
+
+Click Format and type into the focused search field (for example, `gen 4 ub`, `nat dex ou`, `vgc 2026` or `doubles ou`). Arrow keys plus Enter/Tab or clicking select a canonical registry entry across generations. Results reflect the pinned registry. Only Custom / Other exposes generation and battle-type controls.
+
+The compact new-team builder keeps format, secondary editable name, tags/mode controls and six slots together. Empty-slot selection focuses Pokémon search. Type, second type, ability, learnable-move and stat-sort controls are hidden under Filters; active filters are indicated and can be cleared.
+
+Showdown backup parsing recognizes a known format only in the leading `[format]` position, including the official `-box` suffix and known contextual aliases. Unknown prefixes such as `[BO]`, `[HO]` and `[Stall]` remain in the title; format stays Unknown. Folder/name text is retained as title text, without introducing folders. Original input remains available. Ordinary headerless imports keep an explicitly chosen import format/context.
+
+Filter or open a collection, review the result count, then choose **Select current page (30)** or **Select all N matching teams**. Selection spans pages and contains family IDs only. The toolbar shows the selected count, Add tag, Edit metadata and Delete selected. One confirmation names the exact family count and active query; each family includes all sibling variants, even those outside the filter.
+
+**Settings → Danger Zone → Delete all teams** reviews all owned families, including archived teams, without the current filter/favourites restriction. Type **DELETE ALL** to confirm. Families, variants, history, notes and variant share links are deleted. Reusable tags and saved collection definitions remain; reviewed live collection links are revoked before deletion, so future imports require explicitly re-sharing them. The scope freezes family/shared-collection IDs for review; families or newly shared collections added elsewhere afterward are not included. Five-family chunks show progress and use existing owner checks/receipts. A partial failure keeps completed work; Retry resumes in the open dialog. Refreshing loses the in-memory operation descriptor. Selection is bounded at 10,000 families; larger libraries must first use filtered cleanup. No destructive operation runs merely by opening Settings or the review.
+
+For destructive browser acceptance, use an isolated local database (PowerShell, normal dev server stopped):
+
+```powershell
+node node_modules/wrangler/bin/wrangler.js d1 migrations apply DB --local --config .openai/wrangler.local.json --persist-to .artifacts/prebeta/state
+$env:POKELIB_QA = '1'
+pnpm --config.node-linker=isolated --config.verify-deps-before-run=false run dev
+# After stopping the QA server, restore the normal environment:
+Remove-Item Env:POKELIB_QA
+```
+
+The QA flag only selects a separate local development persistence path; it never affects the production build or changes authentication.
+
 ## Large-library workflows
 
 The supported design target is 10,000 stored teams per account with 30-record database pages. Select current page accumulates across pages; Select all matching resolves up to 10,000 owned IDs on the server. Bulk Delete has one confirmation; Add tag unions existing tags. Source/year replacement also remains available. Operations run in five-team atomic chunks with progress; completed chunks survive failures and Retry continues the paused operation without duplicating completed work. A partial close reports the actual completed count. Selections refer to whole team families; bulk metadata resolves every sibling variant before confirmation, including siblings outside the current filter.
 
 Import parses a full Showdown archive once (20 MB / 10,000 blocks maximum), presents 50 editable previews per page, and accepts common tags/source/date/notes. Persistence uses five-team chunks and owner-scoped durable receipts. The UI has been exercised with 1,000 teams; retry correctness is tested on both adapters. Keep a paused dialog open for Retry: navigation/reload loses its in-memory run descriptor even though successful chunks remain saved. A fresh import intentionally creates new records. Legacy unchunked API/WebMCP calls retain a 200-team request bound; use the Import dialog for large archives. Selected Showdown export remains capped at 200 teams.
 
-See [PERFORMANCE.md](PERFORMANCE.md) for measured 1k/5k/10k timing tables, payload limits, before/after query and Save statement counts, and the distinction between local and hosted evidence. [SCHEMA_PLAN.md](SCHEMA_PLAN.md) records the planned families/variants/collections relationships and development recovery; families and collections are now installed by the additive migrations described there.
+See [PERFORMANCE.md](PERFORMANCE.md) for measured 1k/5k/10k timing tables, payload limits, before/after query and Save statement counts, and the distinction between local and hosted evidence. [SCHEMA_PLAN.md](SCHEMA_PLAN.md) records the implemented families/variants/collections relationships, their additive migrations and development recovery.
 
 ## Dates and preservation
 
@@ -146,7 +174,7 @@ D1 detail reads now fetch current state/history/share status in one owner-scoped
 
 ## Tests
 
-- pnpm test: 220 checks (81 domain/D1, 64 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 authored defaults, 8 formats and 6 PokéPaste). Includes 1,000-team import/replay, variant/history isolation, collection privacy/live membership, ownership and concurrency.
+- pnpm test: 228 checks (84 domain/D1, 67 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 authored defaults, 10 formats and 6 PokéPaste). Includes 1,000-team import/replay, variant/history isolation, collection privacy/live membership, ownership and concurrency.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.
@@ -171,21 +199,23 @@ Sites provisions the D1 binding and applies packaged migrations. Do not commit c
 
 ## MVP boundaries
 
-No battle simulator, full legality checker, EV archetype inference, AI team analysis, folders or collaborative editing. Variants, PokéPaste import, saved collections and collection sharing are the next requested work; their schemas are designed but not partially installed. Each imported team remains bounded at 150 KB / 24 sets, while the large-import dialog supports bounded multi-request archives. Both adapters commit each bulk chunk atomically and record retries with the mutation. Legacy archived teams remain visible. Deletion is available in library cards/rows, details and bulk selection, with confirmation. A team deletion removes all versions, notes, search entries and share links; reusable account tags remain.
+Team variants with independent history, PokéPaste import, saved collections and live collection sharing are implemented. Their schema migrations are included for D1 and PostgreSQL. Battle simulation, full legality checking, EV archetype inference, AI team analysis, folders, snapshot collections and collaborative editing remain outside the implemented scope.
+
+Each imported team remains bounded at 150 KB / 24 sets, while the large-import dialog supports bounded multi-request archives. Both adapters commit each bulk chunk atomically and record retries with the mutation. Legacy archived teams remain visible. Deletion is available in library cards/rows, details and bulk selection, with confirmation. Deleting a team family removes all its variants, versions, notes, search entries and variant share links; reusable account tags remain.
 
 ## Asset attribution
 
 Sprites are loaded from Pokémon Showdown's public static sprite directory:
 https://play.pokemonshowdown.com/sprites/gen5/
-The app falls back to a species abbreviation if a sprite is unavailable. Pokémon and Pokémon character names are trademarks of Nintendo, Game Freak and The Pokémon Company. TeamVault is independent.
+The app falls back to a species abbreviation if a sprite is unavailable. Pokémon and Pokémon character names are trademarks of Nintendo, Game Freak and The Pokémon Company. PokéLib is independent.
 
 ## Showdown integration and source license
 
-TeamVault is AGPL-3.0-only, with MIT notices retained for incorporated MIT code. See LICENSE, THIRD_PARTY_NOTICES.md and SHOWDOWN_INTEGRATION.md for exact upstream sources, data provenance and limitations. @pkmn/img resolves form, shiny and gender sprite URLs; artwork rights are separate from source-code licensing.
+PokéLib is AGPL-3.0-only, with MIT notices retained for incorporated MIT code. See LICENSE, THIRD_PARTY_NOTICES.md and SHOWDOWN_INTEGRATION.md for exact upstream sources, data provenance and limitations. @pkmn/img resolves form, shiny and gender sprite URLs; artwork rights are separate from source-code licensing.
 
 Move inputs support arrows, Tab/Enter completion and bounded forward/reverse navigation. EV buttons/arrows step by four while preserving imported odd values until edited; nature can be selected directly with +/- controls. Explicit species changes supply default abilities and canonical required items. New drafts show format before a generated title and focus Add Pokémon.
 
-The production build first runs scripts/source-offer.mjs, emitting public/source/teamvault-source.tar. It contains tracked application/configuration/documentation files and a hash manifest, never runtime environments, databases or user content. Stage new source files before building from Git. Downloaded source uses SOURCE_MANIFEST.json without requiring .git; install dependencies with the included pnpm-workspace.yaml, then use the local commands above. Node and a native tar executable are required.
+The production build first runs scripts/source-offer.mjs, emitting public/source/pokelib-source.tar (with the historical teamvault-source.tar URL retained as an identical-byte alias). It contains tracked application/configuration/documentation files and a hash manifest, never runtime environments, databases or user content. Stage new source files before building from Git. Downloaded source uses SOURCE_MANIFEST.json without requiring .git; install dependencies with the included pnpm-workspace.yaml, then use the local commands above. Node and a native tar executable are required.
 
 ## Builder usability and profiling
 

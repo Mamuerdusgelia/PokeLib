@@ -1,7 +1,7 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  ordinaryFormats,
+  searchFormats,
   canonicalFormat,
   currentGeneration,
   isOrdinaryFormat,
@@ -42,22 +42,18 @@ export function FormatPicker({
   );
   const [custom, setCustom] = useState(false),
     [name, setName] = useState(value);
+  const input = useRef<HTMLInputElement>(null);
+  const [highlight, setHighlight] = useState('');
   const results = useMemo(
-    () =>
-      open
-        ? ordinaryFormats.filter((f) => {
-            const d = describeFormat(f.id);
-            return (
-              d.generation === generation &&
-              f.battle === battle &&
-              (d.fullLabel + ' ' + f.id)
-                .toLowerCase()
-                .includes(query.toLowerCase())
-            );
-          })
-        : [],
-    [open, generation, battle, query],
+    () => (open ? searchFormats(query) : []),
+    [open, query],
   );
+  const highlighted =
+    results.find((f) => f.id === highlight)?.id || results[0]?.id || '';
+  function choose(id: string) {
+    onChange(id, undefined);
+    setOpen(false);
+  }
   return (
     <div className="format-picker">
       <Popover
@@ -66,6 +62,7 @@ export function FormatPicker({
           setOpen(v);
           if (v) {
             setQuery('');
+            setHighlight('');
             setCustom(false);
             setName(isOrdinaryFormat(value) ? '' : value);
             setGeneration(
@@ -89,47 +86,43 @@ export function FormatPicker({
         >
           {value && value !== 'unknown' ? current.fullLabel : 'Choose format'}
         </PopoverTrigger>
-        <PopoverContent className="format-picker-panel" align="start">
-          <div className="field-row">
-            <label>
-              Battle type
-              <select
-                aria-label="Format battle type"
-                value={battle}
-                onChange={(e) =>
-                  setBattle(e.target.value as FormatContext['battle'])
-                }
-              >
-                <option value="singles">Singles</option>
-                <option value="doubles">Doubles</option>
-              </select>
-            </label>
-            <label>
-              Generation
-              <select
-                aria-label="Format generation"
-                value={generation}
-                onChange={(e) => setGeneration(Number(e.target.value))}
-              >
-                {Array.from(
-                  { length: currentGeneration },
-                  (_, i) => currentGeneration - i,
-                ).map((g) => (
-                  <option key={g} value={g}>
-                    Gen {g}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+        <PopoverContent
+          className="format-picker-panel"
+          align="start"
+          initialFocus={input}
+        >
           {!custom ? (
             <>
-              <Command shouldFilter={false}>
+              <Command
+                shouldFilter={false}
+                loop
+                value={highlighted}
+                onValueChange={setHighlight}
+              >
                 <CommandInput
+                  ref={input}
+                  onKeyDown={(e) => {
+                    if (
+                      !e.nativeEvent.isComposing &&
+                      !e.altKey &&
+                      !e.ctrlKey &&
+                      !e.metaKey &&
+                      !e.shiftKey &&
+                      (e.key === 'Enter' || e.key === 'Tab') &&
+                      highlighted
+                    ) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      choose(highlighted);
+                    }
+                  }}
                   placeholder="Search formats…"
                   aria-label="Search formats"
                   value={query}
-                  onValueChange={setQuery}
+                  onValueChange={(q) => {
+                    setQuery(q);
+                    setHighlight('');
+                  }}
                 />
                 <CommandList>
                   <CommandEmpty>No matching standard format.</CommandEmpty>
@@ -137,12 +130,12 @@ export function FormatPicker({
                     <CommandItem
                       key={f.id}
                       value={f.id}
-                      onSelect={() => {
-                        onChange(f.id, undefined);
-                        setOpen(false);
-                      }}
+                      onSelect={() => choose(f.id)}
                     >
                       {describeFormat(f.id).fullLabel}
+                      <small className="format-result-category">
+                        {f.battle === 'doubles' ? 'Doubles' : 'Singles'}
+                      </small>
                     </CommandItem>
                   ))}
                 </CommandList>
@@ -157,10 +150,51 @@ export function FormatPicker({
             </>
           ) : (
             <>
+              <div className="field-row">
+                <label>
+                  Battle type
+                  <select
+                    aria-label="Format battle type"
+                    value={battle}
+                    onChange={(e) =>
+                      setBattle(e.target.value as FormatContext['battle'])
+                    }
+                  >
+                    <option value="singles">Singles</option>
+                    <option value="doubles">Doubles</option>
+                  </select>
+                </label>
+                <label>
+                  Generation
+                  <select
+                    aria-label="Format generation"
+                    value={generation}
+                    onChange={(e) => setGeneration(Number(e.target.value))}
+                  >
+                    {Array.from(
+                      { length: currentGeneration },
+                      (_, i) => currentGeneration - i,
+                    ).map((g) => (
+                      <option key={g} value={g}>
+                        Gen {g}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <button
+                type="button"
+                className="text-link"
+                onClick={() => setCustom(false)}
+              >
+                ← Search standard formats
+              </button>
               <label>
                 Custom format name or identifier
                 <input
                   aria-label="Custom format name or identifier"
+                  ref={(element) => element?.focus()}
                   value={name}
                   maxLength={80}
                   onChange={(e) => setName(e.target.value)}

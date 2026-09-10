@@ -7,7 +7,8 @@ import { ServerTiming } from '@/lib/server-timing';
 export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   const timing = new ServerTiming(
-    request.headers.get('X-TeamVault-Profile') === '1',
+    request.headers.get('X-Pokelib-Profile') === '1' ||
+      request.headers.get('X-TeamVault-Profile') === '1',
   );
   try {
     mutationOrigin(request);

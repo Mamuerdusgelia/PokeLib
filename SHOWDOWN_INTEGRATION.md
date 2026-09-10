@@ -6,7 +6,7 @@ The sections before [Builder usability correction](#builder-usability-correction
 
 ## Implementation plan and boundary
 
-Keep TeamVault's React builder state, surgical Showdown-text patches, stable note identities and all library/storage/auth/search/version/sharing contracts. Adapt focused Showdown move-pool and keyboard/nature behavior into a small builder adapter; do not import the Preact client, room model, battle simulator or local team storage.
+Keep PokéLib's React builder state, surgical Showdown-text patches, stable note identities and all library/storage/auth/search/version/sharing contracts. Adapt focused Showdown move-pool and keyboard/nature behavior into a small builder adapter; do not import the Preact client, room model, battle simulator or local team storage.
 
 1. Replace raw-source-generation learnset guesses with the complete generated Showdown teambuilder learnset table and adapted `BattleMoveSearch` traversal/availability rules. Load the narrow table only when a builder needs it; cache pools by format/species. Keep imported/custom values and an explicit all-generation-moves escape hatch.
 2. Adapt `battle-team-editor.tsx` completion to React: arrows highlight, Tab/Enter commit and advance through moves, Shift+Tab reverses, terminal Tab exits and Escape dismisses only the picker. Keep unsupported raw data untouched.
@@ -15,7 +15,7 @@ Keep TeamVault's React builder state, surgical Showdown-text patches, stable not
 5. Adapt Showdown's EV/nature interaction with four-point controls and local incomplete +/- state, retaining existing generation/stat and preservation helpers.
 6. Prioritize Add Pokémon, put format before generated draft title, and add restrained type/category and surface distinctions.
 
-Adopt AGPL-3.0-only for TeamVault as a conservative compatible combined application. Retain MIT notices on upstream MIT portions. Include license/attribution and a corresponding-source download for interacting users; no private env, databases, credentials or user content belongs in that download. Measure build output before/after and lazy-load the large learnset table.
+Adopt AGPL-3.0-only for PokéLib as a conservative compatible combined application. Retain MIT notices on upstream MIT portions. Include license/attribution and a corresponding-source download for interacting users; no private env, databases, credentials or user content belongs in that download. Measure build output before/after and lazy-load the large learnset table.
 
 ## Sources inspected
 
@@ -25,7 +25,7 @@ Official server revision: `6b4bc34e44cc2541929cc4b8fff96e756ab3f268` (2026-09-06
 | Upstream source                                                              | License / purpose                                                        | Reuse decision                                                                                     |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | client `play.pokemonshowdown.com/src/battle-dex-search.ts`                   | Explicit MIT header; full move pool, ancestry, origin marks, filters     | Adapt focused learnset methods; omit general search renderer and viability curation.               |
-| client `play.pokemonshowdown.com/src/battle-team-editor.tsx`                 | AGPLv3; keyboard completion and EV/nature UI                             | Adapt behavior/handlers to React and TeamVault's state; no Preact/PS model.                        |
+| client `play.pokemonshowdown.com/src/battle-team-editor.tsx`                 | AGPLv3; keyboard completion and EV/nature UI                             | Adapt behavior/handlers to React and PokéLib's state; no Preact/PS model.                          |
 | client `play.pokemonshowdown.com/src/oldclient/client-teambuilder.js`        | Client AGPLv3; prior species/default-item behavior                       | Inspect for parity; avoid its destructive whole-set resets.                                        |
 | client `play.pokemonshowdown.com/src/battle-dex.ts` and `battle-dex-data.ts` | Explicit MIT headers; sprite identifiers and rendering                   | Use maintained derived `@pkmn/img` implementation instead of another bespoke slug map.             |
 | client `play.pokemonshowdown.com/src/panel-teambuilder*.tsx`                 | Client AGPLv3; room/editor integration                                   | Inspect boundary only; not copied.                                                                 |
@@ -41,7 +41,7 @@ Server sources: https://github.com/smogon/pokemon-showdown/tree/6b4bc34e44cc2541
 
 ## Implemented boundary
 
-| TeamVault file                                           | What changed                                                                                                                                                                                                         |
+| PokéLib file                                             | What changed                                                                                                                                                                                                         |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | lib/showdown-learnsets.ts                                | Adapted first/next learnset traversal, regional/form aliases, origin marks, generation/tradeback filtering, Gen 9 egg inheritance, Past/National Dex rules and Sketch expansion. No viability shortlist.             |
 | lib/showdown-data/*.json                                 | Narrow generated learnset/nonstandard-move tables, split by context and dynamically imported. Standard covers ordinary generations; optional tables cover named game/DLC contexts.                                   |
@@ -53,7 +53,7 @@ Server sources: https://github.com/smogon/pokemon-showdown/tree/6b4bc34e44cc2541
 | components/visual-team-editor.tsx / app/redesign.css     | Format-first draft header, generated name, Add Pokémon initial focus, restrained surfaces/type/category colors and responsive controls.                                                                              |
 | scripts/source-offer.mjs / app/layout.tsx                | Build-time corresponding-source archive plus visible download, with tracked-file allowlist and per-file SHA256 manifest.                                                                                             |
 
-TeamVault's parser, raw surgical patching, immutable versions, relational library search, ownership, sharing and database interfaces are unchanged. No simulator/Preact/Showdown room or local team-storage implementation is bundled. No new database migrations.
+PokéLib's parser, raw surgical patching, immutable versions, relational library search, ownership, sharing and database interfaces are unchanged. No simulator/Preact/Showdown room or local team-storage implementation is bundled. No new database migrations.
 
 ## Data provenance and maintenance
 
@@ -74,7 +74,7 @@ The extractor checks the pinned source hash and runs the official generated assi
 
 LICENSE is the full GNU AGPLv3 text. package.json declares AGPL-3.0-only. Adapted files identify upstream authors/license/changes. THIRD_PARTY_NOTICES.md preserves the Showdown and release-specific @pkmn MIT notices and distinguishes remote Pokémon artwork rights, including the upstream community-sprite licensing caveat.
 
-Every build first packages current tracked application/configuration/documentation files into public/source/teamvault-source.tar. A footer offers this to interacting users. Real environment files, credentials, local databases, user content, node_modules and .git are excluded. It includes lockfile, pnpm-workspace.yaml, generated data, extraction/build scripts and a file-hash manifest. Stage newly added source before building. Extracted downloads can repackage using their manifest without Git metadata. Local HTTP .tar downloads were byte-verified; .gz was replaced because the development server treated it as content encoding and decoded it automatically. Native tar and Node are required by this build helper.
+Every build first packages current tracked application/configuration/documentation files into public/source/pokelib-source.tar (with the old teamvault-source.tar URL retained as an identical-byte alias). A footer offers this to interacting users. Real environment files, credentials, local databases, user content, node_modules and .git are excluded. It includes lockfile, pnpm-workspace.yaml, generated data, extraction/build scripts and a file-hash manifest. Stage newly added source before building. Extracted downloads can repackage using their manifest without Git metadata. Local HTTP .tar downloads were byte-verified; .gz was replaced because the development server treated it as content encoding and decoded it automatically. Native tar and Node are required by this build helper.
 
 ## Performance measurement
 
@@ -96,7 +96,7 @@ The measurements include the final behavior/layout fixes. A subsequent type-anno
 
 Browser acceptance covered four moves by typing/Tab, arrows, terminal exit, reverse movement and Escape; Gen 5 vs Gen 9 Charizard Toxic; automatic abilities/Giratina item; four-point EVs and caps; Timid/Modest nature changes; type/category/stats/filter information; actual loaded awkward-name/form/shiny/female sprites; format inheritance and draft focus; custom raw line/note/partial-set preservation through v1/v2 and restore into v3. Desktop and 390px phone layouts were inspected; physical touch/screen readers were not. See PROGRESS.md for exact results and cleanup.
 
-A read-only comparison against upstream getBaseResults with the same data/installed Dex reported 8,109 ordinary Gen 1–9 OU / Gen 8–9 National Dex species comparisons: 8,106 exact matches and three Necrozma-Ultra differences from array-valued battleOnly behavior in the @pkmn shim. This exploratory review is not included in the automated test count. TeamVault selects a concrete parent where the shim's upstream toID(array) yields empty.
+A read-only comparison against upstream getBaseResults with the same data/installed Dex reported 8,109 ordinary Gen 1–9 OU / Gen 8–9 National Dex species comparisons: 8,106 exact matches and three Necrozma-Ultra differences from array-valued battleOnly behavior in the @pkmn shim. This exploratory review is not included in the automated test count. PokéLib selects a concrete parent where the shim's upstream toID(array) yields empty.
 
 This is individual move availability, not tier/ban/event/combination validation. Full STABmons/Metronome/Hackmons extensions, official nd/adv200 aliases, VGC era-name-to-DLC mapping and complete game-mod species/move/ability overrides are not implemented. Specialized learnset tables currently use ordinary generation Dex metadata. Keep those limitations explicit rather than declaring complete special-format parity. Imported unusual values and custom entry remain possible. No PokéPaste/folders/feeds/AI/simulator/calculator/replay/collaboration work was included.
 
@@ -145,3 +145,9 @@ The format picker/navigation now uses metadata extracted from the official Showd
 Classification is battle structure first (Singles/Doubles), generation/game second; National Dex stays under the actual battle type. Canonical IDs normalize known names/case and explicit context. Unknown names survive; custom metadata supplies generation/battle context. Game-qualified labels retain qualifiers such as Champions/BDSP to avoid identical displayed choices. A named format does not imply complete legality or special game/mod availability parity: existing VGC era/DLC, Champions and special-mod limitations still apply.
 
 PERFORMANCE.md records the new 1k/5k/10k scale evidence, browser bulk acceptance, and Save statement-count reductions. It distinguishes storage-only samples from the prior browser measurements above. The empty-slot selector now opens directly with search focused and one Pokémon label, retaining the six-slot context and all raw/default/history contracts.
+
+## Pre-beta picker and backup parsing — 2026-09-10
+
+PokéLib keeps the existing data/learnset pins. Format selection now searches ordinary registry entries across generations in one focused input; Pokémon advanced filters are collapsed by default. Arrow/Enter/Tab completion remains supported. These are presentation changes, not a new legality engine.
+
+Inspected the official [Showdown storage export/import implementation](https://github.com/smogon/pokemon-showdown-client/blob/master/play.pokemonshowdown.com/src/oldclient/storage.js), specifically exportAllTeams, exportFolder and the backup-header branch of importTeam. Text backup headers put optional [format[-box]] before folder/name text. PokéLib recognizes only registry-resolved leading tokens; it deliberately does not copy the old importer's permissive bracket/generation guessing. Unknown [BO]/[HO]/event prefixes stay in names with Unknown format. Known IDs, explicit generation names, contextual aliases and the official -box suffix have regressions. Original backup text and folder/name text remain preserved; folders are not introduced.

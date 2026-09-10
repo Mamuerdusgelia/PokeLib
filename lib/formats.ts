@@ -51,6 +51,39 @@ export function isOrdinaryFormat(value: string) {
 export const ordinaryFormats = formatRegistry.filter((f) =>
   isOrdinaryFormat(f.id),
 );
+/** One search across generations; the registry remains the source of selectable IDs. */
+export function searchFormats(query: string) {
+  const normalized = query
+    .toLowerCase()
+    .replace(/\bnat\s*dex\b/g, 'national dex')
+    .replace(/gen\s+(\d+)/g, 'gen$1');
+  const tokens = normalized.trim().split(/\s+/).map(idOf).filter(Boolean);
+  const exact = canonicalFormat(normalized);
+  return ordinaryFormats
+    .filter((f) => {
+      const words = (
+        f.name +
+        ' ' +
+        f.id +
+        ' ' +
+        (f.id.endsWith('nationaldex') ? 'ou nationaldexou' : '') +
+        ' ' +
+        f.battle
+      )
+        .toLowerCase()
+        .replace(/gen\s+(\d+)/g, 'gen$1')
+        .split(/[^a-z0-9]+/);
+      return tokens.every((token) =>
+        words.some((word) => word.startsWith(token)),
+      );
+    })
+    .sort(
+      (a, b) =>
+        Number(b.id === exact) - Number(a.id === exact) ||
+        formatGeneration(b) - formatGeneration(a) ||
+        a.name.localeCompare(b.name),
+    );
+}
 export function cleanFormatContext(
   context: unknown,
 ): FormatContext | undefined {

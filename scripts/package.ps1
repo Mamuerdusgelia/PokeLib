@@ -17,7 +17,7 @@ if ($LASTEXITCODE -ne 0 -or $kind -ne 'worker') { throw 'Sites build validation 
 New-Item -ItemType Directory -Path (Join-Path $destination '.openai') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $Project '.openai/hosting.json') -Destination (Join-Path $destination '.openai/hosting.json')
 Copy-Item -LiteralPath (Join-Path $Project 'drizzle') -Destination (Join-Path $destination '.openai/drizzle') -Recurse
-$archive = Join-Path $artifactRoot 'teamvault.tar.gz'
+$archive = Join-Path $artifactRoot 'pokelib.tar.gz'
 & tar -C $stage -czf $archive dist
 if ($LASTEXITCODE -ne 0) { throw 'Archive creation failed' }
 $entries = & tar -tzf $archive

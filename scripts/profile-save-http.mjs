@@ -18,7 +18,7 @@ async function api(action, payload) {
       'Content-Type': 'application/json',
       Origin: origin,
       Cookie: cookie,
-      'X-TeamVault-Profile': '1',
+      'X-Pokelib-Profile': '1',
     },
     body,
   });

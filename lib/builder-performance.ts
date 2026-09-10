@@ -74,7 +74,7 @@ export function commitSaveTrace() {
       markSaveTrace('visible');
       completedTraces = [...completedTraces.slice(-59), current.trace];
       saveTrace = undefined;
-      window.dispatchEvent(new Event('teamvault-save-timing'));
+      window.dispatchEvent(new Event('pokelib-save-timing'));
     }, 0),
   );
 }
@@ -89,9 +89,9 @@ export function endBuilderTiming(name: Interaction) {
   if (started === undefined) return;
   pending.delete(name);
   const duration = Math.round((performance.now() - started) * 10) / 10;
-  performance.clearMeasures('teamvault:' + name);
-  performance.measure('teamvault:' + name, { start: started, duration });
-  console.info('[TeamVault timing]', name, duration + 'ms');
+  performance.clearMeasures('pokelib:' + name);
+  performance.measure('pokelib:' + name, { start: started, duration });
+  console.info('[PokéLib timing]', name, duration + 'ms');
 }
 export function afterBuilderPaint(name: Interaction) {
   if (!pending.has(name)) return;
@@ -108,7 +108,7 @@ export function recordBuilderRender(
 ) {
   if (enabled())
     console.info(
-      '[TeamVault render]',
+      '[PokéLib render]',
       id,
       phase,
       Math.round(actualDuration * 10) / 10 + 'ms',
@@ -117,7 +117,7 @@ export function recordBuilderRender(
 export function recordBuilderRequest(action: string, duration: number) {
   if (enabled())
     console.info(
-      '[TeamVault request]',
+      '[PokéLib request]',
       action,
       Math.round(duration * 10) / 10 + 'ms',
     );

@@ -115,9 +115,11 @@ export function TeamCard({
           {dateLabel(t)}
         </span>
         <span>
-          <button className="version-chip" onClick={() => onHistory()}>
-            v{t.version.version_number}
-          </button>
+          {t.version.version_number > 1 && (
+            <button className="version-chip" onClick={() => onHistory()}>
+              v{t.version.version_number}
+            </button>
+          )}
           <span
             title={'Modified ' + new Date(t.updated_at).toLocaleString('en-AU')}
           >

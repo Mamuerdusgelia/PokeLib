@@ -1,10 +1,45 @@
-# Collections and Save profiling — current completion state (2026-09-10)
+# PokéLib pre-beta usability pass — current state (2026-09-10)
+
+The focused brief in attachment 7d97586f is implemented on top of ec42344, including the prior README correction. No unrelated major feature was started. The application is now PokéLib; existing site/project infrastructure and stored data identities remain intact.
+
+## Completed
+
+- Rebranded visible application/sign-in/share metadata, downloads and current docs. New source archive pokelib-source.tar retains the old URL as an identical-byte alias. Existing view preference/header compatibility and AGPL attribution are preserved.
+- Singleton families hide variant counts; ordinary initial revisions hide v1/count badges. Multi-variant expansion and full History remain available.
+- One focused canonical format search across generations supports token fragments and Nat Dex aliases, arrows, Enter/Tab and click. Custom context controls appear only under Custom / Other. Pokémon advanced filters remain functional behind Filters; compact builder prioritizes format, six slots and the active selector over the generated title.
+- Fixed bracketed-name import guessing using official Showdown header syntax and the pinned registry. [BO]/[HO]/unknown prefixes remain title text with Unknown format. Canonical IDs, known aliases, generation context and -box remain supported. Original/raw data are untouched.
+- Bulk UI distinguishes current-page selection from all N matching teams, shows selected count/actions and includes query/count in one deletion confirmation. Collection-based cleanup uses the same path. Stale select-all responses cannot replace a new query's selection.
+- Settings → Danger Zone → Delete all teams freezes exact owned scope, requires DELETE ALL, revokes reviewed collection links then deletes in existing five-family chunks. Tags/collection definitions survive. Retry and progress are shared with ordinary bulk deletion. No database migration was needed.
+
+## Verification and publication
+
+- 228 automated checks passed: 84 D1/domain, 67 PostgreSQL/PGlite, 13 UX, 10 builder, 25 Showdown, 13 defaults, 10 formats, 6 PokéPaste. New adapter tests cover 42-family filtered deletion, outside-filter sibling deletion, lost-response retry, whole-workspace cleanup, 31 shared collections across pages and other-owner isolation.
+- Existing HTTP and collection HTTP suites passed on the isolated local server. The fixture script independently verified parser results, removal of 42 matching families plus their outside-filter sibling, preservation of 30 nonmatches, then zero remaining team/history/variant-share rows after Delete All; collection definitions and reusable tags remained and sharing was revoked.
+- Browser: Gen 4 Ubers by focused search and Tab; Abra name selection/autofocus; advanced type/ability/learnable-move/stat sorting; initial history without v1 clutter; two-variant expansion; collection count 42/page 30/select all 42/one confirmation/progress; Delete All counted 37 despite the active empty filter, rejected lowercase confirmation, displayed revocation/deletion progress and retained the now-private collection. Mobile 390×844 search had focus and no horizontal overflow. Normal viewport restored.
+- TypeScript and all five production build phases passed. Lint retains the same 65 inherited diagnostics, with no added findings. The Sites build helper still fails Windows path resolution; the established direct package build succeeds with command-scoped safe.directory. Existing bundle-size/static-route warnings remain. Corresponding-source validation checked 215 files against the checkout and manifest, plus identical new/legacy URL bytes in build output. Publication is recorded in the task's completion report and Sites deployment record for this commit; the requested audience is owner-only at the existing teamvault-library site.
+- Normal local database was backed up with SQLite's backup API to .artifacts/prebeta/original-library.sqlite; per-table hashes are in original-hashes.json. A final read-only comparison verified all 13 tables unchanged. Browser/HTTP fixtures ran in the separate .artifacts/prebeta/state database. No production deletion test was performed.
+
+## Remaining concerns and next scope
+
+No partially implemented feature in this brief remains. Do not start another major task without a new request. Remaining limitations: 10,000-family select-all bound; in-memory import/cleanup resume state is lost on reload; collection-link revocation and family chunks are not a global atomic transaction; concurrent new families/newly shared collections after review are excluded; existing bad imports are not rewritten automatically. Hosted latency/cold starts, physical-device/touch and comprehensive assistive-tech testing remain unclaimed. The existing beta Vinext, bundle/lint debt, custom-context facets and unpaginated long history remain.
+
+Supabase setup, full backup/restore, folders, PokéPaste publishing, special-format parity, AI and simulator/social features remain explicitly outside this pass. Useful future work requires a new prioritized brief.
+
+## Review first
+
+components/format-picker.tsx; components/pokemon-selector.tsx; components/visual-team-editor.tsx; components/library.tsx; components/bulk-actions.tsx; components/workspace-cleanup.tsx; components/collections.tsx; lib/library-cleanup.ts; lib/formats.ts; lib/showdown.ts; scripts/test-library-cleanup.mjs; scripts/prebeta-browser-fixtures.mjs; scripts/test-formats.mjs; vite.config.ts; scripts/source-offer.mjs. README.md contains normal and isolated-QA commands. DECISIONS.md records scope/retention rules that must not be reversed.
+
+---
+
+# Historical completed pass — collections and Save profiling
+
+## Collections and Save profiling completion — 2026-09-10 (historical)
 
 Completed after ecabd37: private Collections CRUD/apply, canonical saved filters and sort/favourites, mobile-accessible management, paginated owner list, live capability sharing with regeneration/revocation, matching-family grouping and current-only matching variant details. D1 0007 and PostgreSQL 202609100005 implement the same scope; no team duplication or history rewrite. Tests exercise anonymous membership changes, query/ID tampering, overlapping collections, stale edits, cross-owner access, RLS/private helper permissions, token lifecycle and cascade behavior.
 
 Save profiling covers 60 real browser actions (five samples for each one/six-set current Save, new history and Create variant, before/after). D1 detail retrieval is one owner-scoped SQL statement; hidden library/facet refreshes wait until the library is visible. Initial sidebar facets still load. Browser visible medians improved 172→125 / 186→141 / 230→143 ms for one set and 224→166 / 251→164 / 261→162 ms for six sets. HTTP-only medians did not uniformly improve and Saving feedback remains variable; PERFORMANCE.md records every stage, median/max and measurement limitations. Diagnostics are opt-in, numeric and local; no team content/IDs/telemetry.
 
-Verification so far: 220 automated checks PASS (81 D1/domain, 64 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 8 formats, 6 PokéPaste); existing HTTP suite and new collection HTTP suite PASS; TypeScript PASS; lint remains 65 inherited diagnostics with none in the new collection/timing files. Production build PASS across all five Vinext phases, including both collection routes. The Sites build helper still fails Windows path resolution; the established direct package build succeeds with command-scoped safe.directory. The source is ready for owner-only publication; consult the current task/Sites deployment result for final live status. Browser verified narrow-screen create/rename/share dialog, desktop saved-query reopening, live shared list with two matching families. Browser automation sometimes times out or loses tabs; physical-phone/touch and assistive-tech coverage remains unclaimed.
+Verification so far: 220 automated checks PASS (81 D1/domain, 64 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 8 formats, 6 PokéPaste); existing HTTP suite and new collection HTTP suite PASS; TypeScript PASS; lint remains 65 inherited diagnostics with none in the new collection/timing files. Production build PASS across all five Vinext phases, including both collection routes. The Sites build helper still fails Windows path resolution; the established direct package build succeeds with command-scoped safe.directory. Commit ec42344 was published successfully owner-only on 2026-09-10 (Sites version 6). Browser verified narrow-screen create/rename/share dialog, desktop saved-query reopening, live shared list with two matching families. Browser automation sometimes times out or loses tabs; physical-phone/touch and assistive-tech coverage remains unclaimed.
 
 No partially migrated feature remains. Local 0007 applied only after the SQLite backup API wrote .artifacts/library-scale/dev-before-collections.sqlite. The four QA Browser timing/after families and QA Rain collection edited were removed. Read-only comparison against the backup confirms all six original teams, 13 snapshots and two standalone share rows unchanged; collection tables are empty and foreign_key_check has no rows. The deleted collection capability returns 404. HTTP/profiling scripts clean their own fixtures.
 
@@ -16,9 +51,9 @@ After this pass, future tasks need a new user request: hosted latency and long-h
 
 ---
 
-# Active work — 2026-09-10
+# Historical foundation checkpoint — 2026-09-10
 
-The large-library brief in attachment efab8b97 is active. User requested continuing after this foundation; do not interpret the older next-task list below as current scope. Starting clean checkpoint was c3a93a9. Source has not yet been republished in this pass; the previous owner-only deployment remains live until final verification/publication.
+Historical record of the efab8b97 pass, starting at c3a93a9. Completed and published owner-only at ec42344; the notes below record intermediate states, not current unfinished work.
 
 ## Completed foundation
 

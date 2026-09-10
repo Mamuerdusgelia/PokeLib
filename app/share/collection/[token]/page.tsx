@@ -1,6 +1,6 @@
 import SharedCollection from '@/components/shared-collection';
 export const metadata = {
-  title: 'Shared collection · TeamVault',
+  title: 'Shared collection · PokéLib',
   robots: { index: false, follow: false },
 };
 export default async function Page({

@@ -11,8 +11,8 @@ export function SaveTimingPanel() {
     const update = () => {
       if (saveProfilingEnabled()) setTraces([...saveTraces()]);
     };
-    window.addEventListener('teamvault-save-timing', update);
-    return () => window.removeEventListener('teamvault-save-timing', update);
+    window.addEventListener('pokelib-save-timing', update);
+    return () => window.removeEventListener('pokelib-save-timing', update);
   }, []);
   if (!traces.length) return null;
   return (

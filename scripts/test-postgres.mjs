@@ -1,3 +1,4 @@
+import { testLibraryCleanup } from './test-library-cleanup.mjs';
 import { testLargeWorkflows } from './test-large-workflows.mjs';
 import { testVariants } from './test-variants.mjs';
 import { testCollections } from './test-collections.mjs';
@@ -674,5 +675,6 @@ await check('collection RLS and private helper permissions', async () => {
   ])
     await assert.rejects(() => pg.query('SELECT ' + fn), /permission denied/);
 });
+await testLibraryCleanup(store, new SupabaseStore(otherClient), check);
 console.log('PostgreSQL: ' + passed + ' checks passed.');
 await pg.close();

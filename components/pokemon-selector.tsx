@@ -64,6 +64,7 @@ export function PokemonSelector({
   } | null>(null);
   const [highlight, setHighlight] = useState('');
   const [showAllMoves, setShowAllMoves] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [limit, setLimit] = useState(40);
   const [moveQuery, setMoveQuery] = useState('');
   const [moveMatches, setMoveMatches] = useState<{
@@ -271,6 +272,26 @@ export function PokemonSelector({
           {kind === 'species' && !value ? 'Pokémon' : 'Choose ' + labels[kind]}
         </strong>
         {value && <span>{value}</span>}
+        {kind === 'species' && (
+          <button
+            type="button"
+            className="button ghost selector-filter-toggle"
+            aria-expanded={filtersOpen}
+            aria-controls="pokemon-advanced-filters"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            Filters
+            {[
+              type,
+              type2,
+              ability,
+              moveQuery,
+              sort !== 'name' ? sort : '',
+            ].filter(Boolean).length
+              ? ' · active'
+              : ''}
+          </button>
+        )}
         <button
           type="button"
           className="button ghost"
@@ -280,8 +301,8 @@ export function PokemonSelector({
           <X size={16} />
         </button>
       </div>
-      {kind === 'species' && (
-        <div className="selector-filters">
+      {kind === 'species' && filtersOpen && (
+        <div className="selector-filters" id="pokemon-advanced-filters">
           <select
             aria-label="Filter Pokémon type"
             value={type}
@@ -331,6 +352,19 @@ export function PokemonSelector({
               )),
             )}
           </select>
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => {
+              setType('');
+              setType2('');
+              setAbility('');
+              setMoveQuery('');
+              setSort('name');
+            }}
+          >
+            Clear filters
+          </button>
         </div>
       )}
       {kind === 'species' && moveFilter && (
@@ -350,7 +384,7 @@ export function PokemonSelector({
         <CommandInput
           ref={input}
           aria-label={`Search ${labels[kind]}`}
-          placeholder={`Search ${labels[kind].toLowerCase()}…`}
+          placeholder={`Search ${labels[kind]}…`}
           value={query}
           onValueChange={(q) => {
             setQuery(q);

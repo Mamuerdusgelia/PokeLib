@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   canonicalFormat,
+  searchFormats,
   isOrdinaryFormat,
   ordinaryFormats,
   assistanceFormat,
@@ -110,4 +111,60 @@ check('search alternatives cover old bare and National Dex OU strings', () => {
     formatSearchValues('gen9nationaldex').includes('gen9nationaldexou'),
   );
 });
+check(
+  'one format search handles generation fragments, Nat Dex aliases and doubles',
+  () => {
+    assert.equal(searchFormats('gen 4 ub')[0].id, 'gen4ubers');
+    assert.equal(searchFormats('gen 4 ubers')[0].id, 'gen4ubers');
+    assert.ok(
+      searchFormats('nat dex ou').some((f) => f.id === 'gen9nationaldex'),
+    );
+    assert.ok(
+      searchFormats('doubles ou').some((f) => f.id === 'gen9doublesou'),
+    );
+    assert.ok(searchFormats('vgc 2026').every((f) => /vgc2026/.test(f.id)));
+    assert.deepEqual(searchFormats('not a real format'), []);
+  },
+);
+check(
+  'backup shorthand stays in titles; only recognized leading formats are consumed',
+  () => {
+    for (const title of [
+      '[BO] Kyogre balance',
+      '[HO] Screens',
+      '[Stall] TSS',
+      '[Rain] Tour',
+      '[Tour] AB',
+      'DPP [BO] 2023',
+      '[BO] [gen4ubers] Preserve order',
+      '[Mystery Format] Unresolved',
+      'Old Meta/gen9ou [BO]',
+    ]) {
+      const text = '=== ' + title + ' ===\n\nKyogre\n- Surf';
+      const { draft } = parseBatch(text)[0];
+      assert.equal(draft.title, title);
+      assert.equal(draft.format, 'unknown');
+      assert.equal(draft.original_text, text);
+      assert.equal(draft.team_date, null);
+    }
+    for (const [token, format] of [
+      ['gen4ubers', 'gen4ubers'],
+      ['Gen 4 Ubers', 'gen4ubers'],
+      ['gen9ou-box', 'gen9ou'],
+      ['Gen 9 National Dex OU', 'gen9nationaldex'],
+    ]) {
+      const text =
+        '=== [' + token + '] Old Meta/[BO]  Rain [Tour] ===\n\nKyogre\n- Surf';
+      const { draft } = parseBatch(text)[0];
+      assert.equal(draft.format, format);
+      assert.equal(draft.title, 'Old Meta/[BO]  Rain [Tour]');
+      assert.equal(draft.original_text, text);
+    }
+    assert.equal(
+      parseBatch('=== [ubers] [BO] ===\nKyogre\n- Surf', 'gen4ou')[0].draft
+        .format,
+      'gen4ubers',
+    );
+  },
+);
 console.log(passed + ' canonical format checks passed.');

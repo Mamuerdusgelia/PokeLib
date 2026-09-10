@@ -34,7 +34,7 @@ const localBindingConfig = {
     : [],
 };
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command }) => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= 'false';
@@ -53,6 +53,10 @@ export default defineConfig(async () => {
       vinext(),
       sites(),
       cloudflare({
+        // Opt-in isolated local acceptance data. Never affects production builds.
+        ...(command === 'serve' && process.env.POKELIB_QA === '1'
+          ? { persistState: { path: '.artifacts/prebeta/state' } }
+          : {}),
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
         config: localBindingConfig,
       }),

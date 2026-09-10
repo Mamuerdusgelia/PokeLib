@@ -1,3 +1,4 @@
+import { testLibraryCleanup } from './test-library-cleanup.mjs';
 import { testLargeWorkflows } from './test-large-workflows.mjs';
 import { testVariants } from './test-variants.mjs';
 import { testCollections } from './test-collections.mjs';
@@ -734,4 +735,5 @@ await testCollections(
   (token, p) => resolveDemoCollection(d1, token, p),
   check,
 );
+await testLibraryCleanup(a, b, check);
 console.log('SQLite + domain: ' + passed + ' checks passed.');

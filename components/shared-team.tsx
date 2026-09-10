@@ -48,7 +48,7 @@ export default function SharedTeam({
           <span className="brand-icon">
             <BookOpen size={20} />
           </span>
-          teamvault.
+          PokéLib
         </a>
         <span className="private-label">
           <LockKeyhole size={13} />
@@ -60,7 +60,7 @@ export default function SharedTeam({
           <h1>Team unavailable</h1>
           <p>{error}</p>
           <a href="/" className="button">
-            Open TeamVault
+            Open PokéLib
           </a>
         </div>
       ) : team ? (
@@ -78,9 +78,15 @@ export default function SharedTeam({
               <h1>{team.title}</h1>
               <p>Variant: {team.variant_name || 'Main'}</p>
               {team.variant_description && <p>{team.variant_description}</p>}
-              <p>
-                v{team.version.version_number} · {team.version.version_comment}
-              </p>
+              {(team.version.version_number > 1 ||
+                team.version.version_comment) && (
+                <p>
+                  {team.version.version_number > 1
+                    ? 'v' + team.version.version_number + ' · '
+                    : ''}
+                  {team.version.version_comment}
+                </p>
+              )}
               <p className="muted">Team date · {dateLabel(team)}</p>
               <div className="tags">
                 {team.tags.map((t) => (
@@ -119,7 +125,7 @@ export default function SharedTeam({
           )}
           <PokemonDetails team={team} />
           <footer className="shared-footer">
-            A living team document, shared with TeamVault.
+            A living team document, shared with PokéLib.
           </footer>
         </div>
       ) : (

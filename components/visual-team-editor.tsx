@@ -1,6 +1,6 @@
 'use client';
 import { Profiler, useEffect, useRef, useState } from 'react';
-import { Plus, Save, ChevronDown } from 'lucide-react';
+import { Save, ChevronDown } from 'lucide-react';
 import {
   startBuilderTiming,
   endBuilderTiming,
@@ -298,6 +298,7 @@ export function TeamEditor({
     <Profiler id="builder" onRender={recordBuilderRender}>
       <Modal
         wide
+        className="builder-modal"
         initialFocus={mode === 'new' ? addButtonRef : undefined}
         title={
           mode === 'new'
@@ -310,7 +311,7 @@ export function TeamEditor({
           mode === 'metadata'
             ? 'Organise this team across all its versions.'
             : mode === 'new'
-              ? 'Unsaved team · add your first Pokémon.'
+              ? 'Unsaved draft'
               : team?.version.id !== team?.current_version_id
                 ? 'Restore this historical snapshot as a new version. Newer history stays intact.'
                 : 'Save changes to the current version, or preserve it by saving a new version.'
@@ -370,23 +371,25 @@ export function TeamEditor({
                 </h3>
               )}
             </div>
-            <div className="editor-tag-row">
-              <span>Tags</span>
-              <TagEditor
-                tags={draft.tags}
-                suggestions={tags}
-                onChange={(v) => setDraft({ ...draft, tags: v })}
-              />
+            <div className="editor-options">
+              <div className="editor-tag-row">
+                <span>Tags</span>
+                <TagEditor
+                  tags={draft.tags}
+                  suggestions={tags}
+                  onChange={(v) => setDraft({ ...draft, tags: v })}
+                />
+              </div>
+              <Tabs
+                value={editorMode}
+                onValueChange={(v) => switchMode(String(v))}
+              >
+                <TabsList className="editor-mode-tabs">
+                  <TabsTrigger value="visual">Visual Editor</TabsTrigger>
+                  <TabsTrigger value="text">Showdown Text</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
-            <Tabs
-              value={editorMode}
-              onValueChange={(v) => switchMode(String(v))}
-            >
-              <TabsList className="editor-mode-tabs">
-                <TabsTrigger value="visual">Visual Editor</TabsTrigger>
-                <TabsTrigger value="text">Showdown Text</TabsTrigger>
-              </TabsList>
-            </Tabs>
             {editorMode === 'visual' ? (
               <>
                 <PokemonSlotBar
@@ -434,14 +437,9 @@ export function TeamEditor({
                     onRemove={() => setRemoveIndex(active)}
                   />
                 ) : (
-                  <div className="visual-empty">
-                    <Plus size={28} />
-                    <h3>Add your first Pokémon</h3>
-                    <p>
-                      Choose an empty slot above, or paste a team in Showdown
-                      Text.
-                    </p>
-                  </div>
+                  <p className="visual-empty">
+                    Choose an empty slot to add Pokémon, or paste Showdown text.
+                  </p>
                 )}
               </>
             ) : (

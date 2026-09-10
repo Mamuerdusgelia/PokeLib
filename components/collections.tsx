@@ -27,6 +27,7 @@ export function Collections({
   onMode,
   onApply,
   navTarget,
+  refreshKey = 0,
 }: {
   current: SavedSearch;
   facets: Facets;
@@ -35,6 +36,7 @@ export function Collections({
   onMode: (m: 'save' | 'manage' | null) => void;
   onApply: (c: CollectionRecord) => void;
   navTarget: HTMLElement | null;
+  refreshKey?: number;
 }) {
   const [rows, setRows] = useState<CollectionRecord[]>([]),
     [total, setTotal] = useState(0),
@@ -46,7 +48,7 @@ export function Collections({
     [share, setShare] = useState<CollectionRecord | null>(null),
     [remove, setRemove] = useState<CollectionRecord | null>(null),
     [busy, setBusy] = useState(false);
-  const requestKey = page + ':' + tick;
+  const requestKey = page + ':' + tick + ':' + refreshKey;
   useEffect(() => {
     const controller = new AbortController();
     api('collection_list', { page }, controller.signal)

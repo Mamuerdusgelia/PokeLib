@@ -1,11 +1,11 @@
 # Third-party notices
 
-TeamVault application changes are distributed under AGPL-3.0-only. Incorporated MIT portions retain their MIT terms.
+PokéLib application changes are distributed under AGPL-3.0-only. Incorporated MIT portions retain their MIT terms.
 
 ## Pokémon Showdown Client
 
 Copyright Guangcong Luo and Pokémon Showdown contributors.
-Keyboard, nature and default-choice adaptations derive from battle-team-editor.tsx, AGPLv3, at eeaec53202425be20761198da837f5fb9b264c51. Changes dated 2026-09-08 adapt to React and preserve TeamVault raw/state contracts. The generated teambuilder table is conservatively distributed under the client's AGPLv3. LICENSE contains the full license. SHOWDOWN_INTEGRATION.md and lib/showdown-data/provenance.json identify all sources and changes.
+Keyboard, nature and default-choice adaptations derive from battle-team-editor.tsx, AGPLv3, at eeaec53202425be20761198da837f5fb9b264c51. Changes dated 2026-09-08 adapt to React and preserve PokéLib raw/state contracts. The generated teambuilder table is conservatively distributed under the client's AGPLv3. LICENSE contains the full license. SHOWDOWN_INTEGRATION.md and lib/showdown-data/provenance.json identify all sources and changes.
 
 Search traversal adaptations derive from battle-dex-search.ts, with its explicit MIT header and author Guangcong Luo <guangcongluo@gmail.com>.
 
@@ -61,6 +61,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Pokémon artwork
 
-Pokémon sprite resources are served by Pokémon Showdown. Pokémon artwork belongs to its respective rights holders, including Nintendo, Game Freak and The Pokémon Company. Community sprite contributors are credited in the [Pokémon Showdown credits](https://pokemonshowdown.com/credits). TeamVault's source-code license does not grant rights to that artwork. Community sprite licensing remains subject to the [upstream sprite notice](https://github.com/smogon/sprites#license), which describes later-generation community BW sprites as having an undetermined license. No sprite image files are redistributed in this source archive.
+Pokémon sprite resources are served by Pokémon Showdown. Pokémon artwork belongs to its respective rights holders, including Nintendo, Game Freak and The Pokémon Company. Community sprite contributors are credited in the [Pokémon Showdown credits](https://pokemonshowdown.com/credits). PokéLib's source-code license does not grant rights to that artwork. Community sprite licensing remains subject to the [upstream sprite notice](https://github.com/smogon/sprites#license), which describes later-generation community BW sprites as having an undetermined license. No sprite image files are redistributed in this source archive.
 
 Other installed dependencies retain the notices and licenses supplied with their packages; versions are recorded in pnpm-lock.yaml.

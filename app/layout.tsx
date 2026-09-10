@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'TeamVault · Your competitive playbook',
+  title: 'PokéLib · Your competitive playbook',
   description:
     'Store, search, annotate, version and share your competitive Pokémon teams.',
 };
@@ -33,8 +33,8 @@ export default function RootLayout({
       >
         {children}
         <footer className="source-offer">
-          <a href="/source/teamvault-source.tar" download>
-            TeamVault source · AGPLv3
+          <a href="/source/pokelib-source.tar" download>
+            PokéLib source · AGPLv3
           </a>
           <span>Builder adapted from Pokémon Showdown</span>
         </footer>
