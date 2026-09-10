@@ -4,6 +4,7 @@ import { parseBatch, parseShowdown } from '@/lib/showdown';
 import { demoDrafts } from '@/lib/demo';
 import { previewPokepaste } from '@/lib/pokepaste';
 import { ServerTiming } from '@/lib/server-timing';
+import { restoreProgress } from '@/lib/backup';
 export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   const timing = new ServerTiming(
@@ -24,6 +25,13 @@ export async function POST(request: Request) {
     timing.mark('auth_end');
     let result: any;
     switch (action) {
+      case 'backup_info':
+      case 'backup_page':
+      case 'backup_check':
+      case 'backup_status':
+      case 'backup_restore':
+        result = await store.backup(action, p);
+        break;
       case 'collection_list':
       case 'collection_get':
       case 'collection_save':
@@ -122,6 +130,8 @@ export async function POST(request: Request) {
       default:
         throw Error('Unknown action.');
     }
+    if (action === 'backup_restore' || action === 'backup_status')
+      result = restoreProgress(result);
     timing.mark('server_end');
     return Response.json(result, {
       headers: {

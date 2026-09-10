@@ -44,6 +44,7 @@ const configs = new Set([
   'DECISIONS.md',
   'SCHEMA_PLAN.md',
   'PERFORMANCE.md',
+  'BACKUP_FORMAT.md',
 ]);
 const allowed = (name) =>
   (directories.test(name) || configs.has(name)) &&

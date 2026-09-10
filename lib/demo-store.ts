@@ -17,6 +17,7 @@ import { demoDrafts } from './demo';
 import { canonicalFormat, formatSearchValues } from './formats';
 import { DemoVariants } from './demo-variants';
 import { DemoCollections } from './demo-collections';
+import { DemoBackup } from './demo-backup';
 import { ServerTiming } from './server-timing';
 import {
   validateChunk,
@@ -35,6 +36,9 @@ export class DemoStore {
     private owner: string,
     private timing = new ServerTiming(),
   ) {}
+  backup(action: string, payload: unknown = {}) {
+    return new DemoBackup(this.db, this.owner).run(action, payload);
+  }
   private stmt(sql: string, ...args: any[]) {
     return this.db.prepare(sql).bind(...args);
   }

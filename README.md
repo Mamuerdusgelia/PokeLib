@@ -6,6 +6,10 @@ A private library for competitive Pokémon teams: conceptual team families, alte
 
 ## What runs now
 
+**Settings → Data** provides full PokéLib backup and additive restore. Export prepares a bounded, compressed `.jsonl.gz` archive, then offers **Download backup**. It includes families, variants, complete history, exact retained raw/source text, notes, private editing provenance, metadata/dates, reusable tags and live collection definitions. Showdown export remains team text only.
+
+Restore validates the entire file for preview, waits for confirmation, validates it again on the authenticated server, and commits bounded, retryable chunks. Existing data stays; new IDs belong to the signed-in account. Share links are omitted and restored data is private. Re-select the same file to resume after reload. Finish restoring before editing the library elsewhere: concurrent portable-data changes stop the operation. Replace-library mode is deferred. See [BACKUP_FORMAT.md](BACKUP_FORMAT.md) for the version-1 contract, included/excluded data, conflict handling, limits and recovery behavior, and PERFORMANCE.md for local 1k/5k/10k evidence.
+
 The Sites deployment uses an account-isolated, persistent Cloudflare D1 **demo workspace**, with ChatGPT sign-in. A first demo account receives six realistic singles/doubles and older-generation examples; nothing is saved in browser storage except the view preference and Supabase's auth session when enabled.
 
 The complete PostgreSQL/Supabase adapter and migration are included. No Supabase project was available during implementation. The migration and RLS/RPC behavior are tested against embedded PostgreSQL (PGlite), but real Supabase email delivery and hosted Supabase connectivity must be checked after you connect your project.
@@ -67,7 +71,7 @@ Production demo authentication trusts Sites' dispatcher-injected identity header
 8. Sign in by email. Your production account starts with an empty library; use Import or Settings → Add example teams.
 9. Test two distinct accounts and an anonymous share link on your actual project before inviting players. The private Sites access gate still applies until the site's audience is intentionally changed.
 
-Both variables must be supplied together. Demo teams remain in D1 and do not automatically move to Supabase. Export selected demo teams as a Showdown backup and import them into production if desired; Showdown backups do not represent notes or application metadata.
+Both variables must be supplied together. Demo teams remain in D1 and do not automatically move to Supabase. Use Settings → Data → Export PokéLib backup, then restore that file after signing into the destination account. Apply every included migration, including PostgreSQL `202609100007_backups.sql`. Showdown export remains available for text-only interchange. This pass does not configure an external Supabase project.
 
 ## Database migrations
 

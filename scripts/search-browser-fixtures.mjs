@@ -93,8 +93,7 @@ if (process.argv[2] === 'seed') {
     assert.match((await api('get', { id })).title, /^QA Search /);
   await api('family_bulk_delete', {
     ids,
-    operation_id: crypto.randomUUID(),
-    chunk_index: 0,
+    chunk: { operation_id: crypto.randomUUID(), chunk_index: 0 },
   });
   console.log('Removed the five QA Search families and their sibling.');
 } else throw Error('Use seed or cleanup.');

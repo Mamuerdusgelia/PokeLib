@@ -57,6 +57,13 @@
       "when": 1788999380809,
       "tag": "0007_serious_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789034450181,
+      "tag": "0008_talented_rick_jones",
+      "breakpoints": true
     }
   ]
 }

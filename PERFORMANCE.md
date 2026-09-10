@@ -1,4 +1,26 @@
-# PokéLib search polish — current evidence (2026-09-10)
+# PokéLib full backup/restore — current evidence (2026-09-10)
+
+Reproduce after `node scripts/test.mjs` with `node --max-old-space-size=96 --expose-gc scripts/benchmark-backup.mjs 1000` (also 5000 and 10000). Each run uses two fresh in-memory SQLite databases. No persistent app database is opened. Six-set fixtures have a sibling on every tenth family, three revisions on every fourth family, and twenty revisions on every hundredth family (including those siblings). These highly repetitive synthetic texts compress unusually well; real backup sizes depend on content.
+
+| Families | Variants / revisions | Raw record bytes / gzip bytes | Export median (3 runs) | Full validation | Restore persistence incl. indexes | Index SQL subset |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1,000 | 1,100 / 2,040 | 2,982,917 / 48,063 | 0.446 s | 0.336 s | 3.873 s | 1.349 s |
+| 5,000 | 5,500 / 10,200 | 14,932,163 / 238,768 | 3.678 s | 2.523 s | 24.523 s | 6.196 s |
+| 10,000 | 11,000 / 20,400 | 29,870,053 / 476,712 | 7.485 s | 4.639 s | 75.276 s | 18.096 s |
+
+Export includes bounded adapter reads, product conversion/validation and gzip assembly. Validation is one complete decompression/shape/graph/index-limit/hash pass; the UI and server each perform such a pass. Restore timing starts with the already validated manifest and includes file re-reading, chunk validation/ID preparation, persistence, current-index rebuilding and receipts. Index SQL is a measured subset of restore time, not an additional phase to sum. Query-planning/index-term JavaScript computation is included in the containing phase. Restore uses 76 / 380 / 760 chunks. All final family/variant/revision counts matched and SQLite foreign-key checks were empty.
+
+Maximum observed exported page sizes: 80,855 / 81,021 / 81,043 bytes. Maximum restore HTTP JSON request sizes: 55,413 / 56,112 / 56,113 bytes. Largest prepared D1 batch including SQL/arguments: 311,313 / 339,624 / 365,853 bytes, with at most 205 statements. Pages permit at most 40 candidates and a 512 KiB estimated payload budget (one larger record may occupy a page); restore chunks use 40 records / 256 KiB, with an explicit single-record exception. See BACKUP_FORMAT.md for hard file/entity/field limits.
+
+With a 96 MiB Node old-space ceiling, observed JS heap peaks were 49,192,336 / 54,256,424 / 49,543,880 bytes, approximately 31–36 MiB above the roughly 16 MiB baseline. These are combined client/adapter harness measurements, not Cloudflare isolate profiling. Total process RSS was approximately 171 / 320 / 546 MiB because both synthetic SQLite databases and their indexes live in the same native process; hosted D1 storage is outside Worker JS memory. The browser retains only compressed download bytes (maximum 64 MiB), while validation retains bounded record/context buffers and tag/name sets. No whole-library snapshot array or unlimited SQL result is used.
+
+These are local measurements under variable workstation load, not hosted D1/PostgreSQL latency, concurrent-Worker memory or account-quota guarantees. The 10k export runs were 7.485 / 5.441 / 9.453 seconds. Larger/high-entropy histories can reach explicit archive or platform limits and must fail visibly. External Supabase connectivity, cold starts and full 512 MiB boundary load are not claimed.
+
+Representative D1 → PostgreSQL → D1 semantic round trips pass in the same automated suite. A separate 85-revision test injects a middle-chunk failure in each adapter, verifies rollback and exact counters, replays a committed chunk, and checks concurrent-edit protection. HTTP checks verify malformed last records/footer/future versions create no receipt or library mutation, and enforce origin/authentication. Browser acceptance covers preview-before-confirmation, private additive duplicates, visible preparation/download link, and pausing with 76/85 revisions committed followed by reload and completion at 85/85 in the same operation. The embedded browser did not expose a native download completion event; saved-file delivery through that browser remains unverified, while generated gzip bytes and restore round trips are independently verified.
+
+---
+
+# PokéLib search polish — historical evidence (2026-09-10)
 
 Five samples per operation, isolated in-memory Node 24.19 SQLite. Each dataset contains 1,000 / 5,000 / 10,000 families and 1,050 / 5,250 / 10,500 variants, using six-set templates (the existing six demos plus two deterministic composition fixtures). The library remains SQL-paginated at 30 snapshots; no browser whole-library scan. **These are development adapter timings, excluding browser/network and hosted D1/Supabase latency.** Values are milliseconds, median / slowest observed sample, not production percentiles. The run overlapped local development compilation/test activity; variability must not be interpreted as a hosted service guarantee.
 

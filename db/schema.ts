@@ -51,6 +51,11 @@ export const teams = sqliteTable(
       t.owner_id,
       sql`coalesce(${t.family_id},${t.id})`,
     ),
+    index('backup_teams_order').on(
+      t.owner_id,
+      sql`coalesce(${t.family_id},${t.id})`,
+      t.id,
+    ),
     uniqueIndex('variants_family_name').on(t.family_id, t.variant_key),
   ],
 );
@@ -172,4 +177,18 @@ export const collectionShares = sqliteTable(
     uniqueIndex('collection_share_hash').on(t.token_hash),
     index('collection_share_collection').on(t.collection_id),
   ],
+);
+export const backupGenerations = sqliteTable('backup_generations', {
+  owner_id: text().primaryKey(),
+  generation: integer().notNull(),
+});
+export const backupRestores = sqliteTable(
+  'backup_restores',
+  {
+    id: text().notNull(),
+    owner_id: text().notNull(),
+    state: text().notNull(),
+    created_at: text().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.owner_id, t.id] })],
 );

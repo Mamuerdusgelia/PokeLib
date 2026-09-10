@@ -5,7 +5,32 @@ import {
   saveRequestTrace,
 } from './builder-performance';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { restoreProgress } from './backup';
 let client: SupabaseClient | undefined;
+export async function backupUpload(
+  file: File,
+  id: string,
+  gzip: boolean,
+  signal?: AbortSignal,
+) {
+  const session = client ? (await client.auth.getSession()).data.session : null;
+  const response = await fetch('/api/backup', {
+    method: 'POST',
+    body: file,
+    signal,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'X-Pokelib-Backup-Operation': id,
+      'X-Pokelib-Backup-Encoding': gzip ? 'gzip' : 'identity',
+      ...(session ? { Authorization: 'Bearer ' + session.access_token } : {}),
+    },
+  });
+  const result = (await response.json()) as ReturnType<
+    typeof restoreProgress
+  > & { error?: string };
+  if (!response.ok) throw Error(result.error || 'Backup validation failed.');
+  return result;
+}
 export function browserAuth(url: string, key: string) {
   if (!client) client = createClient(url, key);
   return client;

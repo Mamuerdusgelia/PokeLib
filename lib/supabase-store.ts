@@ -13,11 +13,30 @@ import { hashToken } from './demo-store';
 import { variantDetails, familySelection, variantPayload } from './variants';
 import { cleanCollection } from './collections';
 import { ServerTiming } from './server-timing';
+import { prepareRestoreChunk, type BackupPayload } from './backup';
 export class SupabaseStore {
   constructor(
     private client: SupabaseClient,
     private timing = new ServerTiming(),
   ) {}
+  async backup(action: string, input: unknown = {}) {
+    const payload = input as BackupPayload;
+    if (action === 'backup_restore') {
+      const state = await this.call('backup_status', { id: payload.id });
+      const prepared = await prepareRestoreChunk(
+        state,
+        payload.index,
+        payload.text,
+      );
+      if (prepared.replay) return state;
+      return this.call(action, {
+        ...payload,
+        terms: prepared.records.map((r) => r.terms ?? null),
+        definitions: prepared.records.map((r) => r.definition ?? null),
+      });
+    }
+    return this.call(action, payload);
+  }
   async call(action: string, payload: any = {}) {
     const { data, error } = await this.timing.measure('rpc', () =>
       Promise.resolve(this.client.rpc('vault', { action, payload })),

@@ -1,5 +1,13 @@
 # Scale, variants and collections — implemented relationships
 
+## Full-fidelity backup/restore additions — 2026-09-10
+
+D1 `0008_talented_rick_jones.sql` and PostgreSQL `202609100007_backups.sql` add `backup_generations` (owner-scoped monotonic portable-data generation), `backup_restores` (owner/operation, validated manifest hashes, namespace, progress, compact active-variant context), and `backup_teams_order` for keyset export. Portable-table insert/update/delete triggers update the generation transactionally; search terms, receipts and capabilities do not belong to portable state. New Drizzle metadata includes the hand-checked expression index.
+
+Restore operations use existing `operation_chunks` for committed chunk receipts. They insert new materialized families, variants and revisions in relationship order without relaxing frozen-history, current-pointer or family guards. Current pointers advance only after the referenced revision exists. Derived current terms and all historical comment words are rebuilt incrementally; tags and live collection definitions are restored without share rows. Whole-file server validation happens before creating an operation, and ownership is always the authenticated adapter owner. Concurrent portable-data changes stop further chunks. The operation reports committed effects, not a global transaction or automatic rollback of earlier chunks.
+
+Backup IDs are sequential archive-local product IDs, not table keys. A fresh per-operation namespace generates UUIDs for every family/variant/revision/collection; normalized reusable tags can reuse an existing destination tag. Source owner IDs, capabilities, hashes, derived query plans/indexes and runtime rows never enter the file. BACKUP_FORMAT.md documents every portable field, validation rule and compatibility/recovery limit. Existing table data is not rewritten by either migration.
+
 Originally designed at c3a93a9; canonical formats, grouped variants, chunked bulk workflows and live collections are implemented through ec42344. PokéLib (formerly TeamVault) preserves existing snapshot rows and IDs. The pre-beta cleanup pass reuses these APIs and requires no database migration.
 
 ## Existing boundary

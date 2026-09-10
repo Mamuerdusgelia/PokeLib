@@ -1,4 +1,21 @@
-# PokéLib final search and usability polish — current state (2026-09-10)
+# PokéLib full-fidelity backup and restore — current state (2026-09-10)
+
+Starting checkpoint: clean main `1db66af1fa84479842d4582de9a7d399066adf30`. Implemented schema-v1 streamed JSON Lines/gzip backup and additive restore in Settings → Data. Detailed contract and recovery limits live in BACKUP_FORMAT.md.
+
+- Bounded keyset export covers families, variants, every revision, raw/source strings, parsed extensions, private editing provenance, notes, metadata, dates, reusable tags/relationships and live collections. Generation tracking rejects concurrent-change exports. Download is offered only after the complete archive passes its footer/count checks.
+- Full browser preview and independent server validation precede library mutation. Owner rebinding and operation-specific new IDs support D1 ↔ PostgreSQL portability. Share secrets/hashes, active links, derived terms, auth/provider IDs and runtime receipts are excluded.
+- Additive chunks have durable counts/hash binding, atomic rollback, replay and reload resumption from the same file. Current pointers always reference committed snapshots. Concurrent portable-state writes stop further restore chunks. Existing teams remain; matching reusable tags are reused and colliding collections receive a documented suffix. No replace-library mode or global-transaction claim.
+- Append-only D1 0008 and PostgreSQL 202609100007 add generation/restore state and bounded export queries. Existing snapshots, auth boundaries, sharing, search, history semantics and corresponding-source offer are retained.
+- Automated acceptance includes semantic D1 → PostgreSQL → D1 round trips with independent histories, non-adjacent parents, CRLF/unknown raw fields, Hidden Power, seven/partial sets, original source, notes, parsed extensions, private provenance, unused tags and active shares in the source. Destination shares are private; free-text, same-set, +, format/tag/source/year/notes search and current/history edits are verified. Multi-chunk injected failures, lost-response replay, concurrent changes and private RPC access are covered.
+- HTTP and focused browser acceptance use only `.artifacts/prebeta/state` with `POKELIB_QA=1`; the normal local database and owner's hosted library are not destructive-test targets. Final verification/publication results are recorded below and in the completion report. The existing owner-only audience is retained.
+
+Verification: all 263 automated checks pass (247 existing + 16 backup groups), including archived flags and accented reusable tags. Backup upload HTTP, existing HTTP integration, live collections, core-search fixtures and TypeScript pass. Full lint retains 64 inherited diagnostics with no new findings. Isolated browser acceptance verifies preview/confirmation, additive private restoration, preparation/download link and reload resumption from 76/85 to 85/85 revisions. The embedded browser did not expose native download completion; saved-file delivery there remains unverified. Every row in all 13 normal local tables matches the preserved pre-test database. PERFORMANCE.md records measured 1k/5k/10k export, validation, restore, index, size and memory results. Release publication is gated on production build, complete AGPL source-manifest verification and a clean source checkpoint; exact commit/version/deployment identities are recorded in the task completion report.
+
+Remaining limits: additive only; explicit archive/record/count bounds; keep the original file for resume; abandoned receipt cleanup is deferred; modifying the destination during an unfinished restore requires a fresh recovery operation. Compressed download buffers are capped at 64 MiB in the browser. Hosted/cold/concurrent Worker and real Supabase timing remain unmeasured. No external Supabase setup or unrelated feature was started.
+
+---
+
+# PokéLib final search and usability polish — historical checkpoint (2026-09-10)
 
 Started from clean main at 89c6ce87264e6de00ff74646940a1542741daf14. Completed the bounded composition-search, pending-feedback and dark-surface pass. No Supabase setup, backup/restore, organisation expansion, publishing feature, special-format, AI, simulator or replay work was started.
 

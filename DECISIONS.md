@@ -1,6 +1,16 @@
 # PokéLib product and technical decisions
 
-## Final search and surface polish — 2026-09-10 (current)
+## Full-fidelity backup and restore — 2026-09-10 (current)
+
+- Use versioned, ordered UTF-8 JSON Lines with gzip and mandatory header/footer counts. Product records, ordinal IDs and grouped histories permit bounded whole-file validation without loading the library or a full revision graph into memory. Export pagination and compressed download buffers have explicit limits; never silently truncate. BACKUP_FORMAT.md is the normative contract.
+- Preserve stored raw/source/notes/parsed fields and private editing provenance, including history. Validate without Showdown reparsing. Rebuild current search terms and historical comment words using `indexTerms`; recompile live collection definitions with `cleanDefinition`.
+- Restore is additive and bound to the current authenticated account. A new server namespace deterministically maps archive relationships to fresh IDs; titles do not deduplicate teams. Existing reusable tags are matched by normalized name, and conflicting collection names get an explicit restored suffix. No share secret, hash or active capability is portable. Restored data is private.
+- Validate the entire file twice: locally before preview, then on the authenticated server after explicit confirmation and before any receipt/library write. The server stores validated chunk hashes and ordered progress. Per-chunk transactions, replay protection, current-pointer guards and exact counters are mandatory. Owner generation tracking stops concurrent portable-data modifications during unfinished restoration, preventing deleted or altered earlier chunks from being silently reported as a complete recovery.
+- The download step is explicit after preparation so users have a persistent, visible file action instead of relying solely on an asynchronous synthetic click. Only compressed bytes are retained, capped at 64 MiB. Restore re-reads the file; local storage contains only an operation ID and manifest digest.
+- SHA-256 binds the operation's canonical record chunks, not the trustworthiness of an unsigned archive. Gzip already provides corruption checking; a separate archive-level canonical hash/signature is deferred. Replace-library mode and abandoned-run garbage collection are deferred because global deletion/restore atomicity cannot be promised at this scale.
+- D1 and PostgreSQL add generation/receipt state through new migrations only. No external Supabase setup, new storage binding, service-role key, audience change or unrelated feature is introduced.
+
+## Final search and surface polish — 2026-09-10 (prior checkpoint; invariants retained)
 
 - Unquoted `+` is AND between independently correlated same-set clauses on one current variant. Metadata applies globally. Composition clauses require actual indexed members and cannot fall back to title mentions. No-plus plans and previously saved v1 collection definitions keep their existing semantics. Quoted metadata preserves literal plus signs, including during collection canonicalization.
 - The plan adds optional clauses and same-slot Mega equivalents derived from pinned Dex required items/moves. Base species searches remain exact. A maximum of six nonempty clauses bounds SQL work; duplicate conditions need not occupy distinct slots, and an empty trailing clause is ignored during typing. No raw snapshots/indexed history are rewritten.

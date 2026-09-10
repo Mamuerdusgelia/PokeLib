@@ -51,6 +51,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { api, browserAuth } from '@/lib/client';
 import { searchRequest } from '@/lib/search-request';
+import { BackupData } from '@/components/backup-data';
 import {
   dateLabel,
   formatLabel,
@@ -124,6 +125,7 @@ const sortOptions: [string, string][] = [
   ['source', 'Source'],
 ];
 export default function Library() {
+  const [backupBusy, setBackupBusy] = useState(false);
   const [collectionMode, setCollectionMode] = useState<
     'save' | 'manage' | null
   >(null);
@@ -1498,8 +1500,11 @@ export default function Library() {
         <Modal
           title="Workspace settings"
           description="Your account, storage, and library tools."
-          onClose={() => setModal(null)}
+          onClose={() => {
+            if (!backupBusy) setModal(null);
+          }}
         >
+          <BackupData onBusy={setBackupBusy} onChanged={invalidateLibrary} />
           <div className="settings-section">
             <h3>
               {config.demo ? 'Private demo workspace' : 'Supabase connected'}

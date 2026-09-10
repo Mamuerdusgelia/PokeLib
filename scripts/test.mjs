@@ -5,6 +5,10 @@ const root = process.cwd();
 await fs.mkdir('.test-build', { recursive: true });
 for (const name of [
   'formats',
+  'backup-format',
+  'backup',
+  'backup-browser',
+  'demo-backup',
   'library-cleanup',
   'import-workflow',
   'domain',
@@ -67,6 +71,7 @@ try {
   await import('./test-formats.mjs');
   await import('./test-pokepaste.mjs');
   await import('./test-search-request.mjs');
+  await import('./test-backup.mjs');
 } catch (e) {
   console.error({
     message: e.message,

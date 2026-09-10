@@ -1,5 +1,6 @@
 // Local-only response delay for browser acceptance. No application instrumentation.
 // Write {"delay":3000} to .artifacts/search-delay.json; set 0 for ordinary responses.
+// Optional action:"backup_restore" exercises a committed restore with a lost response.
 import http from 'node:http';
 import fs from 'node:fs/promises';
 let sequence = 0;
@@ -9,20 +10,24 @@ const server = http
     for await (const chunk of req) body.push(chunk);
     const bytes = Buffer.concat(body);
     let delay = 0,
-      id;
+      id,
+      label = 'Search';
+    const config = await fs
+      .readFile('.artifacts/search-delay.json', 'utf8')
+      .then(JSON.parse, () => ({}));
+    const action =
+      config.action === 'backup_restore' ? 'backup_restore' : 'families';
     if (
       req.url === '/api/vault' &&
-      JSON.parse(bytes.toString() || '{}').action === 'families'
+      JSON.parse(bytes.toString() || '{}').action === action
     ) {
       id = ++sequence;
-      const config = await fs
-        .readFile('.artifacts/search-delay.json', 'utf8')
-        .then(JSON.parse, () => ({}));
+      label = action === 'backup_restore' ? 'Backup restore' : 'Search';
       delay = Math.min(10000, Math.max(0, Number(config.delay) || 0));
-      console.log(`Search ${id} started; response delay ${delay} ms`);
+      console.log(`${label} ${id} started; response delay ${delay} ms`);
       res.on('close', () => {
         if (!res.writableFinished)
-          console.log(`Search ${id} cancelled by browser`);
+          console.log(`${label} ${id} cancelled by browser`);
       });
     }
     const headers = { ...req.headers, host: 'localhost:3000' };
@@ -49,7 +54,7 @@ const server = http
               res.writeHead(response.statusCode, response.headers);
               res.end(Buffer.concat(chunks));
             }
-            console.log(`Search ${id} delay complete`);
+            console.log(`${label} ${id} delay complete`);
           }, delay),
         );
       },
