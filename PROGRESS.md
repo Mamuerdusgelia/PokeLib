@@ -1,3 +1,21 @@
+# Collections and Save profiling — current completion state (2026-09-10)
+
+Completed after ecabd37: private Collections CRUD/apply, canonical saved filters and sort/favourites, mobile-accessible management, paginated owner list, live capability sharing with regeneration/revocation, matching-family grouping and current-only matching variant details. D1 0007 and PostgreSQL 202609100005 implement the same scope; no team duplication or history rewrite. Tests exercise anonymous membership changes, query/ID tampering, overlapping collections, stale edits, cross-owner access, RLS/private helper permissions, token lifecycle and cascade behavior.
+
+Save profiling covers 60 real browser actions (five samples for each one/six-set current Save, new history and Create variant, before/after). D1 detail retrieval is one owner-scoped SQL statement; hidden library/facet refreshes wait until the library is visible. Initial sidebar facets still load. Browser visible medians improved 172→125 / 186→141 / 230→143 ms for one set and 224→166 / 251→164 / 261→162 ms for six sets. HTTP-only medians did not uniformly improve and Saving feedback remains variable; PERFORMANCE.md records every stage, median/max and measurement limitations. Diagnostics are opt-in, numeric and local; no team content/IDs/telemetry.
+
+Verification so far: 220 automated checks PASS (81 D1/domain, 64 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 8 formats, 6 PokéPaste); existing HTTP suite and new collection HTTP suite PASS; TypeScript PASS; lint remains 65 inherited diagnostics with none in the new collection/timing files. Production build PASS across all five Vinext phases, including both collection routes. The Sites build helper still fails Windows path resolution; the established direct package build succeeds with command-scoped safe.directory. The source is ready for owner-only publication; consult the current task/Sites deployment result for final live status. Browser verified narrow-screen create/rename/share dialog, desktop saved-query reopening, live shared list with two matching families. Browser automation sometimes times out or loses tabs; physical-phone/touch and assistive-tech coverage remains unclaimed.
+
+No partially migrated feature remains. Local 0007 applied only after the SQLite backup API wrote .artifacts/library-scale/dev-before-collections.sqlite. The four QA Browser timing/after families and QA Rain collection edited were removed. Read-only comparison against the backup confirms all six original teams, 13 snapshots and two standalone share rows unchanged; collection tables are empty and foreign_key_check has no rows. The deleted collection capability returns 404. HTTP/profiling scripts clean their own fixtures.
+
+Important files for this completion: lib/collections.ts, lib/demo-collections.ts, components/collections.tsx, components/shared-collection.tsx, app/api/share/collection/[token]/route.ts, both collection migrations, scripts/test-collections.mjs, scripts/test-collections-http.mjs, lib/server-timing.ts, lib/builder-performance.ts, components/save-timing.tsx, scripts/profile-save-http.mjs, PERFORMANCE.md.
+
+Decisions to retain: families ≠ variants ≠ history; per-variant metadata; collection membership is a live query; sharing excludes unmatched siblings/history/private fields; same-set search; current Save vs new history; three concurrency tokens; exact raw text/notes; local-today new dates vs Unknown imports; AGPL source offer; owner-only Sites access. No folders, PokéPaste publishing or special-format parity expansion.
+
+After this pass, future tasks need a new user request: hosted latency and long-history measurements; durable UI import resumption/receipt retention; full-fidelity backups; focused phone/accessibility review; lint/bundle debt and compound custom-format facets. External Supabase setup remains deferred.
+
+---
+
 # Active work — 2026-09-10
 
 The large-library brief in attachment efab8b97 is active. User requested continuing after this foundation; do not interpret the older next-task list below as current scope. Starting clean checkpoint was c3a93a9. Source has not yet been republished in this pass; the previous owner-only deployment remains live until final verification/publication.
@@ -33,18 +51,15 @@ Foundation was committed as 9ad90b5 (canonical formats, indexed large libraries 
 - TypeScript PASS. Lint remains FAIL: 66 existing diagnostics (previous checkpoint 67); no diagnostics in the new format/import/bulk/test helpers. Production build PASS (all five Vinext phases; 184-file corresponding-source archive). The Sites 0.1.66 build helper failed in Windows command quoting; the same package build succeeded through PowerShell with a command-scoped safe.directory exception for this checkout. No global Git setting changed.
 - Browser: empty-slot autofocus; Gen 4 Ubers; National Dex singles/doubles; stored custom Gen 5 Doubles and local-today date; 1,000 one-set import with progress and Unknown dates; page selection 30→60; select all 1,001 fixtures; bulk tag; one-confirmation deletion. Read-only comparison confirms all 6 original teams, 13 snapshots and 2 share rows unchanged; every QAScale20260910 fixture was removed. Browser navigation had intermittent timeouts and pointer clicks during moving layouts; keyboard activation and subsequent state verification completed checks. Physical touch/assistive tech remains unverified.
 
-## Next work, in priority order
+## Remaining final verification
 
-1. Private saved-query Collections CRUD and canonical filters; no duplicate memberships/folders.
-2. Live collection capability sharing, rotate/revoke, membership checked at every detail read, matching variants grouped, no client query override.
-3. Repeated one/six-set real Save/new history/Create variant timing stages, before/after medians/outliers, preserve persistence-confirmed Saved and three-token guards.
-4. Re-run complete adapter/HTTP/type/build verification, update all docs/source offer, commit clean, publish owner-only, verify deployed source and access.
+Collections/live sharing and repeated Save profiling are implemented. Tests/typecheck/HTTP/build are complete; source-offer packaging, commit and owner-only publication complete this handoff. Do not start unrelated features after this scope.
 
 ## Limits / decisions to preserve
 
 Variants were committed clean as 28c747a. PokéPaste import is now implemented after that commit: authenticated allowlisted /json read, bounded streaming/timeout/no redirects, normal preview/chunked persistence, title/author/URL/notes and Unknown date. Supabase 202609100004 adds its provenance type; no D1 schema change. Automated tests pass (207 checks: 75 D1/domain, 57 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 defaults, 8 formats, 6 PokéPaste). TypeScript and live HTTP PASS; lint remains the existing 66 diagnostics. Production build/source regeneration will run after the remaining scope. The separate real-service test succeeded against https://pokepast.es/a47bb2a45883213e (Mono Hoenn by Moldy). Browser preview/import also retained author/URL/Unknown date; its exact QA family was verified and deleted via HTTP after the browser tab closed. No fixture remains.
 
-- Variants are implemented; collections remain design-only. Existing Save/history now belong to individual variants, and old share links remain variant scoped.
+- Variants and collections/live sharing are implemented. Existing Save/history now belong to individual variants, and old share links remain variant scoped.
 - In-dialog retry works; refreshing/remounting loses the UI operation descriptor. Receipts persist indefinitely for safe replay; retention/expiry and durable UI resumption need design. Legacy unchunked API/WebMCP import and selected export still have a 200-team request bound; large archives use the new Import dialog.
 - Custom identifiers are still grouped/searched by name. Reusing one unknown identifier in multiple generation/battle contexts is ambiguous in the single format facet map; preserve per-team context and revisit compound facets if needed.
 - Full current snapshot DTOs are returned for each 30-team page. No 10k full objects reach the library browser; selection is ID-only. Large per-team history/detail remains unpaginated. 20 MB is an input ceiling, not a promise that every complex 10,000-block archive fits a hosted isolate's memory/CPU limits.

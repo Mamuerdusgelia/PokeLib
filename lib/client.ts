@@ -1,5 +1,9 @@
 'use client';
-import { recordBuilderRequest } from './builder-performance';
+import {
+  recordBuilderRequest,
+  saveProfilingEnabled,
+  saveRequestTrace,
+} from './builder-performance';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 let client: SupabaseClient | undefined;
 export function browserAuth(url: string, key: string) {
@@ -13,17 +17,22 @@ export async function api(
 ): Promise<any> {
   const started = performance.now();
   const session = client ? (await client.auth.getSession()).data.session : null;
+  const body = JSON.stringify({ action, payload });
+  saveRequestTrace(action, 'request');
   const r = await fetch('/api/vault', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(saveProfilingEnabled() ? { 'X-TeamVault-Profile': '1' } : {}),
       ...(session ? { Authorization: 'Bearer ' + session.access_token } : {}),
     },
-    body: JSON.stringify({ action, payload }),
+    body,
     signal,
   });
+  saveRequestTrace(action, 'response');
   const d: any = await r.json();
   recordBuilderRequest(action, performance.now() - started);
   if (!r.ok) throw Error(d.error || 'Request failed.');
+  saveRequestTrace(action, 'decoded', r.headers.get('Server-Timing'));
   return d;
 }

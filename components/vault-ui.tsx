@@ -22,7 +22,12 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { type PokemonSet, type TeamRecord, dateLabel } from '@/lib/domain';
+import {
+  type PokemonSet,
+  type TeamRecord,
+  type TeamMeta,
+  dateLabel,
+} from '@/lib/domain';
 export function Pick({
   value,
   onChange,
@@ -163,7 +168,7 @@ export function PokemonDetails({
   onEditSet,
   metadata,
 }: {
-  team: TeamRecord;
+  team: TeamMeta & Pick<TeamRecord, 'version'>;
   onEditSet?: (target: SetEditTarget) => void;
   metadata?: ReactNode;
 }) {

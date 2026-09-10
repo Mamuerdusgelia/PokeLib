@@ -3,6 +3,7 @@ import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { DemoStore } from './demo-store';
 import { SupabaseStore, supabaseClient } from './supabase-store';
 import { publicSupabaseConfig } from './public-config';
+import type { ServerTiming } from './server-timing';
 export function config() {
   const e = env as unknown as Record<string, any>;
   return {
@@ -13,7 +14,7 @@ export function config() {
     db: env.DB,
   };
 }
-export async function storeFor(request: Request) {
+export async function storeFor(request: Request, timing?: ServerTiming) {
   const c = config();
   if (c.url && c.key) {
     const token = request.headers
@@ -23,11 +24,11 @@ export async function storeFor(request: Request) {
     const client = supabaseClient(c.url, c.key, token);
     const { data, error } = await client.auth.getUser(token);
     if (error || !data.user) throw Error('Please sign in again.');
-    return new SupabaseStore(client);
+    return new SupabaseStore(client, timing);
   }
   const user = await getChatGPTUser();
   if (!user) throw Error('Please sign in to open your library.');
-  return new DemoStore(c.db, user.userId);
+  return new DemoStore(c.db, user.userId, timing);
 }
 export function mutationOrigin(request: Request) {
   const origin = request.headers.get('origin');

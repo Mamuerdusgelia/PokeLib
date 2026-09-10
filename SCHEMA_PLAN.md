@@ -32,11 +32,17 @@ Bulk selection will refer to whole families unless explicitly labeled variants. 
 
 ## Collections and shared collections
 
+Implementation refinement before the collection migration: persist a versioned definition containing canonicalized query text, structured filter chips, sort, favourites and a server-compiled query plan. Owner list/manage operations are paginated and optimistic updates compare updated_at. Collection names are unique per owner ignoring case. No membership table or team copies are created.
+
+Live collection links authorize only current snapshots of matching variants, not their historical revisions or unmatched siblings. Public responses include the collection name/description and matching family counts, but omit saved query definitions, owner IDs, private sibling counts and authoring flags. Page/family/variant IDs are selection inputs only; the stored owner/query are always loaded through the hashed capability. PostgreSQL will extract the grouped list query into a revoked private owner-parameterized function, shared by the authenticated list wrapper and the token resolver. Future snapshot collections need separate immutable membership/revision tables.
+
 `collections`: ID, owner, name, optional description, canonical saved query/filter definition, timestamps. Membership is computed, with no duplicate team data or folders. A separate `collection_shares` table stores 256-bit capability token hashes, creation/revocation timestamps and collection ID. Collection management is owner-only with PostgreSQL RLS and narrow RPC dispatch; D1 uses explicit owner predicates.
 
 Anonymous collection resolution loads the saved query server-side using the hash. Client parameters may select a page or a matching variant, never replace the query/owner. Recheck membership for each detail read, including after tags change. Group matching variants under their family and expose only matching siblings. Revocation/regeneration invalidates prior links. Communicate live membership clearly. Future snapshot sharing can add explicit immutable membership/revision rows with a separate mode; do not overload live queries.
 
 ## Migration and recovery
+
+Collections are implemented by D1 0007 and PostgreSQL 202609100005. Tables and private helper relationships follow the design above. No existing teams or historical snapshots are rewritten. Local recovery backup is `.artifacts/library-scale/dev-before-collections.sqlite`, created with SQLite's backup API before applying 0007. The mode column currently accepts live semantics only; snapshot membership is intentionally not implemented.
 
 Append D1 and PostgreSQL migrations together; leave prior migrations untouched. Schema-only D1 deltas must be bounded, nullable foreign-key additions and constant defaults. Existing single-variant records remain usable without backfill. Test migration from the old schema with snapshots/notes/shares, ownership and concurrent saves in both engines before applying locally or publishing. Before local application, copy the exact dev SQLite database into ignored .artifacts while the dev server is stopped or use SQLite's backup API; never copy a live WAL database unsafely. Recovery uses that verified backup in development; production recovery is an append-only corrective migration. Deployment may apply migrations before Worker upload, so new nullable/default fields must remain compatible with the old application during rollout. Do not start the variant migration unless both adapter implementations and verification can be completed safely.
 

@@ -3,8 +3,12 @@ import { planQuery } from '@/lib/search';
 import { parseBatch, parseShowdown } from '@/lib/showdown';
 import { demoDrafts } from '@/lib/demo';
 import { previewPokepaste } from '@/lib/pokepaste';
+import { ServerTiming } from '@/lib/server-timing';
 export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
+  const timing = new ServerTiming(
+    request.headers.get('X-TeamVault-Profile') === '1',
+  );
   try {
     mutationOrigin(request);
     if (Number(request.headers.get('content-length') || 0) > 21000000)
@@ -14,9 +18,19 @@ export async function POST(request: Request) {
     const { action, payload: p = {} } = JSON.parse(raw);
     if (action !== 'parse' && raw.length > 6000000)
       throw Error('Request too large; use smaller chunks.');
-    const store = await storeFor(request);
+    timing.mark('body_end');
+    const store = await timing.measure('auth', () => storeFor(request, timing));
+    timing.mark('auth_end');
     let result: any;
     switch (action) {
+      case 'collection_list':
+      case 'collection_get':
+      case 'collection_save':
+      case 'collection_delete':
+      case 'collection_share':
+      case 'collection_revoke':
+        result = await store.collection(action, p);
+        break;
       case 'list':
       case 'families':
       case 'family_variants':
@@ -107,7 +121,13 @@ export async function POST(request: Request) {
       default:
         throw Error('Unknown action.');
     }
-    return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
+    timing.mark('server_end');
+    return Response.json(result, {
+      headers: {
+        'Cache-Control': 'no-store',
+        ...(timing.header() ? { 'Server-Timing': timing.header() } : {}),
+      },
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Request failed.';
     return Response.json(

@@ -4,6 +4,11 @@ import { api } from '@/lib/client';
 import { type TeamRecord, snapshotRevision } from '@/lib/domain';
 import { familyKey } from '@/lib/variants';
 import { Field, Modal, PokemonLine } from './vault-ui';
+import {
+  startSaveTrace,
+  feedbackSaveTrace,
+  cancelSaveTrace,
+} from '@/lib/builder-performance';
 
 export function FamilyVariants({
   team,
@@ -152,6 +157,9 @@ export function VariantActions({
     [error, setError] = useState('');
   const cancel = useRef<HTMLButtonElement>(null),
     operation = useRef('');
+  useEffect(() => {
+    if (busy && mode === 'create') feedbackSaveTrace();
+  }, [busy, mode]);
   function begin(next: 'create' | 'rename' | 'delete', duplicate = false) {
     setName(
       next === 'rename'
@@ -167,6 +175,8 @@ export function VariantActions({
   }
   async function submit() {
     if (busy) return;
+    if (mode === 'create')
+      startSaveTrace('variant_create', team.version.parsed_team.length);
     setBusy(true);
     setError('');
     try {
@@ -193,6 +203,7 @@ export function VariantActions({
       } else onSaved(updated);
       setMode(null);
     } catch (e) {
+      cancelSaveTrace();
       setError((e as Error).message);
     } finally {
       setBusy(false);

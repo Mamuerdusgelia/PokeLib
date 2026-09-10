@@ -2,24 +2,28 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Copy, Download, LockKeyhole } from 'lucide-react';
 import { PokemonDetails, downloadText } from './vault-ui';
-import {
-  dateLabel,
-  formatLabel,
-  withNotes,
-  type TeamRecord,
-} from '@/lib/domain';
-export default function SharedTeam({ token }: { token: string }) {
-  const [team, setTeam] = useState<TeamRecord | null>(null),
+import { dateLabel, formatLabel, withNotes } from '@/lib/domain';
+import type { PublicTeam } from '@/lib/collections';
+export default function SharedTeam({
+  token,
+  collectionTeam,
+}: {
+  token: string;
+  collectionTeam?: string;
+}) {
+  const [team, setTeam] = useState<PublicTeam | null>(null),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
   useEffect(() => {
     const params = new URL(window.location.href).searchParams;
     fetch(
-      '/api/share/' +
+      (collectionTeam ? '/api/share/collection/' : '/api/share/') +
         token +
-        (params.has('version')
-          ? '?version=' + encodeURIComponent(params.get('version')!)
-          : ''),
+        (collectionTeam
+          ? '?team=' + encodeURIComponent(collectionTeam)
+          : params.has('version')
+            ? '?version=' + encodeURIComponent(params.get('version')!)
+            : ''),
       { cache: 'no-store' },
     )
       .then(async (r) => {
@@ -28,7 +32,7 @@ export default function SharedTeam({ token }: { token: string }) {
         setTeam(d);
       })
       .catch((e) => setError(e.message));
-  }, [token]);
+  }, [token, collectionTeam]);
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -61,6 +65,13 @@ export default function SharedTeam({ token }: { token: string }) {
         </div>
       ) : team ? (
         <div className="shared-content">
+          {collectionTeam && (
+            <p>
+              <a className="text-link" href={'/share/collection/' + token}>
+                ← Back to collection
+              </a>
+            </p>
+          )}
           <div className="page-heading detail-heading">
             <div>
               <span className="format">{formatLabel(team.format)}</span>

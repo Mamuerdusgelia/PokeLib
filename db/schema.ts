@@ -139,3 +139,37 @@ export const operationChunks = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.owner_id, t.operation_id, t.chunk_index] })],
 );
+export const collections = sqliteTable(
+  'collections',
+  {
+    id: text().primaryKey(),
+    owner_id: text().notNull(),
+    name: text().notNull(),
+    name_key: text().notNull(),
+    description: text().notNull().default(''),
+    definition: text().notNull(),
+    created_at: text().notNull(),
+    updated_at: text().notNull(),
+  },
+  (t) => [
+    uniqueIndex('collections_owner_name').on(t.owner_id, t.name_key),
+    index('collections_owner_updated').on(t.owner_id, t.updated_at, t.id),
+  ],
+);
+export const collectionShares = sqliteTable(
+  'collection_shares',
+  {
+    id: text().primaryKey(),
+    collection_id: text()
+      .notNull()
+      .references(() => collections.id, { onDelete: 'cascade' }),
+    token_hash: text().notNull(),
+    mode: text().notNull().default('live'),
+    created_at: text().notNull(),
+    revoked_at: text(),
+  },
+  (t) => [
+    uniqueIndex('collection_share_hash').on(t.token_hash),
+    index('collection_share_collection').on(t.collection_id),
+  ],
+);

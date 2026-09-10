@@ -141,6 +141,7 @@ export function SearchFilters({
                 ? 'Unknown'
                 : chip.value}
             <button
+              type="button"
               aria-label={
                 'Remove ' + filterLabels[chip.field] + ' filter ' + chip.value
               }
@@ -217,6 +218,7 @@ export function SearchFilters({
           </ComboboxContent>
         </Combobox>
         <button
+          type="button"
           className="search-filter-toggle"
           aria-label="Add search filter"
           onClick={() => {
@@ -227,7 +229,11 @@ export function SearchFilters({
           <SlidersHorizontal size={17} />
         </button>
         {(text || chips.length > 0) && (
-          <button aria-label="Clear search and filters" onClick={onClear}>
+          <button
+            type="button"
+            aria-label="Clear search and filters"
+            onClick={onClear}
+          >
             <X size={17} />
           </button>
         )}

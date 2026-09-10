@@ -16,6 +16,8 @@ import { indexTerms } from './search';
 import { demoDrafts } from './demo';
 import { canonicalFormat, formatSearchValues } from './formats';
 import { DemoVariants } from './demo-variants';
+import { DemoCollections } from './demo-collections';
+import { ServerTiming } from './server-timing';
 import {
   validateChunk,
   requestHash,
@@ -31,6 +33,7 @@ export class DemoStore {
   constructor(
     private db: D1Database,
     private owner: string,
+    private timing = new ServerTiming(),
   ) {}
   private stmt(sql: string, ...args: any[]) {
     return this.db.prepare(sql).bind(...args);
@@ -100,22 +103,14 @@ export class DemoStore {
   }
   async get(id: string) {
     const row = await this.stmt(
-      'SELECT t.*,v.snapshot,CASE WHEN t.family_id IS NULL THEN 1 ELSE (SELECT count(*) FROM teams s WHERE s.family_id=t.family_id AND s.owner_id=t.owner_id) END variant_count FROM teams t JOIN team_versions v ON v.id=t.current_version_id AND v.team_id=t.id WHERE t.id=? AND t.owner_id=?',
+      "SELECT t.*,v.snapshot,CASE WHEN t.family_id IS NULL THEN 1 ELSE (SELECT count(*) FROM teams s WHERE s.family_id=t.family_id AND s.owner_id=t.owner_id) END variant_count,(SELECT coalesce(json_group_array(json(h.snapshot)),'[]') FROM (SELECT snapshot FROM team_versions WHERE team_id=t.id ORDER BY version_number DESC) h) history_json,EXISTS(SELECT 1 FROM share_links s WHERE s.team_id=t.id AND s.revoked_at IS NULL) has_share FROM teams t JOIN team_versions v ON v.id=t.current_version_id AND v.team_id=t.id WHERE t.id=? AND t.owner_id=?",
       id,
       this.owner,
     ).first<Row>();
     if (!row) throw Error('Team not found.');
     const team = this.hydrate(row);
-    const h = await this.stmt(
-      'SELECT snapshot FROM team_versions WHERE team_id=? ORDER BY version_number DESC',
-      id,
-    ).all<Row>();
-    team.history = h.results.map((r) => JSON.parse(r.snapshot));
-    const share = await this.stmt(
-      'SELECT id FROM share_links WHERE team_id=? AND revoked_at IS NULL',
-      id,
-    ).first();
-    return { ...team, has_share: !!share };
+    team.history = JSON.parse(row.history_json);
+    return { ...team, has_share: !!row.has_share };
   }
   private termStatements(meta: any, v: Snapshot, comments: string[] = []) {
     return [
@@ -365,7 +360,11 @@ export class DemoStore {
       ...this.tagStatements(id, m.tags),
     );
     try {
-      const results = await this.db.batch(statements);
+      this.timing.mark('prepared');
+      const results = await this.timing.measure('mutation', () =>
+        this.db.batch(statements),
+      );
+      this.timing.mark('mutation_end');
       if (!results[create ? 1 : 0].meta.changes) throw Error('Team not found.');
     } catch (e) {
       const message = (e as Error).message;
@@ -377,7 +376,7 @@ export class DemoStore {
         throw Error(editConflict);
       throw e;
     }
-    return this.get(id);
+    return this.timing.measure('readback', () => this.get(id));
   }
   async patch(id: string, p: Row) {
     if (Object.keys(p).every((k) => ['favourite', 'archived'].includes(k))) {
@@ -560,6 +559,10 @@ export class DemoStore {
     const plan = p.plan as QueryPlan;
     const args: any[] = [this.owner];
     const clauses = ['t.owner_id=?'];
+    if (p.team_id) {
+      clauses.push('t.id=?');
+      args.push(p.team_id);
+    }
     if (p.family_id) {
       clauses.push('coalesce(t.family_id,t.id)=?');
       args.push(p.family_id);
@@ -792,7 +795,13 @@ export class DemoStore {
     return { deleted: true };
   }
   variant(action: string, payload: unknown) {
-    return new DemoVariants(this.db, this.owner, this).run(action, payload);
+    return new DemoVariants(this.db, this.owner, this, this.timing).run(
+      action,
+      payload,
+    );
+  }
+  collection(action: string, payload: unknown) {
+    return new DemoCollections(this.db, this.owner).run(action, payload);
   }
   async share(id: string, revoke = false) {
     await this.get(id);

@@ -1,5 +1,11 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -73,6 +79,9 @@ import { BulkActionDialog as BulkDialog } from './bulk-actions';
 import { TeamCard } from './team-card';
 import { VariantActions } from './variants';
 import { familyKey } from '@/lib/variants';
+import { Collections } from './collections';
+import { SaveTimingPanel } from './save-timing';
+import { commitSaveTrace } from '@/lib/builder-performance';
 import type { SetEditTarget } from '@/lib/builder-data';
 import { InlineTeamMetadata } from './inline-team-metadata';
 import {
@@ -113,6 +122,12 @@ const sortOptions: [string, string][] = [
   ['source', 'Source'],
 ];
 export default function Library() {
+  const [collectionMode, setCollectionMode] = useState<
+    'save' | 'manage' | null
+  >(null);
+  const [collectionNav, setCollectionNav] = useState<HTMLDivElement | null>(
+    null,
+  );
   const [config, setConfig] = useState<any>(null),
     [signed, setSigned] = useState(false),
     [email, setEmail] = useState(''),
@@ -146,7 +161,11 @@ export default function Library() {
       | 'bulk_delete'
     >(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  useLayoutEffect(() => {
+    if (detail) commitSaveTrace();
+  }, [detail]);
   const [refreshTick, setRefreshTick] = useState(0);
+  const facetsReady = useRef(false);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const invalidateLibrary = useCallback(
     () => setRefreshTick((tick) => tick + 1),
@@ -223,16 +242,19 @@ export default function Library() {
     },
     [signed, query, sort, page, chips, section],
   );
+  const libraryVisible =
+    !detail && !detailLoading && modal !== 'new' && modal !== 'version';
   useEffect(() => {
+    if (!libraryVisible) return;
     const controller = new AbortController();
     const timer = setTimeout(() => refresh(controller.signal), query ? 250 : 0);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [refresh, query, refreshTick]);
+  }, [refresh, query, refreshTick, libraryVisible]);
   useEffect(() => {
-    if (!signed) return;
+    if (!signed || (!libraryVisible && facetsReady.current)) return;
     const controller = new AbortController();
     api(
       'facets',
@@ -240,13 +262,16 @@ export default function Library() {
       controller.signal,
     )
       .then((f) => {
-        if (!controller.signal.aborted) setFacets(f);
+        if (!controller.signal.aborted) {
+          setFacets(f);
+          facetsReady.current = true;
+        }
       })
       .catch((e) => {
         if (e.name !== 'AbortError') setError(e.message);
       });
     return () => controller.abort();
-  }, [signed, refreshTick]);
+  }, [signed, refreshTick, libraryVisible]);
   async function openTeam(id: string, version?: number) {
     setDetailLoading(true);
     setError('');
@@ -376,7 +401,14 @@ export default function Library() {
   }, [signed, invalidateLibrary]);
   function closeDetail() {
     setDetail(null);
-    if (typeof window !== 'undefined') window.history.replaceState({}, '', '/');
+    if (typeof window !== 'undefined')
+      window.history.replaceState(
+        {},
+        '',
+        new URLSearchParams(window.location.search).get('profile') === '1'
+          ? '/?profile=1'
+          : '/',
+      );
   }
   function chooseSection(s: string) {
     setSection(s);
@@ -518,7 +550,14 @@ export default function Library() {
         {config.demo ? (
           <a
             className="button primary"
-            href="/signin-with-chatgpt?return_to=%2F"
+            href={
+              '/signin-with-chatgpt?return_to=' +
+              encodeURIComponent(
+                typeof window === 'undefined'
+                  ? '/'
+                  : window.location.pathname + window.location.search,
+              )
+            }
             target="_top"
           >
             Sign in with ChatGPT
@@ -597,6 +636,7 @@ export default function Library() {
             selected={chips.find((c) => c.field === 'format')?.value}
             onSelect={(value) => filter('format', value)}
           />
+          <div ref={setCollectionNav} />
           <div className="sidebar-note">
             <LockKeyhole size={17} />
             <p>
@@ -621,6 +661,30 @@ export default function Library() {
           </div>
         </SidebarFooter>
       </Sidebar>
+      <SaveTimingPanel />
+      <Collections
+        navTarget={collectionNav}
+        current={{
+          query,
+          filters: chips,
+          sort,
+          favourite: section === 'Favourites',
+        }}
+        facets={facets}
+        sortOptions={sortOptions}
+        mode={collectionMode}
+        onMode={setCollectionMode}
+        onApply={(c) => {
+          setQuery(c.definition.query);
+          setChips(c.definition.filters);
+          setSort(c.definition.sort);
+          setSection(c.definition.favourite ? 'Favourites' : 'All teams');
+          setPage(0);
+          setSelected([]);
+          closeDetail();
+          setNotice('Applied collection: ' + c.name);
+        }}
+      />
       <main className="main-shell">
         <header className="topbar">
           <div>
@@ -991,6 +1055,20 @@ export default function Library() {
                 }}
               />
               <div className="toolbar compact-toolbar">
+                <div className="collection-actions">
+                  <button
+                    className="button"
+                    onClick={() => setCollectionMode('save')}
+                  >
+                    Save as collection
+                  </button>
+                  <button
+                    className="button"
+                    onClick={() => setCollectionMode('manage')}
+                  >
+                    Collections
+                  </button>
+                </div>
                 <div className="view-controls">
                   <Pick
                     label="Sort teams"

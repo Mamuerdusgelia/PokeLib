@@ -81,3 +81,52 @@ Five repeated samples per operation in isolated Node SQLite, with 1,000 / 5,000 
 Initial grouped implementation carried full metadata through two window queries: 10k initial median/max 305.24/389.90 ms, last page 432.96/504.58, expansion 10.77/11.03. The measured correction groups narrow rows, counts/selects distinct effective family IDs directly, joins full snapshots only after pagination, and indexes owner + coalesce(family_id,id).
 
 The 10k first page returns 30 current snapshots, 127,412 JSON bytes in these fixtures. Expansion returns two snapshots, 9,117 bytes; selection returns only IDs. Synthetic family IDs are short, so real UUID selection payloads are larger. Large history remains unpaginated on detail, and bulk metadata expansion has a 10,000-variant bound.
+# Repeated Save measurements — 2026-09-10
+
+Five samples per action and team size, before and after the focused change: **60 real browser actions** plus separate localhost HTTP samples. Fixtures used one Darkrai set or a full six-Pokémon team, preserving raw text; current Saves were deliberately repeated no-op saves (they still persist a new edit revision), history saves advanced revisions 1→6, and Create variant copied the displayed snapshot. Fresh comparison fixtures used the same initial content. The library contained the six original teams plus disposable fixtures, not the separate 10k benchmark dataset. All timings below are milliseconds, **median / maximum**. These are Vinext development + local D1 measurements, not hosted Worker, production React or Supabase results.
+
+| Sets / action | Visible Saved before | Visible Saved after | Saving feedback before | Saving feedback after |
+|---|---:|---:|---:|---:|
+| 1 / Save current | 171.8 / 221.8 | 125.0 / 172.6 | 53.3 / 73.9 | 84.0 / 101.0 |
+| 1 / New history | 185.6 / 194.9 | 141.1 / 189.9 | 63.3 / 88.7 | 71.2 / 79.7 |
+| 1 / Create variant | 229.8 / 327.3 | 142.9 / 185.7 | 14.4 / 23.2 | 15.3 / 21.0 |
+| 6 / Save current | 224.0 / 334.4 | 166.4 / 171.8 | 52.4 / 84.0 | 68.6 / 80.5 |
+| 6 / New history | 250.6 / 262.2 | 163.8 / 205.0 | 85.8 / 96.8 | 69.8 / 88.9 |
+| 6 / Create variant | 261.0 / 360.5 | 161.5 / 203.0 | 16.3 / 16.8 | 12.3 / 21.2 |
+
+Browser stages are cumulative from the click handler. Each cell below is **before median/max → after median/max**. Request start is after client validation, reconciliation, session lookup and JSON serialization; response means fetch resolved, decoded means its body was read. React commit is captured by a layout effect after the persisted DTO enters detail state. Visible means a subsequent animation-frame/timer checkpoint; it approximates a paint opportunity, not physical pixels. Failed persistence cancels the trace and cannot report Saved.
+
+| Sets / action | Request start | Response | Body decoded | React commit |
+|---|---|---|---|---|
+| 1 / Save | .4/1.7 → .4/1.8 | 93.5/119.1 → 84.2/112.3 | 96.6/123.6 → 85.4/114.7 | 124.1/148.9 → 117.2/148.3 |
+| 1 / History | .6/2.1 → .9/1.4 | 103.3/116 → 89.7/150.4 | 105.9/120.6 → 95.3/152.1 | 130/153 → 127.5/181.5 |
+| 1 / Variant | .1/.3 → .2/.4 | 125.2/212 → 91/106.3 | 126.1/212.6 → 91.6/107.7 | 170.7/243 → 125.1/170.3 |
+| 6 / Save | 1.1/1.8 → 1.6/2.9 | 97.2/209.7 → 106.7/114.2 | 102.8/212.9 → 108/115.2 | 153.4/270.4 → 147.4/156.5 |
+| 6 / History | 1.8/2.2 → 2.4/4.6 | 126.9/176.7 → 105.4/133.6 | 130.5/178.9 → 106.8/137.8 | 176.3/225.4 → 144.4/189.7 |
+| 6 / Variant | .1/.2 → .2/.2 | 129/163.9 → 107/119.4 | 130.5/164.7 → 108/120.8 | 199.5/247.4 → 155/181.9 |
+
+Server stages from those browser requests use the server's separate clock. Preparation and mutation-complete are cumulative from request-handler entry; mutation and readback are durations. Server totals exclude transport/response-body serialization. They must not be treated as absolute browser timestamps. Workerd's timing granularity can report zero for short stages.
+
+| Sets / action | Prepared | Mutation duration | Mutation complete | Readback | Server complete |
+|---|---|---|---|---|---|
+| 1 / Save | 17/33 → 10/11 | 17/27 → 19/23 | 42/58 → 26/34 | 9/27 → 5/13 | 50/67 → 32/43 |
+| 1 / History | 16/26 → 12/20 | 15/28 → 19/19 | 38/42 → 32/36 | 11/26 → 9/18 | 50/64 → 41/52 |
+| 1 / Variant | 25/60 → 15/21 | 21/38 → 15/25 | 46/98 → 34/42 | 13/49 → 5/7 | 56/147 → 39/48 |
+| 6 / Save | 17/28 → 9/15 | 35/37 → 29/43 | 47/62 → 44/52 | 12/14 → 4/7 | 58/67 → 46/57 |
+| 6 / History | 22/42 → 9/12 | 29/34 → 33/45 | 55/65 → 41/56 | 12/17 → 7/10 | 68/76 → 46/66 |
+| 6 / Variant | 27/45 → 12/19 | 30/33 → 25/33 | 59/72 → 39/42 | 15/18 → 6/8 | 74/87 → 47/48 |
+
+Changes: one owner-scoped D1 detail SQL read replaces three sequential reads for current snapshot/history/share state; hidden family-page/facet refreshes are deferred until returning to the library. Initial sidebar facets still load. Save continues to use the returned persisted DTO, with no extra client get. Both storage adapters retain the three-token stale-write checks; no optimistic Saved message was introduced.
+
+The independent HTTP-only run is noisier and **does not demonstrate an overall request-latency improvement**. Raw samples are in ignored `.artifacts/library-scale/save-http-before.json` and `save-http-after-idle.json`; reproduce with `node scripts/profile-save-http.mjs label`. A first after run overlapped the regression suite and was retained as `save-http-after.json`, but excluded from this comparison due to contention.
+
+| Sets / action | HTTP total before | HTTP total after | Readback before → after |
+|---|---:|---:|---|
+| 1 / Save | 43.32 / 115.40 | 54.03 / 55.14 | 6/9 → 3/4 |
+| 1 / History | 45.71 / 114.24 | 62.93 / 70.31 | 6/8 → 5/10 |
+| 1 / Variant | 47.48 / 51.63 | 70.77 / 74.22 | 5/9 → 4/6 |
+| 6 / Save | 41.79 / 72.39 | 68.01 / 99.52 | 5/8 → 5/6 |
+| 6 / History | 45.13 / 231.08 | 58.83 / 62.42 | 6/11 → 4/6 |
+| 6 / Variant | 42.33 / 77.52 | 73.23 / 84.86 | 7/8 → 3/4 |
+
+Limitations: development scheduling, rendering and local D1 contention remain variable. Browser feedback sometimes regressed even while completion improved. These samples did not reproduce earlier multi-second saves and do not prove those outliers eliminated. Hosted D1, real Supabase, long-history teams, cold bundles and repeated real-phone interactions need separate measurements. Profiling is local opt-in only, retains at most 60 traces, and records no contents/IDs or remote telemetry.

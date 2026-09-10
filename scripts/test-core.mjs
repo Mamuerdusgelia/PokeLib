@@ -1,5 +1,7 @@
 import { testLargeWorkflows } from './test-large-workflows.mjs';
 import { testVariants } from './test-variants.mjs';
+import { testCollections } from './test-collections.mjs';
+import { resolveDemoCollection } from '../.test-build/demo-collections.mjs';
 import { snapshotRevision } from '../.test-build/domain.mjs';
 import assert from 'node:assert/strict';
 import { testSaveModel, argsFor, draftOf } from './test-save-model.mjs';
@@ -726,4 +728,10 @@ await check(
 );
 await testLargeWorkflows(a, b, check, 1000);
 await testVariants(a, b, check);
+await testCollections(
+  a,
+  b,
+  (token, p) => resolveDemoCollection(d1, token, p),
+  check,
+);
 console.log('SQLite + domain: ' + passed + ' checks passed.');

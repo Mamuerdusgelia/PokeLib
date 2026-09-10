@@ -642,6 +642,119 @@ h1 > span {
     display: none;
   }
 }
+.save-timing {
+  position: fixed;
+  z-index: 70;
+  right: 12px;
+  bottom: 12px;
+  max-width: 90vw;
+  background: var(--background);
+  border: 1px solid var(--border);
+  padding: 8px;
+  font-size: 12px;
+}
+.save-timing pre {
+  max-height: 25vh;
+  overflow: auto;
+  max-width: 85vw;
+}
+.collection-nav-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 16px;
+}
+.collection-nav-heading .nav-section {
+  flex: 1;
+}
+.collection-nav-item span {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  color: inherit;
+}
+.collection-hint {
+  padding: 0 20px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.collection-paging {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  font-size: 14px;
+}
+.collection-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.collection-row p {
+  margin: 6px 0;
+}
+.collection-row small {
+  color: var(--muted-foreground);
+}
+.collection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.collection-fields {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+.collection-fields .searchbar {
+  margin-top: 8px;
+}
+.shared-family {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.shared-family-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.shared-family h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+.shared-family p {
+  font-size: 14px;
+  margin: 6px 0;
+}
+.shared-family .pokemon-line {
+  flex: 0 1 400px;
+  min-width: 0;
+}
+.shared-variants {
+  padding-left: 20px;
+  border-left: 2px solid var(--border);
+  margin-top: 12px;
+}
+@media (max-width: 767px) {
+  .collection-row,
+  .shared-family-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .shared-family .pokemon-line {
+    flex: auto;
+    width: 100%;
+  }
+}
 @media (max-width: 767px) {
   .topbar {
     padding: 0 18px;

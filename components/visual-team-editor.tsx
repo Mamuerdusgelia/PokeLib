@@ -7,6 +7,9 @@ import {
   afterBuilderPaint,
   cancelBuilderTiming,
   recordBuilderRender,
+  startSaveTrace,
+  feedbackSaveTrace,
+  cancelSaveTrace,
 } from '@/lib/builder-performance';
 import { FormatPicker } from './format-picker';
 import { assistanceFormat } from '@/lib/formats';
@@ -133,7 +136,10 @@ export function TeamEditor({
     };
   }, [draft.format, draft.format_context]);
   useEffect(() => {
-    if (busy) afterBuilderPaint('save-feedback');
+    if (busy) {
+      afterBuilderPaint('save-feedback');
+      feedbackSaveTrace();
+    }
   }, [busy]);
   function updateSlots(next: EditorSlot[]) {
     setSlots(next);
@@ -195,6 +201,16 @@ export function TeamEditor({
   const historical =
     mode === 'version' && team?.version.id !== team?.current_version_id;
   async function save(asNewVersion = false) {
+    startSaveTrace(
+      mode === 'version'
+        ? asNewVersion
+          ? 'version'
+          : 'save'
+        : mode === 'metadata'
+          ? 'patch'
+          : 'import',
+      slots.filter((s) => s.set.species).length,
+    );
     for (const timing of [
       'save-feedback',
       'save-persisted',
@@ -271,6 +287,7 @@ export function TeamEditor({
       }
     } catch (e) {
       cancelBuilderTiming('save-persisted');
+      cancelSaveTrace();
       cancelBuilderTiming('save-visible');
       setError((e as Error).message);
     } finally {

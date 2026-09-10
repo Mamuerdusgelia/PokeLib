@@ -1,5 +1,6 @@
 import { testLargeWorkflows } from './test-large-workflows.mjs';
 import { testVariants } from './test-variants.mjs';
+import { testCollections } from './test-collections.mjs';
 import { snapshotRevision } from '../.test-build/domain.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import assert from 'node:assert/strict';
@@ -634,5 +635,44 @@ const otherClient = {
 };
 await testLargeWorkflows(store, new SupabaseStore(otherClient), check);
 await testVariants(store, new SupabaseStore(otherClient), check);
+await testCollections(
+  store,
+  new SupabaseStore(otherClient),
+  async (token, p) => {
+    await pg.exec('SET ROLE anon');
+    try {
+      const r = (
+        await pg.query('SELECT public.resolve_collection($1,$2::jsonb) data', [
+          token,
+          JSON.stringify(p),
+        ])
+      ).rows[0].data;
+      if (!r) throw Error('Collection unavailable.');
+      return r;
+    } finally {
+      await pg.exec('SET ROLE authenticated');
+    }
+  },
+  check,
+);
+await check('collection RLS and private helper permissions', async () => {
+  await assert.rejects(
+    () => pg.query('SELECT * FROM public.collection_shares'),
+    /permission denied/,
+  );
+  await assert.rejects(
+    () =>
+      pg.query(
+        "INSERT INTO public.collections(id,owner_id,name,name_key,definition) VALUES(gen_random_uuid(),auth.uid(),'x','x','{}')",
+      ),
+    /permission denied/,
+  );
+  for (const fn of [
+    "private.list_family_teams(auth.uid(),'{}')",
+    'private.get_collection(gen_random_uuid(),auth.uid())',
+    "public.vault_before_collections('list','{}')",
+  ])
+    await assert.rejects(() => pg.query('SELECT ' + fn), /permission denied/);
+});
 console.log('PostgreSQL: ' + passed + ' checks passed.');
 await pg.close();

@@ -110,11 +110,11 @@ Species + move/item/ability/nature/Tera constraints must match a single set. Spe
 
 ## Large-library workflows
 
-The supported design target is 10,000 stored teams per account with 30-record database pages. Select current page accumulates across pages; Select all matching resolves up to 10,000 owned IDs on the server. Bulk Delete has one confirmation; Add tag unions existing tags. Source/year replacement also remains available. Operations run in five-team atomic chunks with progress; completed chunks survive failures and Retry continues the paused operation without duplicating completed work. A partial close reports the actual completed count. Selections currently refer to whole teams; variants are not implemented at this checkpoint.
+The supported design target is 10,000 stored teams per account with 30-record database pages. Select current page accumulates across pages; Select all matching resolves up to 10,000 owned IDs on the server. Bulk Delete has one confirmation; Add tag unions existing tags. Source/year replacement also remains available. Operations run in five-team atomic chunks with progress; completed chunks survive failures and Retry continues the paused operation without duplicating completed work. A partial close reports the actual completed count. Selections refer to whole team families; bulk metadata resolves every sibling variant before confirmation, including siblings outside the current filter.
 
 Import parses a full Showdown archive once (20 MB / 10,000 blocks maximum), presents 50 editable previews per page, and accepts common tags/source/date/notes. Persistence uses five-team chunks and owner-scoped durable receipts. The UI has been exercised with 1,000 teams; retry correctness is tested on both adapters. Keep a paused dialog open for Retry: navigation/reload loses its in-memory run descriptor even though successful chunks remain saved. A fresh import intentionally creates new records. Legacy unchunked API/WebMCP calls retain a 200-team request bound; use the Import dialog for large archives. Selected Showdown export remains capped at 200 teams.
 
-See [PERFORMANCE.md](PERFORMANCE.md) for measured 1k/5k/10k timing tables, payload limits, before/after query and Save statement counts, and the distinction between local and hosted evidence. [SCHEMA_PLAN.md](SCHEMA_PLAN.md) records the planned families/variants/collections relationships and development recovery; those future schemas are not installed yet.
+See [PERFORMANCE.md](PERFORMANCE.md) for measured 1k/5k/10k timing tables, payload limits, before/after query and Save statement counts, and the distinction between local and hosted evidence. [SCHEMA_PLAN.md](SCHEMA_PLAN.md) records the planned families/variants/collections relationships and development recovery; families and collections are now installed by the additive migrations described there.
 
 ## Dates and preservation
 
@@ -126,13 +126,27 @@ Visual changes rewrite only the edited Showdown field lines; unknown lines and e
 
 ## Sharing
 
-Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A living link resolves the team's current version; ?version=N stays on that numbered version, following edits while it is current and becoming fixed once historical. Tokens authorize the conceptual team and its versions, so a pinned URL is not a narrower access grant. The interface explains this. Regeneration and revocation invalidate previous links. Shared projections include notes, tags and source, but exclude owner account fields and full history.
+Share tokens have 256 bits of randomness and only SHA-256 hashes are stored. A living link resolves the team's current version; ?version=N stays on that numbered version, following edits while it is current and becoming fixed once historical. Standalone team tokens authorize one variant and its versions, so a pinned URL is not a narrower access grant. The interface explains this. Regeneration and revocation invalidate previous links. Shared projections include notes, tags and source, but exclude owner account fields and full history.
 
 A private Sites deployment restricts access to the site itself. To let arbitrary people open links, first configure Supabase and deliberately change the site's audience. The application still keeps libraries private through RLS and token checks.
 
+## Collections
+
+Use **Save as collection** beside the search controls to save the current text, filter chips, favourites setting and sort. Collections appear in the sidebar and in the mobile-accessible Collections dialog. Selecting one restores its filters; Edit changes its name, description or saved filters; Delete removes the search and revokes its links while retaining all teams. Names are unique per owner ignoring case. Collection management is paginated at 30 entries and edits reject stale timestamps. Known format filters store canonical IDs.
+
+**Share collection** creates a revocable live capability at `/share/collection/<token>`. Membership is reevaluated from the saved owner/query on every read. Families are grouped, only matching variants can be expanded/opened, and details expose current snapshots, notes, tags and provenance. History, unmatched siblings, private sibling counts, saved query definitions, owner fields and authoring flags are omitted. Page/family/team parameters only select within this scope; they cannot replace the saved query. Regenerate invalidates the old token; Revoke and collection deletion remove access. Editing a shared collection changes its exposed membership, with an explicit warning in the editor. The outer owner-only Sites gate still applies.
+
+Collections copy no teams and require no membership table, so one variant may match several. Snapshot collections and folders remain deferred. D1 0007 and PostgreSQL 202609100005 add the tables, owner indexes, unique names, share hashes and cascading revocation. `node scripts/test-collections-http.mjs` tests the real routes against localhost.
+
+## Save diagnostics
+
+Append `profile=1` to the local page URL to enable the local Save timing panel. It records click-handler entry, request start, Saving feedback, response/decode, React commit and a post-paint checkpoint for current Save, new history and Create variant. Requests opt into numeric Server-Timing entries; D1 records preparation, mutation and readback separately, while Supabase reports RPC duration including its network round trip. No content, identifiers or telemetry are recorded. `node scripts/profile-save-http.mjs sample` measures five local HTTP requests for each one/six-set action using disposable fixtures. See PERFORMANCE.md for before/after results and limitations.
+
+D1 detail reads now fetch current state/history/share status in one owner-scoped SQL statement. Hidden library and facet refreshes are deferred until returning to the library; initial sidebar facets still load. Saved remains conditional on confirmed persistence, and all three stale-write tokens remain mandatory.
+
 ## Tests
 
-- pnpm test: 66 domain/SQLite, 48 PostgreSQL migration/RLS/RPC, 13 UX helper, 10 builder, 25 Showdown integration, 13 authored-default and 8 canonical-format checks (183 total). Includes a 1,000-team import, durable retry receipts, bulk ownership/atomicity, search, preservation and concurrency races.
+- pnpm test: 220 checks (81 domain/D1, 64 PostgreSQL, 13 UX, 10 builder, 25 Showdown, 13 authored defaults, 8 formats and 6 PokéPaste). Includes 1,000-team import/replay, variant/history isolation, collection privacy/live membership, ownership and concurrency.
 - pnpm test:http: integration checks against the running local server; signs into the local simulator, verifies authentication, persistence, search, history, sharing/revocation, and cross-origin rejection.
 - pnpm typecheck: TypeScript validation.
 - pnpm build: complete Workers production build.

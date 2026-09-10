@@ -10,12 +10,14 @@ import {
 } from './variants';
 import { requestHash, validateChunk, type ChunkKey } from './import-workflow';
 import { variantPayload } from './variants';
+import { ServerTiming } from './server-timing';
 
 export class DemoVariants {
   constructor(
     private db: D1Database,
     private owner: string,
     private store: DemoStore,
+    private timing = new ServerTiming(),
   ) {}
   private stmt(sql: string, ...args: (string | number | null)[]) {
     return this.db.prepare(sql).bind(...args);
@@ -253,7 +255,9 @@ export class DemoVariants {
       ),
     ];
     try {
-      await this.db.batch(statements);
+      this.timing.mark('prepared');
+      await this.timing.measure('mutation', () => this.db.batch(statements));
+      this.timing.mark('mutation_end');
     } catch (e) {
       const previous = await this.receipt(key, action, digest);
       if (previous) return this.store.get(previous.id);
@@ -265,7 +269,7 @@ export class DemoVariants {
         throw Error('This team changed. Reload before creating a variant.');
       throw e;
     }
-    return this.store.get(id);
+    return this.timing.measure('readback', () => this.store.get(id));
   }
   private async receipt(key: ChunkKey, kind: string, digest: string) {
     const row = await this.stmt(

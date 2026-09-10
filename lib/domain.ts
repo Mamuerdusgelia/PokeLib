@@ -237,7 +237,7 @@ export const formatLabel = (f: string) =>
     .replace(/vgc20(\d{2})/i, 'VGC $1 ')
     .replace(/regulation/i, 'Reg ')
     .toUpperCase();
-export function withNotes(t: TeamRecord) {
+export function withNotes(t: Pick<TeamRecord, 'title' | 'version'>) {
   return (
     t.version.showdown_text +
     '\n\n# ' +

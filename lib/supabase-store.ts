@@ -11,11 +11,20 @@ import {
 } from './import-workflow';
 import { hashToken } from './demo-store';
 import { variantDetails, familySelection, variantPayload } from './variants';
+import { cleanCollection } from './collections';
+import { ServerTiming } from './server-timing';
 export class SupabaseStore {
-  constructor(private client: SupabaseClient) {}
+  constructor(
+    private client: SupabaseClient,
+    private timing = new ServerTiming(),
+  ) {}
   async call(action: string, payload: any = {}) {
-    const { data, error } = await this.client.rpc('vault', { action, payload });
+    const { data, error } = await this.timing.measure('rpc', () =>
+      Promise.resolve(this.client.rpc('vault', { action, payload })),
+    );
     if (error) throw Error(error.message);
+    if (['save', 'version', 'variant_create'].includes(action))
+      this.timing.mark('mutation_end');
     return data;
   }
   initialize() {
@@ -228,6 +237,19 @@ export class SupabaseStore {
       .join('');
     await this.call('share', { id, token_hash: await hashToken(token) });
     return { token };
+  }
+  async collection(action: string, input: unknown) {
+    const p = input as Record<string, unknown>;
+    if (action === 'collection_save')
+      return this.call(action, cleanCollection(p));
+    if (action === 'collection_share') {
+      const token = [...crypto.getRandomValues(new Uint8Array(32))]
+        .map((x) => x.toString(16).padStart(2, '0'))
+        .join('');
+      await this.call(action, { id: p.id, token_hash: await hashToken(token) });
+      return { token };
+    }
+    return this.call(action, p);
   }
 }
 export const supabaseClient = (url: string, key: string, token?: string) =>
