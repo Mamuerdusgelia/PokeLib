@@ -16,7 +16,10 @@ $kind = & node $helper $Project $destination
 if ($LASTEXITCODE -ne 0 -or $kind -ne 'worker') { throw 'Sites build validation failed' }
 New-Item -ItemType Directory -Path (Join-Path $destination '.openai') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $Project '.openai/hosting.json') -Destination (Join-Path $destination '.openai/hosting.json')
-Copy-Item -LiteralPath (Join-Path $Project 'drizzle') -Destination (Join-Path $destination '.openai/drizzle') -Recurse
+$migrationDestination = Join-Path $destination '.openai/drizzle'
+New-Item -ItemType Directory -Path $migrationDestination -Force | Out-Null
+Get-ChildItem -LiteralPath (Join-Path $Project 'drizzle') -Force | Copy-Item -Destination $migrationDestination -Recurse -Force
+if (Test-Path -LiteralPath (Join-Path $migrationDestination 'drizzle')) { throw 'Unexpected nested migrations' }
 $archive = Join-Path $artifactRoot 'pokelib.tar.gz'
 & tar -C $stage -czf $archive dist
 if ($LASTEXITCODE -ne 0) { throw 'Archive creation failed' }
