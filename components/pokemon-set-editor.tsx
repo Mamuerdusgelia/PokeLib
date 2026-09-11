@@ -4,8 +4,14 @@ import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { startBuilderTiming } from '@/lib/builder-performance';
 import type { PokemonSet } from '@/lib/domain';
 import type { EditorSlot } from '@/lib/visual-team';
+import { toID } from '@pkmn/dex';
+import {
+  championsContext,
+  championsAvailabilityLabel,
+} from '@/lib/champions-context';
 import {
   dexFor,
+  availableIn,
   presentedSet,
   canonicalMoveName,
   learnsetSuggestions,
@@ -126,6 +132,11 @@ export function PokemonSetEditor({
   onRemove: () => void;
 }) {
   const stored = slot.set;
+  const champions = !!championsContext(format);
+  const [movePool, setMovePool] = useState<{
+    key: string;
+    moves: Set<string>;
+  } | null>(null);
   const s = presentedSet(format, stored),
     gen = generationFor(format),
     species = dexFor(format).species.get(s.species);
@@ -141,7 +152,16 @@ export function PokemonSetEditor({
         : null,
   );
   useEffect(() => {
-    if (s.species) void learnsetSuggestions(format, s.species).catch(() => {});
+    let cancelled = false;
+    if (s.species)
+      void learnsetSuggestions(format, s.species)
+        .then((moves) => {
+          if (!cancelled) setMovePool({ key: format + ':' + s.species, moves });
+        })
+        .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [format, s.species]);
   const panel = useRef<HTMLElement>(null);
   const skipMoveFocus = useRef(false);
@@ -184,6 +204,21 @@ export function PokemonSetEditor({
     value: string,
     moveIndex?: number,
   ) {
+    const dex = dexFor(format);
+    const entry =
+      kind === 'item'
+        ? dex.items.get(value)
+        : kind === 'ability'
+          ? dex.abilities.get(value)
+          : dex.moves.get(value);
+    const available =
+      kind === 'moves'
+        ? movePool?.key !== format + ':' + s.species ||
+          movePool.moves.has(toID(value))
+        : availableIn(format, entry);
+    const warning = ['item', 'ability', 'moves'].includes(kind)
+      ? championsAvailabilityLabel(format, kind, value, available)
+      : '';
     return (
       <div className="builder-value">
         <span>{label}</span>
@@ -234,6 +269,14 @@ export function PokemonSetEditor({
           >
             {value || 'Choose ' + label.toLowerCase()}
           </button>
+        )}
+        {warning && (
+          <small className="warning">
+            {kind === 'moves' && !available
+              ? 'Unavailable in this Pokémon’s Champions learnset'
+              : warning}
+            . Kept as entered.
+          </small>
         )}
       </div>
     );
@@ -346,7 +389,7 @@ export function PokemonSetEditor({
                   ?.focus();
               else if (direction < 0)
                 focusField(
-                  gen >= 9
+                  gen >= 9 && !champions
                     ? 'teraType'
                     : gen >= 3
                       ? 'nature'
@@ -380,6 +423,24 @@ export function PokemonSetEditor({
             : ''}
         </p>
       )}
+      {champions &&
+        s.species &&
+        championsAvailabilityLabel(
+          format,
+          'species',
+          s.species,
+          availableIn(format, species),
+        ) && (
+          <p className="warning">
+            {championsAvailabilityLabel(
+              format,
+              'species',
+              s.species,
+              availableIn(format, species),
+            )}
+            . Kept as entered.
+          </p>
+        )}
       <div className="builder-columns">
         <div className="builder-set-values">
           {gen >= 2 && field('Item', 'item', s.item || '')}
@@ -424,8 +485,10 @@ export function PokemonSetEditor({
               {field('Nature', 'nature', s.nature || '')}
             </>
           )}
-          {gen >= 9 && field('Tera type', 'teraType', s.teraType || '')}
-          {gen >= 9 && species.requiredTeraType && (
+          {gen >= 9 &&
+            !champions &&
+            field('Tera type', 'teraType', s.teraType || '')}
+          {gen >= 9 && !champions && species.requiredTeraType && (
             <p className="picker-hint">
               {species.name} requires {species.requiredTeraType} Tera. Existing
               values are preserved until you change them.

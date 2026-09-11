@@ -1,10 +1,14 @@
 import registry from './showdown-data/formats.json';
+import champions from './showdown-data/champions-formats.json';
 export type FormatContext = {
   generation: number;
   battle: 'singles' | 'doubles';
 };
 const idOf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-export const formatRegistry = registry.formats;
+export const formatRegistry = [
+  ...registry.formats.filter((f) => !f.mod.startsWith('champions')),
+  ...champions.registry,
+];
 // Read the named generation: IDs such as gen91v1 concatenate generation and tier.
 export const formatGeneration = (f: { name: string }) =>
   Number(f.name.match(/^\[Gen (\d+)/)?.[1]) || 0;
@@ -44,7 +48,7 @@ export function isOrdinaryFormat(value: string) {
   const f = knownFormat(value);
   if (!f || !['singles', 'doubles'].includes(f.battle)) return false;
   const suffix = f.id.replace(/^gen\d+(?:bdsp|letsgo|champions|dlc\d+)?/, '');
-  return /^(?:ou|ubers|uu|ru|nu|pu|zu|lc|nfe|anythinggoes|doublesou|doublesuu|doublesubers|nationaldex(?:ubers|ou|uu|ru|lc|ag|doubles|doublesubers)?|vgc\d+.*|battlestadium(?:singles|doubles).*|battlespot(?:singles|doubles).*)$/.test(
+  return /^(?:ou|ubers|uu|ru|nu|pu|zu|lc|nfe|anythinggoes|doublesou|doublesuu|doublesubers|nationaldex(?:ubers|ou|uu|ru|lc|ag|doubles|doublesubers)?|vgc\d+.*|bssregm[abc]|battlestadium(?:singles|doubles).*|battlespot(?:singles|doubles).*)$/.test(
     suffix,
   );
 }

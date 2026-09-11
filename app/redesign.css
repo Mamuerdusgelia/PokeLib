@@ -249,6 +249,11 @@
   color: #96a7ad;
   font-size: 14px;
 }
+.builder-value > .warning {
+  grid-column: 1 / -1;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
 .builder-value .unset {
   color: #a6b995;
   font-weight: 400;

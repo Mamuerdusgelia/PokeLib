@@ -16,6 +16,14 @@ import {
   type StatId,
 } from './builder-data';
 import type { PokemonSet } from './domain';
+import { championsContext, championsRules } from './champions-context';
+import { knownFormat } from './formats';
+
+export function creationLevel(format: string) {
+  const known = knownFormat(format);
+  if (/vgc/i.test(known?.id || format)) return 50;
+  return championsRules(format)?.defaultLevel;
+}
 
 export function requiredItems(format: string, name: string) {
   const dex = dexFor(format),
@@ -47,6 +55,10 @@ export function speciesSelectionPatch(
   const patch: Partial<PokemonSet> = {
     species: species.exists ? stored.name : name,
   };
+  if (options.authored && !set.species && set.level === undefined) {
+    const level = creationLevel(format);
+    if (level !== undefined) patch.level = level;
+  }
   // Re-selecting an imported species must not normalize unusual abilities/items.
   if (!species.exists) return patch;
   if (presentedSpecies(format, set).id === species.id)
@@ -91,6 +103,7 @@ export function speciesSelectionPatch(
   if (moves.some((move, index) => move !== (patch.moves || set.moves)[index]))
     patch.moves = moves;
   if (
+    !championsContext(format) &&
     generationFor(format) >= 9 &&
     (options.teraManaged || (options.authored && !set.teraType))
   ) {
@@ -101,7 +114,7 @@ export function speciesSelectionPatch(
 
 /** Display fallback only; callers decide whether an authored default is persisted. */
 export function defaultTeraType(format: string, name: string) {
-  if (generationFor(format) < 9) return undefined;
+  if (generationFor(format) < 9 || championsContext(format)) return undefined;
   const species = dexFor(format).species.get(name);
   return species.exists
     ? species.requiredTeraType || species.types[0]
@@ -114,7 +127,12 @@ export function stepEV(
   direction: number,
 ) {
   const current = set.evs?.[stat] ?? (generationFor(format) < 3 ? 252 : 0);
-  return editEVs(set, format, stat, current + direction * 4);
+  return editEVs(
+    set,
+    format,
+    stat,
+    current + direction * (championsContext(format) ? 1 : 4),
+  );
 }
 export function adjacentMove(index: number, count: number, direction: number) {
   const next = index + direction;

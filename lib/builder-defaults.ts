@@ -1,4 +1,5 @@
 import type { PokemonSet } from './domain';
+import { championsContext } from './champions-context';
 import { defaultTeraType } from './showdown-builder';
 import { presentedSpecies } from './builder-data';
 import { dexFor, generationFor } from './builder-data';
@@ -17,7 +18,7 @@ export function patchAuthoredSlot(
   complete = false,
 ): EditorSlot {
   let next = Object.keys(patch).length ? patchVisualSlot(slot, patch) : slot;
-  if (!slot.editing?.authored) return next;
+  if (!slot.editing?.authored || championsContext(format)) return next;
   const editing = { ...slot.editing };
   if (manualAttackIv || (patch.ivs && patch.ivs.atk !== slot.set.ivs?.atk))
     editing.attack_iv = 'manual';

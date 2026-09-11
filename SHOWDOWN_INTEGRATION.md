@@ -1,5 +1,54 @@
 # Showdown integration
 
+## Champions game data and VGC creation defaults — 2026-09-11
+
+Champions builder assistance now uses a dedicated, offline generated dataset, replacing the generic generation-only Dex/catalog and the older client-table traversal for every Champions context. The ordinary format registry already named M-C, but did not select its mod. Previously the catalog cache merged Champions with SV, and the older learnset adapter used SV move metadata and pre-evolution/origin filtering. Neither was a reliable representation of Champions.
+
+The controlled extraction pins **`524413e8415fe179781e9bbcc7c79a85543b3409`** from the official [Showdown repository](https://github.com/smogon/pokemon-showdown/tree/524413e8415fe179781e9bbcc7c79a85543b3409). M-C uses `champions`; M-B uses that same revision's `championsregmb`. M-A uses the complete historical `championsregma` inheritance tree at PokéLib's original inspected server pin, **`6b4bc34e44cc2541929cc4b8fff96e756ab3f268`**, because current upstream no longer ships M-A. The old general-purpose client artifacts, the non-Champions registry pin, and package versions are unchanged.
+
+### Integrated sources and resolution
+
+- All eight current Champions mod files were inspected: `abilities.ts`, `conditions.ts`, `formats-data.ts`, `items.ts`, `learnsets.ts`, `moves.ts`, `rulesets.ts`, and `scripts.ts`. There is no separate Champions `pokedex.ts`; species/forms, stats and abilities inherit the base `data/pokedex.ts` at the same pin, with availability and tiers from the mod's `formats-data.ts`.
+- The complete upstream Dex resolves mod inheritance, item Mega mappings, species/form data, ability metadata, move type/category/power/accuracy/priority/PP/availability, and the `scripts.ts` PP initialization. Relevant base files, text, tags, format configuration, Dex code and every historical override are included in `lib/showdown-data/champions-provenance.json` with individual SHA-256 hashes.
+- `scripts/update-champions-data.mjs` runs the pinned upstream Dex locally during extraction, using `species.getMovePool` and `formats.getRuleTable`. This preserves upstream form ancestry and the Champions prohibition on pre-evolution learnset inheritance. Runtime never fetches upstream data and does not bundle the simulator or its event handlers.
+- Generated `champions-builder.json` stores resolved metadata and historical deltas. `champions-dex.ts` adapts these into the existing `@pkmn/dex` builder API, explicitly replacing SV FormatsData. Its cache is separate for each historical mod. `champions-learnsets.json` stores the per-form move pools and is loaded on demand. Search, autocomplete, manual-entry warnings, and all move filters use those exact pools; Champions cannot switch to the global SV move list.
+- `champions-formats.json` stores known format identities, resolved individual bans, default/adjusted levels and stat-point limits. Game availability is distinct from competitive bans: catalogs contain only the selected game's historical pool, and the picker hides individual format bans by default. **Include format-banned choices** reveals available-but-banned entries with a label; it never exposes unavailable game entries. Existing unsupported species/items/moves remain intact, with advisory warnings.
+- Item categories (Mega Stones, berries, other battle items) filter the same item catalog. Selecting a supported Mega form uses its pinned trigger item and existing canonical base-species preservation behavior. Mega Z forms do not share availability with their base species or other Mega forms.
+- Champions stat previews use its fixed-IV/stat-point formula, 32 points per stat and 66 total for standard formats, with one-point controls. Tera and IV editing/automatic Attack-IV defaults are hidden/disabled in Champions. Historical raw EV/IV/Tera fields remain untouched. Battle-only status, damage, turn and item/ability event mechanics were inspected but are not simulated.
+
+### Historical formats
+
+M-A, M-B and M-C BSS and VGC (including Bo3) are selectable. Current Champions OU/UU, custom and draft IDs also resolve their upstream mod; `4v4 Doubles UU` uses M-B as upstream specifies. Custom IDs explicitly naming Champions use its game pool, with M-A/M-B IDs selecting the corresponding historical data; unknown competitive rules are not inferred.
+
+| Context | Available species/forms in upstream | Selectable builder forms | Items |
+| --- | ---: | ---: | ---: |
+| M-A | 319 | 302 | 117 |
+| M-B | 357 | 340 | 148 |
+| M-C/current | 392 | 375 | 166 |
+
+The smaller selectable counts omit automatic battle states without an explicit selectable trigger, following existing builder behavior. Every M-A species/form remains in M-B, and every M-B species/form remains in M-C. Rillaboom and Absol-Mega-Z are M-C additions; Raichu-Mega-X is available in M-B but not M-A. M-B's Archaludon learnset and Wish PP remain distinct from M-C. These distinctions are extracted from upstream, not maintained as hand-written eligibility lists.
+
+### Creation defaults and preservation
+
+When an authored empty slot receives its first Pokémon, VGC defaults its level to 50. Blank teams apply the default as each Pokémon is selected. Other formats retain their previous default unless their own pinned Champions rules supply one. The default is never applied to imported slots or populated sets, and an explicit/manual level (including 100) prevents it. No format-change or Save pass enforces levels.
+
+### Regeneration and verification
+
+Download/extract the two exact source revisions above, then run:
+
+```text
+node scripts/update-champions-data.mjs PATH_TO_524413E_SOURCE PATH_TO_6B4BC34_SOURCE
+node scripts/test.mjs
+pnpm typecheck
+pnpm build
+```
+
+The extractor verifies already-recorded source hashes before overwriting generated output. Artifact hashes and byte lengths are also recorded and tested. `scripts/test-champions.mjs` adds 16 regression groups covering species/forms, game items/categories versus bans, learnsets/search/STAB/coverage/status, move overrides, form stats/abilities, historical additions, imported/manual raw values, VGC defaults and stat-point mechanics. It checks the full generated roster containment and all resolved per-species move pools. The full suite passes 293 checks, including the existing SQLite/PostgreSQL storage, auth, history, backup and preservation checks. Local HTTP integration also passes. Deployment validation is recorded in PROGRESS.md.
+
+### Remaining boundaries
+
+This is builder assistance, not a full legality validator: team composition, duplicate-item/species clauses, move combinations and arbitrary callback rules are not validated. National Dex Champions custom/draft assistance intentionally stays within the actual Champions game pool; it does not invent availability for the format's theoretical extensions. Modified event effects without upstream Champions-specific prose omit their generic description rather than display inaccurate SV wording (for example Healer); numeric metadata remains mod-correct. Historical M-A is frozen at its original pin. No future upstream changes arrive without a reviewed extraction. Sprites still use the existing maintained sprite package/CDN and may lack artwork for newly introduced forms.
+
 The 2026-09-10 variant layer wraps the existing builder without replacing its raw-text/default/learnset behavior. Each variant retains its own current Save, immutable history and restoration; Create variant copies an exact selected snapshot with fresh identities. See DECISIONS.md and SCHEMA_PLAN.md. The expanded suite now has 220 checks. Repeated staged one/six-set Save/history/Create-variant measurements are recorded in PERFORMANCE.md; builder semantics and preservation remain covered.
 
 The sections before [Builder usability correction](#builder-usability-correction--2026-09-09) document the previous integration pass (fab8129). That later section describes the current Save model, migrations, 160-check suite and measurements; it supersedes older current-state claims below.

@@ -31,6 +31,8 @@ for (const name of [
   'format-groups',
   'search-filters',
   'builder-data',
+  'champions-context',
+  'champions-dex',
   'showdown-learnsets',
   'showdown-builder',
   'builder-defaults',
@@ -69,6 +71,7 @@ try {
   await import('./test-ux.mjs');
   await import('./test-builder.mjs');
   await import('./test-showdown.mjs');
+  await import('./test-champions.mjs');
   await import('./test-defaults.mjs');
   await import('./test-formats.mjs');
   await import('./test-pokepaste.mjs');

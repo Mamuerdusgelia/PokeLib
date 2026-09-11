@@ -7,6 +7,7 @@
  */
 import { Dex, toID } from '@pkmn/dex';
 import { generationFor } from './domain';
+import { championsContext } from './champions-context';
 type Table = {
   learnsets: Record<string, Record<string, string>>;
   nonstandardMoves: string[];
@@ -79,6 +80,15 @@ export function learnableMoves(
   return result;
 }
 async function computePool(format: string, name: string) {
+  const champions = championsContext(format);
+  if (champions) {
+    // Already resolved by upstream getMovePool, including Champions form ancestry
+    // and its explicit prohibition on pre-evolution/SV learnset inheritance.
+    const pools = (await import('./showdown-data/champions-learnsets.json'))
+      .default;
+    const pool = pools[champions] as Record<string, string[]>;
+    return new Set(pool[toID(name)] || []);
+  }
   const ctx = learnsetContext(format),
     dex = Dex.forGen(ctx.gen);
   const table = await loadTable(ctx.table),

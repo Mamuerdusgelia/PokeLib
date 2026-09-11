@@ -12,10 +12,16 @@ import {
   dexFor,
   learnsetSuggestions,
   matchesSpeciesQuery,
+  matchesMoveChoice,
+  matchesItemCategory,
   statIds,
   statNames,
   type SelectorKind,
 } from '@/lib/builder-data';
+import {
+  championsContext,
+  championsFormatBanned,
+} from '@/lib/champions-context';
 import { PokemonSprite } from './vault-ui';
 import {
   Command,
@@ -64,6 +70,11 @@ export function PokemonSelector({
   } | null>(null);
   const [highlight, setHighlight] = useState('');
   const [showAllMoves, setShowAllMoves] = useState(false);
+  const [includeBanned, setIncludeBanned] = useState(false);
+  const [moveRole, setMoveRole] = useState('');
+  const [moveCategory, setMoveCategory] = useState('');
+  const [itemCategory, setItemCategory] = useState('');
+  const champions = !!championsContext(format);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [limit, setLimit] = useState(40);
   const [moveQuery, setMoveQuery] = useState('');
@@ -87,7 +98,9 @@ export function PokemonSelector({
     [learnset, learnsetKey],
   );
   const learnsetStatus = !species
-    ? 'Moves in this generation'
+    ? champions
+      ? 'Choose a Pokémon to see its Champions moves'
+      : 'Moves in this generation'
     : learnset?.key !== learnsetKey
       ? 'Loading available moves…'
       : learnset.error
@@ -164,9 +177,23 @@ export function PokemonSelector({
       .filter((e) => {
         if (
           kind === 'moves' &&
-          pokemon.exists &&
-          !showAllMoves &&
-          !suggestions.has(e.id)
+          'basePower' in e &&
+          !matchesMoveChoice(
+            format,
+            species,
+            e,
+            suggestions,
+            { type, category: moveCategory, role: moveRole },
+            showAllMoves,
+          )
+        )
+          return false;
+        if (!includeBanned && championsFormatBanned(format, kind, e.name))
+          return false;
+        if (
+          kind === 'item' &&
+          'isBerry' in e &&
+          !matchesItemCategory(e, itemCategory)
         )
           return false;
         if (
@@ -242,6 +269,11 @@ export function PokemonSelector({
     moveKey,
     moveMatches,
     showAllMoves,
+    includeBanned,
+    moveRole,
+    moveCategory,
+    itemCategory,
+    species,
     format,
   ]);
   useEffect(() => {
@@ -375,6 +407,64 @@ export function PokemonSelector({
               'Move filter uses the same Showdown pool as move selection.'}
         </output>
       )}
+      {kind === 'moves' && (
+        <div className="selector-filters">
+          <select
+            aria-label="Filter move role"
+            value={moveRole}
+            onChange={(e) => setMoveRole(e.target.value)}
+          >
+            <option value="">All roles</option>
+            <option value="stab">STAB</option>
+            <option value="coverage">Coverage</option>
+            <option value="status">Status</option>
+          </select>
+          <select
+            aria-label="Filter move category"
+            value={moveCategory}
+            onChange={(e) => setMoveCategory(e.target.value)}
+          >
+            <option value="">All categories</option>
+            <option>Physical</option>
+            <option>Special</option>
+            <option>Status</option>
+          </select>
+          <select
+            aria-label="Filter move type"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            <option value="">Any type</option>
+            {catalogs.teraType.map((t) => (
+              <option key={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {kind === 'item' && (
+        <div className="selector-filters">
+          <select
+            aria-label="Filter item category"
+            value={itemCategory}
+            onChange={(e) => setItemCategory(e.target.value)}
+          >
+            <option value="">All items</option>
+            <option value="mega">Mega Stones</option>
+            <option value="berry">Berries</option>
+            <option value="other">Other battle items</option>
+          </select>
+        </div>
+      )}
+      {champions && ['species', 'item', 'moves', 'ability'].includes(kind) && (
+        <label className="picker-hint">
+          <input
+            type="checkbox"
+            checked={includeBanned}
+            onChange={(e) => setIncludeBanned(e.target.checked)}
+          />{' '}
+          Include format-banned choices
+        </label>
+      )}
       <Command
         shouldFilter={false}
         loop
@@ -441,6 +531,11 @@ export function PokemonSelector({
                   <small>{Object.values(e.abilities).join(' · ')}</small>
                 )}
                 {'shortDesc' in e && <small>{e.shortDesc || e.desc}</small>}
+                {championsFormatBanned(format, kind, e.name) && (
+                  <small className="warning">
+                    Available in Champions · banned in this format
+                  </small>
+                )}
                 {'plus' in e && e.plus && (
                   <small>
                     +{statNames[e.plus]} / −{statNames[e.minus!]}
@@ -471,6 +566,7 @@ export function PokemonSelector({
                     Power {e.basePower || '—'} · Acc.{' '}
                     {e.accuracy === true ? '—' : e.accuracy}
                     {e.accuracy === true ? '' : '%'}
+                    {' · Priority ' + e.priority + ' · PP ' + e.pp}
                     {suggestions.has(e.id) ? ' · Learnable' : ''}
                   </small>
                 </span>
@@ -479,7 +575,7 @@ export function PokemonSelector({
           ))}
         </CommandList>
       </Command>
-      {kind === 'moves' && pokemon.exists && (
+      {kind === 'moves' && pokemon.exists && !champions && (
         <details className="move-options">
           <summary>More move options</summary>
           <label className="move-pool-toggle">
@@ -510,14 +606,14 @@ export function PokemonSelector({
           </button>
         )}
         {query.trim() &&
-          (kind !== 'moves' || showAllMoves) &&
+          (kind !== 'moves' || showAllMoves || champions) &&
           !rows.some((e) => toID(e.name) === toID(query)) && (
             <button
               className="text-link"
               type="button"
               onClick={() => onSelect(query.trim())}
             >
-              Use custom “{query.trim()}”
+              Use custom “{query.trim()}”{champions ? ' (keep as entered)' : ''}
             </button>
           )}
         {kind !== 'species' && (

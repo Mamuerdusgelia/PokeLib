@@ -2,6 +2,8 @@
 
 Formerly developed as TeamVault. The temporary Sites URL and historical infrastructure identifiers are unchanged.
 
+Champions builders now use pinned game-specific species/forms, items, moves, learnsets and stat points, with separate M-A/M-B/M-C data and format-ban labels. Imported unsupported values are preserved. Newly authored VGC Pokémon default to Level 50 without changing imported, manual or existing levels. See [SHOWDOWN_INTEGRATION.md](SHOWDOWN_INTEGRATION.md) for source pins, regeneration, regression coverage and limitations.
+
 A private library for competitive Pokémon teams: conceptual team families, alternate variants with independent current builds and history, indexed same-set search, structured provenance, historical dates, notes, bulk import, and revocable read-only sharing.
 
 ## What runs now

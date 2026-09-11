@@ -1,5 +1,7 @@
-import { Dex, toID, type Species } from '@pkmn/dex';
+import { Dex, toID, type Species, type Move, type Item } from '@pkmn/dex';
 import { emptyDraft, generationFor, type PokemonSet } from './domain';
+import { championsDex } from './champions-dex';
+import { championsContext, championsRules } from './champions-context';
 export { generationFor } from './domain';
 
 export const statIds = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'] as const;
@@ -30,7 +32,8 @@ export const builderDraft = (format = '') => ({
   title: 'Untitled team',
   format: format || 'unknown',
 });
-export const dexFor = (format: string) => Dex.forGen(generationFor(format));
+export const dexFor = (format: string) =>
+  championsDex(format) || Dex.forGen(generationFor(format));
 // The maintained Dex already ships Showdown's official aliases. Extensions are
 // fallback-only; an upstream alias or a genuine exact name always takes priority.
 const competitiveAliases: Partial<
@@ -222,7 +225,9 @@ export function availableIn(
     entry.exists &&
     (entry.gen || 0) <= generationFor(format) &&
     (!entry.isNonstandard ||
-      (/nationaldex|natdex/i.test(format) && entry.isNonstandard === 'Past'))
+      (!championsContext(format) &&
+        /nationaldex|natdex/i.test(format) &&
+        entry.isNonstandard === 'Past'))
   );
 }
 function createBuilderCatalog(format: string) {
@@ -264,11 +269,12 @@ function createBuilderCatalog(format: string) {
   };
 }
 
-// Availability currently depends only on generation and National Dex. Bound the
-// cache to those contexts instead of retaining every arbitrary custom format name.
+// Game catalogs are independent of competitive bans. Historical Champions mods
+// have separate game data and must never share the Gen 9/National Dex cache.
 const catalogCache = new Map<string, ReturnType<typeof createBuilderCatalog>>();
 export function builderCatalog(format: string) {
   const key =
+    championsContext(format) ||
     generationFor(format) + ':' + Number(/nationaldex|natdex/i.test(format));
   let catalog = catalogCache.get(key);
   if (!catalog) {
@@ -287,11 +293,63 @@ export function learnsetSuggestions(
   );
 }
 
+export type MoveFilters = { type?: string; category?: string; role?: string };
+/** The selector's search, filters and completion all start with this same pool. */
+export function matchesMoveChoice(
+  format: string,
+  species: string,
+  move: Pick<Move, 'id' | 'type' | 'category'>,
+  learnset: Set<string>,
+  filters: MoveFilters = {},
+  showAll = false,
+) {
+  const pokemon = dexFor(format).species.get(species);
+  if (
+    (championsContext(format) || (pokemon.exists && !showAll)) &&
+    !learnset.has(move.id)
+  )
+    return false;
+  if (filters.type && filters.type !== move.type) return false;
+  if (filters.category && filters.category !== move.category) return false;
+  const stab = pokemon.types.includes(move.type);
+  if (filters.role === 'stab') return move.category !== 'Status' && stab;
+  if (filters.role === 'coverage') return move.category !== 'Status' && !stab;
+  if (filters.role === 'status') return move.category === 'Status';
+  return true;
+}
+export function matchesItemCategory(
+  item: Pick<Item, 'megaStone' | 'isBerry'>,
+  category: string,
+) {
+  if (category === 'mega') return !!item.megaStone;
+  if (category === 'berry') return !!item.isBerry;
+  if (category === 'other') return !item.megaStone && !item.isBerry;
+  return true;
+}
+
 export function actualStat(format: string, set: PokemonSet, stat: StatId) {
   const gen = generationFor(format),
     dex = dexFor(format),
     species = presentedSpecies(format, set);
   if (!species.exists) return null;
+  if (championsContext(format)) {
+    const points = set.evs?.[stat] ?? 0;
+    const base = species.baseStats[stat];
+    const levelDependent =
+      championsRules(format)?.rules.includes('levelclausemod');
+    const level = set.level ?? 50;
+    const core = levelDependent
+      ? Math.floor(
+          ((2 * base + 31 + Math.max(2 * points - 1, 0)) * level) / 100,
+        ) + (stat === 'hp' ? level + 10 : 5)
+      : base + points + (stat === 'hp' ? 75 : 20);
+    const nature = dex.natures.get(set.nature || '');
+    return stat === 'hp'
+      ? core
+      : Math.floor(
+          core * (nature.plus === stat ? 1.1 : nature.minus === stat ? 0.9 : 1),
+        );
+  }
   let iv = set.ivs?.[stat] ?? 31;
   if (gen < 3) iv = Math.floor(iv / 2) * 2;
   const ev = set.evs?.[stat] ?? (gen < 3 ? 252 : 0),
@@ -320,7 +378,14 @@ export function editEVs(
   evs[stat] = Math.max(
     0,
     Math.min(
-      gen < 3 ? 252 : Math.min(252, Math.max(0, 510 - others)),
+      championsContext(format)
+        ? Math.min(
+            32,
+            Math.max(0, (championsRules(format)?.evLimit ?? 66) - others),
+          )
+        : gen < 3
+          ? 252
+          : Math.min(252, Math.max(0, 510 - others)),
       Math.trunc(value) || 0,
     ),
   );

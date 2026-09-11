@@ -14,6 +14,7 @@ import {
 } from '@/lib/builder-data';
 import { Slider } from '@/components/ui/slider';
 import { stepEV } from '@/lib/showdown-builder';
+import { championsContext, championsRules } from '@/lib/champions-context';
 
 export function EVEditor({
   set,
@@ -30,6 +31,11 @@ export function EVEditor({
     dex = dexFor(format),
     species = dex.species.get(set.species),
     nature = dex.natures.get(set.nature || '');
+  const champions = !!championsContext(format);
+  const maximum = champions ? 32 : 252;
+  const step = champions ? 1 : 4;
+  const totalLimit = champions ? (championsRules(format)?.evLimit ?? 66) : 510;
+  const units = champions ? 'stat points' : 'EVs';
   const [pendingNature, setPendingNature] = useState({
     source: set.nature,
     plus: nature.plus || '',
@@ -66,9 +72,15 @@ export function EVEditor({
       data-edit-stats
     >
       <div className="spread-heading">
-        <h4>{gen < 3 ? 'Stats & stat experience' : 'Stats & EVs'}</h4>
-        <span className={gen >= 3 && total > 510 ? 'warning' : 'muted'}>
-          {gen >= 3 ? `${total} / 510 EVs` : 'No total cap'}
+        <h4>
+          {champions
+            ? 'Stats & stat points'
+            : gen < 3
+              ? 'Stats & stat experience'
+              : 'Stats & EVs'}
+        </h4>
+        <span className={gen >= 3 && total > totalLimit ? 'warning' : 'muted'}>
+          {gen >= 3 ? `${total} / ${totalLimit} ${units}` : 'No total cap'}
         </span>
       </div>
       <div className="ev-table">
@@ -76,7 +88,7 @@ export function EVEditor({
           <span>Stat</span>
           <span>Base</span>
           <span>Spread</span>
-          <span>{gen < 3 ? 'EV eq.' : 'EV'}</span>
+          <span>{champions ? 'Points' : gen < 3 ? 'EV eq.' : 'EV'}</span>
           <span>Actual</span>
           <span>{gen >= 3 ? 'Nature' : ''}</span>
         </div>
@@ -87,10 +99,10 @@ export function EVEditor({
             </strong>
             <span>{species.exists ? species.baseStats[stat] : '—'}</span>
             <Slider
-              aria-label={`${statNames[stat]} EV slider`}
+              aria-label={`${statNames[stat]} ${units} slider`}
               min={0}
-              max={252}
-              step={4}
+              max={maximum}
+              step={step}
               value={[set.evs?.[stat] ?? (gen < 3 ? 252 : 0)]}
               onValueChange={(v) =>
                 onPatch({
@@ -101,16 +113,20 @@ export function EVEditor({
             <div className="ev-number">
               <button
                 type="button"
-                aria-label={'Decrease ' + statNames[stat] + ' EVs by 4'}
+                aria-label={
+                  'Decrease ' + statNames[stat] + ' ' + units + ' by ' + step
+                }
                 onClick={() => onPatch({ evs: stepEV(set, format, stat, -1) })}
               >
                 −
               </button>
               <input
-                aria-label={'EV ' + statNames[stat]}
+                aria-label={
+                  (champions ? 'Stat points ' : 'EV ') + statNames[stat]
+                }
                 type="number"
                 min={0}
-                max={252}
+                max={maximum}
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                     e.preventDefault();
@@ -133,7 +149,9 @@ export function EVEditor({
               />
               <button
                 type="button"
-                aria-label={'Increase ' + statNames[stat] + ' EVs by 4'}
+                aria-label={
+                  'Increase ' + statNames[stat] + ' ' + units + ' by ' + step
+                }
                 onClick={() => onPatch({ evs: stepEV(set, format, stat, 1) })}
               >
                 +
@@ -208,42 +226,46 @@ export function EVEditor({
           </button>
         </div>
       )}
-      <details className="iv-editor">
-        <summary>{gen < 3 ? 'IVs (DV × 2)' : 'IV spread'}</summary>
-        {autoAttack && (
-          <p className="picker-hint">
-            Attack IV is automatically set to 0. Adding a physical move restores
-            31; editing Attack IV keeps your choice.
-          </p>
-        )}
-        <div className="stat-inputs">
-          {stats.map((stat) => (
-            <label key={stat}>
-              {statNames[stat]}
-              <input
-                aria-label={'IV ' + statNames[stat]}
-                type="number"
-                min={0}
-                max={gen < 3 ? 30 : 31}
-                step={gen < 3 ? 2 : 1}
-                value={set.ivs?.[stat] ?? (gen < 3 ? 30 : 31)}
-                onChange={(e) => {
-                  let value = Math.max(
-                    0,
-                    Math.min(31, Math.trunc(Number(e.target.value))),
-                  );
-                  if (gen < 3) value = Math.floor(value / 2) * 2;
-                  const ivs = { ...set.ivs, [stat]: value };
-                  if (gen === 1 && stat === 'spa') ivs.spd = value;
-                  onPatch({ ivs }, stat === 'atk');
-                }}
-              />
-            </label>
-          ))}
-        </div>
-      </details>
+      {!champions && (
+        <details className="iv-editor">
+          <summary>{gen < 3 ? 'IVs (DV × 2)' : 'IV spread'}</summary>
+          {autoAttack && (
+            <p className="picker-hint">
+              Attack IV is automatically set to 0. Adding a physical move
+              restores 31; editing Attack IV keeps your choice.
+            </p>
+          )}
+          <div className="stat-inputs">
+            {stats.map((stat) => (
+              <label key={stat}>
+                {statNames[stat]}
+                <input
+                  aria-label={'IV ' + statNames[stat]}
+                  type="number"
+                  min={0}
+                  max={gen < 3 ? 30 : 31}
+                  step={gen < 3 ? 2 : 1}
+                  value={set.ivs?.[stat] ?? (gen < 3 ? 30 : 31)}
+                  onChange={(e) => {
+                    let value = Math.max(
+                      0,
+                      Math.min(31, Math.trunc(Number(e.target.value))),
+                    );
+                    if (gen < 3) value = Math.floor(value / 2) * 2;
+                    const ivs = { ...set.ivs, [stat]: value };
+                    if (gen === 1 && stat === 'spa') ivs.spd = value;
+                    onPatch({ ivs }, stat === 'atk');
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </details>
+      )}
       <p className="picker-hint">
-        At level {set.level ?? 100}, before items, abilities or battle boosts.
+        {champions
+          ? 'Champions stats use stat points and fixed IVs. Imported IVs and spreads remain in Showdown Text.'
+          : `At level ${set.level ?? 100}, before items, abilities or battle boosts.`}
         {gen < 3 ? ' EV equivalents represent stat experience.' : ''}
       </p>
     </section>
