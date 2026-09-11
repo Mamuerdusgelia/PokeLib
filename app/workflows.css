@@ -32,6 +32,66 @@
   gap: 6px;
   font-size: 13px;
 }
+.auth-panel {
+  width: calc(100% - 32px);
+  margin: 7vh auto;
+}
+.auth-panel h1 {
+  font-size: 26px;
+  line-height: 1.25;
+}
+.auth-panel p {
+  line-height: 1.55;
+}
+.auth-panel input {
+  font-size: 16px;
+}
+.auth-panel .auth-help {
+  font-size: 14px;
+  color: #afb9c2;
+  margin: 0;
+  line-height: 1.55;
+}
+.auth-panel > .auth-help {
+  margin-top: 24px;
+}
+.auth-panel .muted {
+  font-size: 14px;
+}
+.auth-feedback {
+  margin: 20px 0;
+  padding: 12px 14px;
+  border: 1px solid #536a47;
+  border-radius: 6px;
+  background: #242e21;
+  color: #d5eac7;
+  line-height: 1.55;
+}
+.auth-feedback.error {
+  border-color: #88504e;
+  background: #342324;
+  color: #ffceca;
+}
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px;
+  font-size: 14px;
+}
+.auth-account {
+  overflow-wrap: anywhere;
+}
+.auth-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  padding: 12px;
+  background: #242e21;
+  color: #d5eac7;
+}
 .card-open {
   display: block;
   width: 100%;

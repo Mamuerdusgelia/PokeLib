@@ -13,6 +13,7 @@ for (const name of [
   'import-workflow',
   'domain',
   'public-config',
+  'auth-flow',
   'showdown',
   'search',
   'search-request',
@@ -63,6 +64,7 @@ await fs.cp('lib/showdown-data', '.test-build/showdown-data', {
 });
 try {
   await import('./test-core.mjs');
+  await import('./test-auth.mjs');
   await import('./test-postgres.mjs');
   await import('./test-ux.mjs');
   await import('./test-builder.mjs');

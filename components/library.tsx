@@ -49,7 +49,8 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { api, browserAuth } from '@/lib/client';
+import { api } from '@/lib/client';
+import type { AppConfig } from '@/lib/auth-flow';
 import { searchRequest } from '@/lib/search-request';
 import { BackupData } from '@/components/backup-data';
 import {
@@ -124,7 +125,17 @@ const sortOptions: [string, string][] = [
   ['format', 'Format'],
   ['source', 'Source'],
 ];
-export default function Library() {
+export default function Library({
+  config,
+  onSignOut,
+  signingOut,
+  onPasswordReset,
+}: {
+  config: AppConfig;
+  onSignOut: () => Promise<void>;
+  signingOut: boolean;
+  onPasswordReset: () => void;
+}) {
   const [backupBusy, setBackupBusy] = useState(false);
   const [collectionMode, setCollectionMode] = useState<
     'save' | 'manage' | null
@@ -132,10 +143,6 @@ export default function Library() {
   const [collectionNav, setCollectionNav] = useState<HTMLDivElement | null>(
     null,
   );
-  const [config, setConfig] = useState<any>(null),
-    [signed, setSigned] = useState(false),
-    [email, setEmail] = useState(''),
-    [authNotice, setAuthNotice] = useState('');
   const [teams, setTeams] = useState<TeamRecord[]>([]),
     [total, setTotal] = useState(0),
     [facets, setFacets] = useState<Facets>(blank),
@@ -202,36 +209,8 @@ export default function Library() {
     setEditTarget(target);
     setModal('version');
   }
-  useEffect(() => {
-    let unsub: (() => void) | undefined;
-    fetch('/api/config')
-      .then((r) => r.json())
-      .then((c: any) => {
-        setConfig(c);
-        if (c.demo) {
-          setSigned(!!c.user);
-          setLoading(false);
-        } else {
-          const auth = browserAuth(c.supabase_url, c.supabase_key);
-          auth.auth.getSession().then(({ data }) => {
-            setSigned(!!data.session);
-            setLoading(false);
-          });
-          const { data } = auth.auth.onAuthStateChange((_, session) =>
-            setSigned(!!session),
-          );
-          unsub = () => data.subscription.unsubscribe();
-        }
-      })
-      .catch(() => {
-        setError('Could not connect. Reload to try again.');
-        setLoading(false);
-      });
-    return () => unsub?.();
-  }, []);
   const refresh = useCallback(
     async (request: ReturnType<typeof searchRequest>) => {
-      if (!signed) return;
       request.start();
       setLoading(true);
       setError('');
@@ -269,7 +248,7 @@ export default function Library() {
         request.finish();
       }
     },
-    [signed, query, sort, page, chips, section],
+    [query, sort, page, chips, section],
   );
   const libraryVisible =
     !detail && !detailLoading && modal !== 'new' && modal !== 'version';
@@ -283,7 +262,7 @@ export default function Library() {
     };
   }, [refresh, query, refreshTick, libraryVisible]);
   useEffect(() => {
-    if (!signed || (!libraryVisible && facetsReady.current)) return;
+    if (!libraryVisible && facetsReady.current) return;
     const controller = new AbortController();
     api(
       'facets',
@@ -300,7 +279,7 @@ export default function Library() {
         if (e.name !== 'AbortError') setError(e.message);
       });
     return () => controller.abort();
-  }, [signed, refreshTick, libraryVisible]);
+  }, [refreshTick, libraryVisible]);
   async function openTeam(id: string, version?: number) {
     setDetailLoading(true);
     setError('');
@@ -324,13 +303,11 @@ export default function Library() {
     }
   }
   useEffect(() => {
-    if (signed) {
-      const u = new URL(window.location.href);
-      const id = u.searchParams.get('team');
-      if (id)
-        void openTeam(id, Number(u.searchParams.get('version')) || undefined);
-    }
-  }, [signed]);
+    const u = new URL(window.location.href);
+    const id = u.searchParams.get('team');
+    if (id)
+      void openTeam(id, Number(u.searchParams.get('version')) || undefined);
+  }, []);
   useEffect(() => {
     function key(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -351,7 +328,7 @@ export default function Library() {
   }, []);
   useEffect(() => {
     const context = (document as any).modelContext;
-    if (!context?.registerTool || !signed) return;
+    if (!context?.registerTool) return;
     const lifecycle = new AbortController();
     for (const tool of [
       {
@@ -429,7 +406,7 @@ export default function Library() {
       } catch {}
     }
     return () => lifecycle.abort();
-  }, [signed, invalidateLibrary]);
+  }, [invalidateLibrary]);
   function closeDetail() {
     setDetail(null);
     if (typeof window !== 'undefined')
@@ -543,83 +520,6 @@ export default function Library() {
       );
     }
   }
-  async function signIn() {
-    setAuthNotice('Sending…');
-    try {
-      const { error } = await browserAuth(
-        config.supabase_url,
-        config.supabase_key,
-      ).auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.origin + '/' },
-      });
-      if (error) throw error;
-      setAuthNotice('Check your email for a secure sign-in link.');
-    } catch (e) {
-      setAuthNotice((e as Error).message);
-    }
-  }
-  if (!config)
-    return (
-      <div className="boot">
-        <BookOpen size={28} />
-        <h1>PokéLib</h1>
-        <p>{error || 'Opening your workspace…'}</p>
-      </div>
-    );
-  if (!signed)
-    return (
-      <div className="login">
-        <div className="brand">
-          <span className="brand-icon">
-            <BookOpen size={20} />
-          </span>
-          PokéLib
-        </div>
-        <h1>Your teams, together.</h1>
-        <p>Sign in to your private team library.</p>
-        {config.demo ? (
-          <a
-            className="button primary"
-            href={
-              '/signin-with-chatgpt?return_to=' +
-              encodeURIComponent(
-                typeof window === 'undefined'
-                  ? '/'
-                  : window.location.pathname + window.location.search,
-              )
-            }
-            target="_top"
-          >
-            Sign in with ChatGPT
-          </a>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void signIn();
-            }}
-          >
-            <Field label="Email address">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-            </Field>
-            <button className="button primary" type="submit">
-              Email me a sign-in link
-            </button>
-          </form>
-        )}
-        {authNotice && <p role="status">{authNotice}</p>}
-        <p className="muted">
-          <LockKeyhole size={13} /> Teams are private by default.
-        </p>
-      </div>
-    );
   const heading = detail ? detail.title : section;
   const isHistory = detail && detail.version.id !== detail.current_version_id;
   return (
@@ -1596,17 +1496,23 @@ export default function Library() {
               Sign out
             </a>
           ) : (
-            <button
-              className="text-link"
-              onClick={() =>
-                browserAuth(
-                  config.supabase_url,
-                  config.supabase_key,
-                ).auth.signOut()
-              }
-            >
-              Sign out
-            </button>
+            <div className="auth-actions">
+              <button
+                type="button"
+                className="text-link"
+                onClick={onPasswordReset}
+              >
+                Set or reset password
+              </button>
+              <button
+                type="button"
+                className="text-link"
+                disabled={signingOut}
+                onClick={() => void onSignOut()}
+              >
+                {signingOut ? 'Signing out…' : 'Sign out'}
+              </button>
+            </div>
           )}
         </Modal>
       )}

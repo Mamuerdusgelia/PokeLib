@@ -1,6 +1,15 @@
 # PokéLib product and technical decisions
 
-## Real Supabase setup and verification — 2026-09-10 (current)
+## Email and password authentication — 2026-09-11 (current)
+
+- Use the existing Supabase Auth project and its native `signInWithPassword`, `signUp`, `resetPasswordForEmail`, `resend`, and `updateUser` APIs. Keep email confirmation and custom SMTP enabled. Passwords are submitted directly to Supabase and never stored, logged, or processed by a custom PokéLib password backend.
+- Preserve existing Auth user IDs and every ownership/RLS rule. The owner confirmed both existing test accounts already have passwords. Recovery using the same email also supports passwordless magic-link users without deleting or recreating them. Apply new-password form requirements only to signup/change, never to login with an existing password.
+- Production emails always return to the fixed `https://pokelib.app/` origin; retain `http://localhost:3000/` only for that exact development origin. Keep the existing client-side implicit Supabase session flow so email links can open in another browser or from the old Sites hostname. Read callback intent before SDK fragment cleanup, handle recovery before rendering the library, and retain only a non-secret reset-screen marker across reloads.
+- Give password-reset requests identical conditional UI feedback regardless of account existence or account-specific delivery/rate-limit failures. Supabase controls delivery and throttling. Never display arbitrary callback error descriptions or raw provider responses.
+- Mount library state under the authenticated user ID and unmount it on sign-out or identity change. This avoids showing the previous account's cached teams while the next account loads, while the server continues to verify each bearer token and enforce ownership.
+- Keep both hostnames owner-only throughout implementation and QA. Preserve the D1 fallback and demo login. Public release and unrelated account features remain outside this change.
+
+## Real Supabase setup and verification — 2026-09-10 (prior checkpoint)
 
 - Keep the existing dual-adapter application. Select Supabase using only the two existing variables in ignored `.env`; forward verified end-user bearer tokens and the public publishable key. No privileged application key or new auth boilerplate is needed.
 - Apply the 12 existing migrations unchanged through the documented SQL Editor workflow. A generated transactional bundle validates the schema and role privileges. Preserve the exact postgres-owned `public.rls_auto_enable()` event-trigger helper supplied by the platform; unexpected application objects still block an empty-project setup.

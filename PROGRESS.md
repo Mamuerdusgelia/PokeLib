@@ -1,4 +1,14 @@
-# PokéLib real Supabase verification — current state (2026-09-10)
+# PokéLib password authentication — implementation checkpoint (2026-09-11)
+
+Starting HEAD: clean `75516f66b287ce20782655b6a14cc9842bda7d7c`. The existing production site now has active custom domain `https://pokelib.app`, with owner-only access policy revision 1. Runtime public Auth settings confirm email/signup enabled, email confirmation required, and anonymous sign-in disabled. Before application edits, the owner ran the narrowly scoped read-only Auth-account query and reported both existing accounts present, confirmed, and with passwords. No hashes, credentials, or tokens were requested or returned.
+
+Implemented native Supabase email/password login, confirmed-email signup, confirmation resend, generic forgot-password requests, recovery-link handling, and password change. Production confirmation/reset redirects are fixed to `https://pokelib.app/`; the exact localhost:3000 development origin is preserved. Existing users retain their Auth IDs and data. Unknown passwords can be recovered through the same account, including a passwordless magic-link account. The new auth boundary remounts the library when the authenticated user changes and removes its UI on sign-out; backend verified-JWT ownership and all database RLS/RPC rules are unchanged.
+
+Fourteen new deterministic auth checks exercise the actual installed Supabase client against a fake HTTP transport: native API selection, login without an email call, original password preservation, signup confirmation/session behavior, wrong/unconfirmed feedback, generic reset responses, canonical redirects, same-user password updates, validation, callback cleanup, recovery intent and expired links. The complete deterministic suite and TypeScript check passed. Local browser verification, the final build/private deployment, and real hosted signup/confirmation/reset acceptance are still in progress at this checkpoint. No completed hosted email-flow result is claimed here.
+
+The existing Resend/Supabase SMTP setup, owner-only gate, D1 store, all 12 applied migrations, ownership architecture, and AGPL source offer are preserved. No service-role key, custom password storage, database migration, or public audience change is introduced.
+
+# PokéLib real Supabase verification — prior checkpoint (2026-09-10)
 
 Starting HEAD: clean `546e1537bb4db859ae8d006416c1a1e4064f3e6d` in `C:\Dev\pokelib`. The existing adapter and auth implementation required no replacement or application changes. The owner populated the ignored `.env` with only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`; actual values, passwords and tokens are not committed. No service-role/secret key was requested or used.
 

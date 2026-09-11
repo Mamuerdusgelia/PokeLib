@@ -1,4 +1,4 @@
-import Library from '@/components/library';
+import AuthGate from '@/components/auth-gate';
 export default function Home() {
-  return <Library />;
+  return <AuthGate />;
 }
