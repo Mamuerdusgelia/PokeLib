@@ -1,4 +1,14 @@
-# PokéLib password authentication — implementation checkpoint (2026-09-11)
+# PokéLib password authentication — hosted verification complete (2026-09-11)
+
+The native Supabase password-authentication implementation is privately deployed at `https://pokelib.app/`. Starting HEAD was `75516f66b287ce20782655b6a14cc9842bda7d7c`; deployed application commit is `e52d1e2cbeed4f33665deb80a229e744f74c75a1`, Sites version 12, successful deployment `appgdep_6aa395c8a4d88191942d04ccb7fca9dc`. This completion entry documents that deployed code; documentation recorded after QA does not represent another application deployment.
+
+All nine requested hosted acceptance steps passed using the real project and normal owner-gated browser: password signup, email confirmation, logout, direct password login without another email step, wrong-password feedback, recovery-email delivery, native password change, new-password login, and preservation of owner-scoped data. Correct-password login before confirmation was rejected. After reset, the old password was rejected and the same saved team ID and contents remained accessible with the new password. Confirmation and recovery links returned to the canonical production domain; the owner confirmed the production/development redirect allowlist. The original Account A also signed in again with its existing password and retained its pre-deployment fixture. The new account could not open Account A's team by ID before or after password reset.
+
+Both disposable team families were deleted through their exact named confirmations. Account A and the new QA account each showed an empty library afterward. Existing Auth accounts and the new confirmed QA Auth account remain; normal application deletion receipts/generation counters are retained. No unused tags, collections, imports or shares were created for this auth test. No direct SQL cleanup or schema change was needed.
+
+The complete deterministic suite, 14 new auth checks, TypeScript, production build and source-offer validation passed before deployment. Final Sites readback confirms active `pokelib.app` with active SSL and unchanged owner-only policy revision 1 (one owner, no external visitors or groups). Runtime variables remain `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`, environment revision 1. SMTP, D1, all 12 migrations and ownership/RLS rules are unchanged; no privileged key was used. See [AUTH_VERIFICATION.md](AUTH_VERIFICATION.md) for the complete results and boundaries.
+
+# PokéLib password authentication — prior implementation checkpoint (2026-09-11)
 
 Starting HEAD: clean `75516f66b287ce20782655b6a14cc9842bda7d7c`. The existing production site now has active custom domain `https://pokelib.app`, with owner-only access policy revision 1. Runtime public Auth settings confirm email/signup enabled, email confirmation required, and anonymous sign-in disabled. Before application edits, the owner ran the narrowly scoped read-only Auth-account query and reported both existing accounts present, confirmed, and with passwords. No hashes, credentials, or tokens were requested or returned.
 

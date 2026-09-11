@@ -12,7 +12,7 @@ Restore validates the entire file for preview, waits for confirmation, validates
 
 The owner-only production deployment at `https://pokelib.app` uses the real Supabase project. The old Cloudflare D1 demo store remains untouched and available when both Supabase variables are absent. Its ChatGPT sign-in and sample-team behavior are unchanged. Browser storage holds view preferences and Supabase's native auth session, never app-managed passwords.
 
-All 12 migrations and the schema/permission audit passed on hosted PostgreSQL 17.6. The earlier two-account Supabase verification passed 24 integration groups. The subsequent owner-only production deployment passed functional smoke testing and backup validation, with all disposable data removed. The password-authentication change uses this same project and existing Auth user IDs; its hosted acceptance status is recorded in PROGRESS.md.
+All 12 migrations and the schema/permission audit passed on hosted PostgreSQL 17.6. The earlier two-account Supabase verification passed 24 integration groups. The subsequent owner-only production deployment passed functional smoke testing and backup validation, with all disposable data removed. The password-authentication change uses this same project and existing Auth user IDs. All nine requested hosted signup/login/reset acceptance steps passed, including existing-data retention and cross-account read denial; the disposable teams were removed. See [AUTH_VERIFICATION.md](AUTH_VERIFICATION.md) and [PROGRESS.md](PROGRESS.md).
 
 ## Architecture
 
