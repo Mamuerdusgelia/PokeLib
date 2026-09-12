@@ -57,6 +57,8 @@ export type Snapshot = {
 export const snapshotRevision = (snapshot: Snapshot) =>
   snapshot.edit_revision ?? snapshot.id;
 export type TeamRecord = TeamMeta & {
+  storage?: 'local' | 'cloud';
+  sync_status?: 'synced' | 'pending' | 'conflict' | 'error';
   id: string;
   owner_id?: string;
   family_id?: string | null;

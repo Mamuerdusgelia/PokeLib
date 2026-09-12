@@ -1,4 +1,5 @@
 export type SearchField =
+  | 'storage'
   | 'from'
   | 'tag'
   | 'year'
@@ -9,6 +10,7 @@ export type SearchField =
   | 'ability';
 export type SearchChip = { field: SearchField; value: string };
 export const filterLabels: Record<SearchField, string> = {
+  storage: 'Storage',
   from: 'From',
   tag: 'Tag',
   year: 'Year',
@@ -23,6 +25,7 @@ export function addSearchChip(
   chip: SearchChip,
 ): SearchChip[] {
   const singleton = [
+    'storage',
     'from',
     'year',
     'format',
@@ -49,7 +52,7 @@ export function queryWithFilters(chips: SearchChip[], text: string) {
 }
 export function activeFilter(text: string) {
   const match = text.match(
-    /(?:^|(?<=[\s+]))(from|source|tag|year|format|pokemon|move|item|ability):(?:(?:"([^"]*)"?)|([^\s+]*))$/i,
+    /(?:^|(?<=[\s+]))(from|source|tag|year|format|pokemon|move|item|ability|storage):(?:(?:"([^"]*)"?)|([^\s+]*))$/i,
   );
   return match
     ? {

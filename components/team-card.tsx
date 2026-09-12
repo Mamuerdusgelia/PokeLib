@@ -3,6 +3,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { formatLabel, dateLabel, type TeamRecord } from '@/lib/domain';
 import { PokemonLine } from './vault-ui';
 import { FamilyVariants } from './variants';
+import { StorageLabel } from './storage-controls';
 type Props = {
   team: TeamRecord;
   index: number;
@@ -36,6 +37,7 @@ export function TeamCard({
   return (
     <article className={'team-card' + (selected ? ' selected' : '')} key={t.id}>
       <div className="card-top">
+        <StorageLabel team={t} />
         <span
           className={
             'format format-' +

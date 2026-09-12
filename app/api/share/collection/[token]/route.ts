@@ -21,11 +21,13 @@ export async function GET(
     let result: unknown;
     if (c.url && c.key) {
       const { data, error } = await supabaseClient(c.url, c.key).rpc(
-        'resolve_collection',
+        'lf_resolve_collection',
         { p_token: token, p_selection: selection },
       );
-      if (error || !data) throw Error();
+      if (error) throw Error();
       result = data;
+      if (!result) result = (await supabaseClient(c.url, c.key).rpc('resolve_collection', { p_token: token, p_selection: selection })).data;
+      if (!result) throw Error();
     } else result = await resolveDemoCollection(c.db, token, selection);
     return Response.json(result, { headers });
   } catch {

@@ -413,6 +413,7 @@ function CollectionShare({
       onClose={() => !busy && onClose()}
     >
       <p>
+        Only Cloud-synced teams are included. Local teams stay in this browser.
         Anyone with this link who can access this site can view the current
         matching teams, notes and provenance. Only matching variants appear.
         History stays private.

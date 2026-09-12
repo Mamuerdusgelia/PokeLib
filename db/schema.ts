@@ -11,6 +11,12 @@ export const profiles = sqliteTable('profiles', {
   id: text().primaryKey(),
   created_at: text().notNull(),
 });
+// Independent anonymous snapshots have no owner or source-team relationship.
+export const snapshotShares = sqliteTable('snapshot_shares', {
+  token: text().primaryKey(),
+  snapshot: text().notNull(),
+  created_at: text().notNull(),
+});
 export const families = sqliteTable('team_families', {
   id: text().primaryKey(),
   owner_id: text().notNull(),

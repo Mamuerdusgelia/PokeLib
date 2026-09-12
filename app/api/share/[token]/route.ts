@@ -16,12 +16,20 @@ export async function GET(
     let result: any;
     if (c.url && c.key) {
       const { data, error } = await supabaseClient(c.url, c.key).rpc(
-        'resolve_share',
+        'lf_resolve_share',
         { p_token: token, p_version: version ?? null },
       );
-      if (error || !data) throw Error();
+      if (error) throw Error();
       result = data;
-    } else result = await resolveDemoShare(c.db, token, version);
+      if (!result) {
+        const legacy = await supabaseClient(c.url, c.key).rpc('resolve_share', { p_token: token, p_version: version ?? null });
+        result = legacy.data;
+      }
+      if (!result) throw Error();
+    } else {
+      const snapshot = await c.db.prepare('SELECT snapshot FROM snapshot_shares WHERE token=?').bind(token).first<{ snapshot: string }>();
+      result = snapshot ? { ...JSON.parse(snapshot.snapshot), share_mode: 'snapshot' } : await resolveDemoShare(c.db, token, version);
+    }
     return Response.json(result, {
       headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' },
     });

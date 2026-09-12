@@ -13,7 +13,7 @@ import {
 } from '@/lib/builder-performance';
 import { FormatPicker } from './format-picker';
 import { assistanceFormat } from '@/lib/formats';
-import { api } from '@/lib/client';
+import { api, currentAccount } from '@/lib/client';
 import {
   cleanMeta,
   type Draft,
@@ -78,7 +78,7 @@ export function TeamEditor({
           version_comment:
             mode === 'version' ? '' : team.version.version_comment,
         }
-      : { ...builderDraft(initialFormat), title: generatedTeamTitle() },
+      : { ...builderDraft(initialFormat), title: generatedTeamTitle(), source_name: currentAccount()?.name || '' },
   );
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const [renaming, setRenaming] = useState(false);

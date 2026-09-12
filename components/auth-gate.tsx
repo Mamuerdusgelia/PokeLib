@@ -3,16 +3,19 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { BookOpen, LockKeyhole } from 'lucide-react';
-import { browserAuth } from '@/lib/client';
+import {
+  browserAuth,
+  configureLibrary,
+  localLibrary,
+  accountApi,
+  cloudApi,
+} from '@/lib/client';
 import {
   authError,
   authReturn,
   cleanAuthUrl,
-  CONFIRMATION_SENT,
   EXPIRED_LINK,
   newPasswordError,
-  passwordLogin,
-  passwordSignup,
   requestPasswordReset,
   resendConfirmation,
   updatePassword,
@@ -28,9 +31,13 @@ export default function AuthGate() {
   const [mode, setMode] = useState<AuthMode | null>(null);
   const [message, setMessage] = useState('');
   const [failure, setFailure] = useState('');
-  const [fatal, setFatal] = useState('');
+  const fatal = '';
+  const [profile, setProfile] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const auth = useRef<SupabaseClient['auth'] | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const sessionId = session?.user.id;
 
   function changeMode(next: AuthMode | null) {
     setFailure('');
@@ -59,12 +66,18 @@ export default function AuthGate() {
     if (returned.invalid) setFailure(EXPIRED_LINK);
     (async () => {
       const response = await fetch('/api/config', {
-        signal: controller.signal,
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
       });
       if (!response.ok) throw Error('Configuration unavailable');
       const c: AppConfig = await response.json();
       if (disposed) return;
       setConfig(c);
+      try {
+        localStorage.setItem(
+          'pokelib-public-config',
+          JSON.stringify({ ...c, user: null }),
+        );
+      } catch {}
       if (c.demo) {
         setReady(true);
         return;
@@ -75,6 +88,12 @@ export default function AuthGate() {
         if (disposed) return;
         // Keep callbacks synchronous; Supabase may emit while coordinating session initialization.
         setSession(next);
+        if (event === 'SIGNED_OUT') {
+          const previous = localLibrary();
+          previous.active = false;
+          void previous.clearCloudCache().catch(() => {});
+          configureLibrary(null);
+        }
         if (event === 'PASSWORD_RECOVERY') {
           setMode('reset');
           setFailure('');
@@ -108,8 +127,49 @@ export default function AuthGate() {
         );
       setReady(true);
     })().catch(() => {
-      if (!disposed)
-        setFatal('Could not connect to PokéLib. Reload to try again.');
+      if (!disposed) {
+        let cached: AppConfig | null = null;
+        try {
+          cached = JSON.parse(
+            localStorage.getItem('pokelib-public-config') || 'null',
+          );
+        } catch {}
+        setConfig(
+          cached || {
+            demo: true,
+            supabase_url: '',
+            supabase_key: '',
+            user: null,
+          },
+        );
+        if (cached && !cached.demo) {
+          const client = browserAuth(
+            cached.supabase_url,
+            cached.supabase_key,
+          ).auth;
+          auth.current = client;
+          const { data } = client.onAuthStateChange((event, next) => {
+            if (disposed) return;
+            setSession(next);
+            if (event === 'SIGNED_OUT') {
+              const previous = localLibrary();
+              previous.active = false;
+              void previous.clearCloudCache().catch(() => {});
+              configureLibrary(null);
+            }
+          });
+          unsubscribe = () => data.subscription.unsubscribe();
+          void client.getSession().then(({ data }) => {
+            if (!disposed) {
+              setSession(data.session);
+              setReady(true);
+            }
+          });
+        } else setReady(true);
+        setMessage(
+          'Cloud connection unavailable. Your Local library is available.',
+        );
+      }
     });
     return () => {
       disposed = true;
@@ -117,15 +177,31 @@ export default function AuthGate() {
       unsubscribe();
     };
   }, []);
+  useEffect(() => {
+    if (!sessionId) return;
+    let active = true;
+    void cloudApi('profile')
+      .then((p) => {
+        if (active) setProfile(p);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [sessionId]);
 
   async function signOut() {
     if (!auth.current || signingOut) return;
     setSigningOut(true);
     try {
+      const previous = localLibrary();
+      previous.active = false;
+      await previous.clearCloudCache();
       const { error } = await auth.current.signOut({ scope: 'local' });
       if (error) throw error;
       setSession(null);
-      changeMode('login');
+      configureLibrary(null);
+      changeMode(null);
     } catch {
       setFailure(
         'Sign-out did not finish. Check your connection and try again.',
@@ -151,12 +227,16 @@ export default function AuthGate() {
       </div>
     );
 
-  const identity = config.demo
-    ? config.user
-      ? 'demo'
-      : null
-    : session?.user.id;
-  if (identity && !mode)
+  const identity = session?.user.id || 'anonymous';
+  const displayName =
+    profile?.id === session?.user.id
+      ? profile?.name || 'Trainer'
+      : session?.user.user_metadata.display_name || 'Trainer';
+  if (!signingOut)
+    configureLibrary(
+      session ? { id: session.user.id, name: displayName } : null,
+    );
+  if (!mode)
     return (
       <>
         {(message || failure) && (
@@ -177,16 +257,39 @@ export default function AuthGate() {
         {/* A changed Auth user always gets fresh library state, including outstanding UI requests. */}
         <Library
           key={identity}
-          config={config}
+          config={{
+            ...config,
+            demo: false,
+            user: session
+              ? {
+                  name: displayName,
+                  email: session.user.email?.endsWith(
+                    '@accounts.pokelib.invalid',
+                  )
+                    ? ''
+                    : session.user.email || '',
+                }
+              : null,
+          }}
+          onSignIn={() => changeMode('login')}
           onSignOut={signOut}
           signingOut={signingOut}
-          onPasswordReset={() => changeMode('forgot')}
+          onPasswordReset={() =>
+            changeMode(
+              session?.user.email?.endsWith('@accounts.pokelib.invalid')
+                ? 'reset'
+                : 'forgot',
+            )
+          }
         />
       </>
     );
 
   return (
     <main className="login auth-panel">
+      <button className="text-link" onClick={() => changeMode(null)}>
+        Continue with Local library
+      </button>
       <div className="brand">
         <span className="brand-icon">
           <BookOpen size={20} />
@@ -196,19 +299,10 @@ export default function AuthGate() {
       {config.demo ? (
         <>
           <h1>Your teams, together.</h1>
-          <p>Sign in to your private team library.</p>
-          <a
-            className="button primary"
-            href={
-              '/signin-with-chatgpt?return_to=' +
-              encodeURIComponent(
-                window.location.pathname + window.location.search,
-              )
-            }
-            target="_top"
-          >
-            Sign in with ChatGPT
-          </a>
+          <p>
+            Cloud accounts are not configured on this installation. All Local
+            features are available without an account.
+          </p>
         </>
       ) : (
         <PasswordForm
@@ -273,7 +367,12 @@ function PasswordForm({
   onAuthenticated: (session: Session | null) => void;
   onPasswordChanged: () => Promise<void>;
 }) {
-  const [email, setEmail] = useState(session?.user.email || '');
+  const [email, setEmail] = useState(
+    session?.user.email?.endsWith('@accounts.pokelib.invalid')
+      ? ''
+      : session?.user.email || '',
+  );
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -307,20 +406,21 @@ function PasswordForm({
           await resendConfirmation(auth, email, window.location.origin),
         );
       else if (mode === 'login') {
-        const data = await passwordLogin(auth, email, password);
+        const data = await accountApi('login', { identifier: email, password });
+        if (data.session) await auth.setSession(data.session);
         onAuthenticated(data.session);
       } else if (mode === 'signup') {
-        await passwordSignup(
-          auth,
-          email,
-          password,
-          confirmation,
-          window.location.origin,
-        );
+        const data = await accountApi('signup', { name, email, password });
         setPassword('');
         setConfirmation('');
-        setCanResend(true);
-        onMessage(CONFIRMATION_SENT);
+        onMessage(
+          data.message +
+            (data.login_code ? ' Account login code: ' + data.login_code : ''),
+        );
+        if (data.session) {
+          await auth.setSession(data.session);
+          onAuthenticated(data.session);
+        }
       } else if (mode === 'forgot')
         onMessage(
           await requestPasswordReset(auth, email, window.location.origin),
@@ -332,7 +432,11 @@ function PasswordForm({
         await onPasswordChanged();
       }
     } catch (error) {
-      onFailure(authError(error));
+      onFailure(
+        error instanceof Error && !('code' in error)
+          ? error.message
+          : authError(error),
+      );
       if ((error as { code?: string }).code === 'email_not_confirmed')
         setCanResend(true);
     } finally {
@@ -348,14 +452,14 @@ function PasswordForm({
         {mode === 'login'
           ? 'Open your private team library.'
           : mode === 'signup'
-            ? 'Confirm your email once, then log in with your password.'
+            ? 'Your display name is permanent and may match another person’s. A unique account login code identifies your account. Email is optional and enables password recovery; without it, a lost password cannot be recovered.'
             : mode === 'forgot'
-              ? 'Enter the email you use for PokéLib. You can also use this to set your first password.'
+              ? 'Enter your recovery email. Accounts created without a recovery email cannot recover a lost password.'
               : 'Your library and account stay the same.'}
       </p>
       {mode === 'reset' && session && (
         <p className="auth-account">
-          Changing the password for <strong>{session.user.email}</strong>
+          Changing the password for your signed-in account.
         </p>
       )}
       {missingRecovery ? (
@@ -371,17 +475,34 @@ function PasswordForm({
           }}
           aria-busy={busy}
         >
+          {mode === 'signup' && (
+            <label className="field">
+              <span>Display name (cannot be changed later)</span>
+              <input
+                required
+                maxLength={60}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+          )}
           {mode !== 'reset' && (
             <label className="field" htmlFor="auth-email">
-              <span>Email address</span>
+              <span>
+                {mode === 'login'
+                  ? 'Account login code or email'
+                  : mode === 'signup'
+                    ? 'Recovery email (optional)'
+                    : 'Recovery email'}
+              </span>
               <input
                 id="auth-email"
                 name="email"
-                type="email"
+                type={mode === 'login' ? 'text' : 'email'}
                 autoComplete="email"
                 autoCapitalize="none"
                 spellCheck={false}
-                required
+                required={mode !== 'signup'}
                 value={email}
                 disabled={busy}
                 onChange={(e) => {
@@ -452,11 +573,7 @@ function PasswordForm({
           {failure}
         </div>
       )}
-      {message && (
-        <div className="auth-feedback" role="status">
-          {message}
-        </div>
-      )}
+      {message && <output className="auth-feedback">{message}</output>}
       {canResend && (
         <button
           type="button"

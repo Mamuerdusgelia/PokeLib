@@ -8,13 +8,11 @@ A private library for competitive Pokémon teams: conceptual team families, alte
 
 ## What runs now
 
-**Settings → Data** provides full PokéLib backup and additive restore. Export prepares a bounded, compressed `.jsonl.gz` archive, then offers **Download backup**. It includes families, variants, complete history, exact retained raw/source text, notes, private editing provenance, metadata/dates, reusable tags and live collection definitions. Showdown export remains team text only.
+PokéLib opens without an account. Teams save to IndexedDB in this browser and remain Local unless Cloud Sync is explicitly enabled. Optional accounts add immutable display names, stable login codes, optional recovery email, Cloud Sync and Live Sharing. Snapshot sharing needs no account.
 
-Restore validates the entire file for preview, waits for confirmation, validates it again on the authenticated server, and commits bounded, retryable chunks. Existing data stays; new IDs belong to the signed-in account. Share links are omitted and restored data is private. Re-select the same file to resume after reload. Finish restoring before editing the library elsewhere: concurrent portable-data changes stop the operation. Replace-library mode is deferred. See [BACKUP_FORMAT.md](BACKUP_FORMAT.md) for the version-1 contract, included/excluded data, conflict handling, limits and recovery behavior, and PERFORMANCE.md for local 1k/5k/10k evidence.
+Settings → Data provides full PokéLib native backups and additive restore into the current browser namespace. Showdown text remains available for single, selected, filtered and complete-library export. Restored data gets new IDs and stays Local.
 
-The owner-only production deployment at `https://pokelib.app` uses the real Supabase project. The old Cloudflare D1 demo store remains untouched and available when both Supabase variables are absent. Its ChatGPT sign-in and sample-team behavior are unchanged. Browser storage holds view preferences and Supabase's native auth session, never app-managed passwords.
-
-All 12 migrations and the schema/permission audit passed on hosted PostgreSQL 17.6. The earlier two-account Supabase verification passed 24 integration groups. The subsequent owner-only production deployment passed functional smoke testing and backup validation, with all disposable data removed. The password-authentication change uses this same project and existing Auth user IDs. All nine requested hosted signup/login/reset acceptance steps passed, including existing-data retention and cross-account read denial; the disposable teams were removed. See [AUTH_VERIFICATION.md](AUTH_VERIFICATION.md) and [PROGRESS.md](PROGRESS.md).
+See [LOCAL_FIRST.md](LOCAL_FIRST.md) for the current architecture, namespace/logout behavior, conflict handling, Snapshot/Live sharing, new schema, required server-only secret, migration instructions and testing limits. Earlier hosted authentication/deployment reports document the previous release and do not verify this refactor. No hosted data was reset or deployment performed during the local-first update.
 
 ## Architecture
 
@@ -32,16 +30,16 @@ All 12 migrations and the schema/permission audit passed on hosted PostgreSQL 17
 - TypeScript, React, Tailwind, accessible Shadcn/Base UI primitives.
 - Next.js App Router source conventions, built for Cloudflare Workers through the Sites scaffold's Vinext adapter. The scaffold currently pins Vinext 1.0.0-beta.5; it is a beta runtime, a relevant production rollout consideration.
 - app/api/vault: authenticated HTTP boundary, input limits, same-origin mutations, server-side Showdown parsing and query planning.
-- lib/supabase-store.ts: authenticated Supabase HTTP RPC calls. No service-role key.
+- lib/supabase-store.ts: legacy authenticated Supabase RPC adapter. New Cloud operations use /api/cloud; account administration alone uses a server-only service credential through /api/account.
 - supabase/migrations: production PostgreSQL tables, indexes, RLS, atomic version creation and private helper functions.
 - lib/demo-store.ts: D1 demo persistence, parameterized queries, server-side ownership checks, transactional imports/version creation.
 - lib/showdown.ts: maintained @pkmn/sets and @pkmn/dex. Original export and structured full set JSON are retained. Unknown lines remain in the stored export.
-- lib/search.ts: longest entity matching plus explicit syntax; related Pokémon predicates are correlated to the same version and slot. Metadata words use relational search-term indexes. No library-wide browser scans.
+- lib/search.ts: longest entity matching plus explicit syntax; related Pokémon predicates are correlated to the same version and slot. Local and Cloud summaries carry structured search indexes; the browser evaluates the same query plans without loading every complete team payload.
 - Versions contain parsed sets, Showdown text, original text, team notes, per-slot notes, parent version ID, revision tokens and optional private authoring-default flags. Tags/provenance/date belong to the variant and apply across its history.
 
 ## PokéPaste import
 
-Import teams → PokéPaste URL accepts `https://pokepast.es/<16-character hex ID>`. The authenticated server reads the official JSON representation, then uses the existing Showdown parser/preview and chunked import. Title, author, original URL and paste notes are retained as provenance/team notes. Team Date starts Unknown; format is not inferred when the paste supplies none. Review the canonical format picker before saving if needed.
+Import teams → PokéPaste URL accepts `https://pokepast.es/<16-character hex ID>`. The server reads the official JSON representation without requiring an account, then uses the existing Showdown parser/preview and chunked import. Title, author, original URL and paste notes are retained as provenance/team notes. Team Date starts Unknown; format is not inferred when the paste supplies none. Review the canonical format picker before saving if needed.
 
 Only the exact HTTPS pokepast.es host is supported, with no credentials, custom ports, queries, fragments or redirects. Responses have a 10-second timeout, 1 MB streaming limit and 150k-character team-text bound. Oversized optional metadata has a visible preview warning. No API key, arbitrary URL proxy, or PokéPaste publishing is introduced. The response contract is verified against [PokéPaste's official server](https://github.com/felixphew/pokepaste/blob/v3/server.go).
 
@@ -56,7 +54,7 @@ Requires Node 22.13+ (Node 24 recommended) and pnpm.
 3. Apply demo migrations:
    node node_modules/wrangler/bin/wrangler.js d1 migrations apply DB --local --config .openai/wrangler.local.json --persist-to .wrangler/state
 4. Start: pnpm dev
-5. Open the printed local URL and choose **Sign in with ChatGPT**. The Sites development plugin provides a local-only simulated account (Seedy); it strips forged authenticated-user headers. This simulator is not shipped in production.
+5. Open the printed local URL. The Local library opens immediately; no account is required.
 6. On this Windows runtime, if pnpm reports a dependency layout mismatch, use pnpm --config.node-linker=isolated run dev. The same option can be used for install/build.
 
 Production demo authentication trusts Sites' dispatcher-injected identity headers. Do not expose the Worker directly behind a proxy that lets callers forge those headers. Supabase mode validates bearer tokens against Supabase Auth and relies on RLS in addition to the API checks.
@@ -67,10 +65,10 @@ Production demo authentication trusts Sites' dispatcher-injected identity header
 2. Apply every SQL file in supabase/migrations in filename order through the SQL editor, or use Supabase CLI migrations with supabase db push. Existing projects should apply only migrations they have not run yet: 202609070001_delete_team.sql adds permanent deletion, 202609080001_include_archived.sql preserves legacy archived visibility, and 202609080002_search_set_notes.sql fixes explicit note searches; 202609090001_edit_current_version.sql adds current Save, concurrency guards and private authoring flags.
 3. In Authentication → URL Configuration, set the site URL to your deployed PokéLib origin. Add that origin's / route and http://localhost:3000/ to the allowed redirect URLs used during development.
 4. Enable Email authentication and keep **Confirm email** enabled. PokéLib uses native Supabase email/password signup and login. Keep the existing Resend/Supabase custom SMTP configuration for signup confirmation and password recovery; normal password login sends no email.
-5. Copy .env.example to .env for local development and supply SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY. The publishable (or legacy anon) key is public by design; **never use a service-role key**.
+5. Copy .env.example to .env and supply SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and the server-only SUPABASE_SERVICE_ROLE_KEY. The publishable key is public by design. The service key is used only by the account endpoint and must never enter client configuration.
 6. Production already has those same two runtime variables in Sites. Runtime values are not stored in .openai/hosting.json. Keep production owner-only until a separate public-release request.
 7. Restart local development after changing environment values.
-8. Log in with email and password. New users choose Create an account, enter and confirm their password, and confirm their email once. New accounts begin with an empty library.
+8. Accounts are optional. New users choose a permanent display name and password, with an optional recovery email. Email users confirm their address; email-free users retain their unique login code. New account namespaces begin empty.
 9. Test two distinct accounts and an anonymous share link on your actual project before inviting players. The private Sites access gate still applies until the site's audience is intentionally changed.
 
 Both variables must be supplied together in the ignored `.env`; Git tracks only the non-secret `.env.example`. Do not add duplicate `NEXT_PUBLIC_` variables. The local `/api/config` must report `demo: false`, and a private request without a Supabase bearer token must fail with 401. Demo teams remain in D1 and are not automatically moved. This setup did not copy or modify the existing demo library.

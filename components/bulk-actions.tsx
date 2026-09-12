@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { api } from '@/lib/client';
+import { api, currentAccount } from '@/lib/client';
 import { IMPORT_CHUNK_SIZE } from '@/lib/import-workflow';
 import { sourceTypes, type TeamMeta } from '@/lib/domain';
 import { Modal, Field, Pick, TagEditor } from './vault-ui';
@@ -147,8 +147,8 @@ export function BulkActionDialog({
           ? deleteAll
             ? 'Delete all ' +
               ids.length.toLocaleString() +
-              ' team families from this workspace? This permanently removes their variants, history, notes and variant share links.'
-            : 'Permanently delete every variant in these families, including all their history, notes and share links.'
+              ' team families from this workspace? Undo is available for 10 minutes. Live Shares are revoked; Snapshots remain.'
+            : 'Delete every variant in these families. Undo is available for 10 minutes. Live Shares are revoked; Snapshots remain.'
           : targets
             ? 'Update all ' +
               targets.length +
@@ -171,7 +171,7 @@ export function BulkActionDialog({
             This covers the families and shared collections counted for this
             review, including archived teams. New families or newly shared
             collections created in another tab afterward are not included. This
-            cannot be undone.
+            can be undone for 10 minutes.
           </p>
           <Field label="Type DELETE ALL to confirm">
             <input
@@ -192,6 +192,7 @@ export function BulkActionDialog({
           </Field>
           {!tagsOnly && (
             <>
+              {currentAccount() && <button className="text-link" type="button" onClick={() => { setSource('Self-built'); setName(currentAccount()!.name); }}>Built by me ({currentAccount()!.name})</button>}
               <div className="field-row">
                 <Pick
                   label="Replace source type"

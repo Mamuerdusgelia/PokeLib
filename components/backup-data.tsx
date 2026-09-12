@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { api, backupUpload } from '@/lib/client';
+import { api, backupUpload, localLibrary } from '@/lib/client';
 import {
   backupChunks,
   fileStream,
@@ -20,7 +20,6 @@ type Progress = {
   counts: Counts;
   complete: boolean;
 };
-const pendingKey = 'pokelib-pending-restore-v1';
 const countLabel = (c: Counts) =>
   `${c.families.toLocaleString()} ${c.families === 1 ? 'family' : 'families'} · ${c.variants.toLocaleString()} ${c.variants === 1 ? 'variant' : 'variants'} · ${c.revisions.toLocaleString()} ${c.revisions === 1 ? 'revision' : 'revisions'} · ${c.tags.toLocaleString()} ${c.tags === 1 ? 'tag' : 'tags'} · ${c.collections.toLocaleString()} ${c.collections === 1 ? 'collection' : 'collections'}`;
 export function BackupData({
@@ -30,6 +29,7 @@ export function BackupData({
   onBusy: (busy: boolean) => void;
   onChanged: () => void;
 }) {
+  const pendingKey = 'pokelib-pending-restore-v1/' + localLibrary().namespace;
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
     [error, setError] = useState('');
@@ -183,7 +183,7 @@ export function BackupData({
         );
         setPending(true);
       } catch {}
-      setMessage('Checking the complete file on the server before restoring…');
+      setMessage('Checking the complete backup in this browser before restoring…');
       let state: Progress = await backupUpload(
         file,
         operation.current,

@@ -4,6 +4,7 @@ import ts from 'typescript';
 const root = process.cwd();
 await fs.mkdir('.test-build', { recursive: true });
 for (const name of [
+  'local-db', 'local-library', 'local-backup', 'cloud-server', 'share-data', 'account-server',
   'formats',
   'backup-format',
   'backup',
@@ -65,6 +66,8 @@ await fs.cp('lib/showdown-data', '.test-build/showdown-data', {
   recursive: true,
 });
 try {
+  await import('./test-local-first.mjs');
+  await import('./test-account-server.mjs');
   await import('./test-core.mjs');
   await import('./test-auth.mjs');
   await import('./test-postgres.mjs');

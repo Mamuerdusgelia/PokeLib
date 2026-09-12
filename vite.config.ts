@@ -45,6 +45,7 @@ export default defineConfig(async ({ command }) => {
   const { cloudflare } = await import('@cloudflare/vite-plugin');
 
   return {
+    define: { 'process.env.POKELIB_QA': JSON.stringify(command === 'serve' ? process.env.POKELIB_QA || '' : '') },
     css: { postcss: { plugins: [tailwindcss()] } },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }

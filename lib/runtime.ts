@@ -6,6 +6,7 @@ import { publicSupabaseConfig } from './public-config';
 import type { ServerTiming } from './server-timing';
 export function config() {
   const e = env as unknown as Record<string, any>;
+  if (process.env.NODE_ENV === 'development' && process.env.POKELIB_QA === '1') return { url: '', key: '', db: env.DB };
   return {
     ...publicSupabaseConfig(
       e.SUPABASE_URL || process.env.SUPABASE_URL || '',

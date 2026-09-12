@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { api } from '@/lib/client';
+import { AccountStorageSettings, CloudDialog, ShareDialog, StorageActions, SyncStatus, NativeBackupButton, exportTeams } from './storage-controls';
 import type { AppConfig } from '@/lib/auth-flow';
 import { searchRequest } from '@/lib/search-request';
 import { BackupData } from '@/components/backup-data';
@@ -130,13 +131,16 @@ export default function Library({
   onSignOut,
   signingOut,
   onPasswordReset,
+  onSignIn,
 }: {
   config: AppConfig;
   onSignOut: () => Promise<void>;
   signingOut: boolean;
   onPasswordReset: () => void;
+  onSignIn: () => void;
 }) {
   const [backupBusy, setBackupBusy] = useState(false);
+  const [cloudIds, setCloudIds] = useState<string[] | null>(null);
   const [collectionMode, setCollectionMode] = useState<
     'save' | 'manage' | null
   >(null);
@@ -201,9 +205,37 @@ export default function Library({
     () => setRefreshTick((tick) => tick + 1),
     [],
   );
+  useEffect(() => {
+    window.addEventListener('pokelib-change', invalidateLibrary);
+    return () => window.removeEventListener('pokelib-change', invalidateLibrary);
+  }, [invalidateLibrary]);
   const [editTarget, setEditTarget] = useState<SetEditTarget | undefined>();
   const metadataSaving = useRef(false);
   const [metadataBusy, setMetadataBusy] = useState(false);
+  const detailId = detail?.id;
+  useEffect(() => {
+    // Sync, conflict recovery and other tabs can update storage while the detail
+    // view is open. Refresh that view without replacing an active editor draft.
+    if (!detailId || modal === 'version' || modal === 'metadata' || metadataBusy)
+      return;
+    const controller = new AbortController();
+    api('get', { id: detailId }, controller.signal)
+      .then((fresh: TeamRecord) => {
+        if (controller.signal.aborted) return;
+        setDetail((current) => {
+          if (!current || current.id !== detailId) return current;
+          const historical = current.version.id !== current.current_version_id;
+          const selected = historical
+            ? fresh.history?.find((v) => v.id === current.version.id)
+            : undefined;
+          return selected ? { ...fresh, version: selected } : fresh;
+        });
+      })
+      // Recovery briefly removes the stale row before loading canonical Cloud.
+      // Its next storage event retries this read; keep the visible draft meanwhile.
+      .catch(() => {});
+    return () => controller.abort();
+  }, [detailId, refreshTick, modal, metadataBusy]);
   function editVersion(target?: SetEditTarget) {
     if (metadataSaving.current) return;
     setEditTarget(target);
@@ -335,7 +367,7 @@ export default function Library({
         name: 'search_teams',
         title: 'Search your team library',
         description:
-          'Search the signed-in library with same-Pokémon matching and show the results.',
+          'Search this browser library with same-Pokémon matching and show the results.',
         inputSchema: {
           type: 'object',
           properties: { query: { type: 'string', maxLength: 400 } },
@@ -372,7 +404,7 @@ export default function Library({
         name: 'import_showdown_teams',
         title: 'Import Showdown teams',
         description:
-          'Save a Showdown backup into the signed-in library with Unknown historical dates. This completes an import.',
+          'Save a Showdown backup into the current library with Unknown historical dates. This completes an import.',
         inputSchema: {
           type: 'object',
           properties: { text: { type: 'string', maxLength: 5000000 } },
@@ -436,6 +468,7 @@ export default function Library({
     try {
       const r = await api('patch', {
         id: t.id,
+        expected_updated_at: t.updated_at,
         patch: { favourite: !t.favourite },
       });
       const mergeFavourite = (current: TeamRecord) =>
@@ -483,7 +516,7 @@ export default function Library({
               title: patch.title,
               expected_updated_at: detail.updated_at,
             })
-          : await api('patch', { id, patch });
+          : await api('patch', { id, patch, expected_updated_at: detail.updated_at });
       const metadata = Object.fromEntries(
         (Object.keys(patch) as (keyof TeamMeta)[]).map((key) => [
           key,
@@ -538,7 +571,7 @@ export default function Library({
             <span className="workspace-icon">P</span>
             <span>
               Personal workspace
-              <small>{config.demo ? 'Demo library' : 'Private library'}</small>
+              <small>{config.user ? 'Your library' : 'Local library'}</small>
             </span>
             <ChevronDown size={14} />
           </button>
@@ -586,7 +619,7 @@ export default function Library({
             <span>
               {config.user?.name || 'Personal library'}
               <small>
-                {config.demo ? 'Demo workspace' : 'Connected to Supabase'}
+                {config.user ? 'Local + Cloud' : 'No account needed'}
               </small>
             </span>
           </div>
@@ -633,10 +666,12 @@ export default function Library({
           </div>
           <span className="private-label">
             <LockKeyhole size={13} />
-            {config.demo ? 'Private demo workspace' : 'Private workspace'}
+            {config.user ? 'Your private library' : 'Local library'}
           </span>
         </header>
         <div className="library-body">
+          <p className="local-privacy">Local teams are stored only in this browser and are not sent to PokéLib servers. Export backups to protect against cleared browser data. {!config.user && <button className="text-link" onClick={onSignIn}>Log in / Create account</button>}</p>
+          <SyncStatus />
           {notice && (
             <div role="status" className="notice">
               <Check size={15} />
@@ -721,6 +756,7 @@ export default function Library({
                   </fieldset>
                 </div>
                 <div className="detail-actions">
+                  <StorageActions team={detail} onChanged={() => { void openTeam(detail.id); invalidateLibrary(); }} />
                   <button className="button" onClick={() => setModal('share')}>
                     <Share2 size={15} />
                     Share
@@ -1094,21 +1130,17 @@ export default function Library({
                     </button>
                     <button
                       className="text-link"
+                      onClick={async () => { try { setCloudIds((await api('family_expand', { ids: selected })).ids); } catch (e) { setError((e as Error).message); } }}
+                    >Cloud Sync selected</button>
+                    <NativeBackupButton key={selected.join(',')} ids={selected} families label="Native backup selected" />
+                    <button
+                      className="text-link"
                       onClick={async () => {
                         try {
                           const expanded = await api('family_expand', {
                             ids: selected,
                           });
-                          if (expanded.ids.length > 200)
-                            throw Error(
-                              'Export at most 200 selected variants at a time.',
-                            );
-                          const ts = await Promise.all(
-                            (expanded.ids as string[]).map((id) =>
-                              api('get', { id }),
-                            ),
-                          );
-                          downloadText(backupText(ts), 'pokelib-backup');
+                          await exportTeams(expanded.ids, false);
                         } catch (e) {
                           setError((e as Error).message);
                         }
@@ -1346,7 +1378,7 @@ export default function Library({
             setDeleteTarget(null);
             if (detail && familyKey(detail) === familyKey(deleteTarget))
               closeDetail();
-            setNotice('Team family permanently deleted.');
+            setNotice('Team family deleted. Undo is available for 10 minutes.');
             if (page > 0) setPage(0);
             else invalidateLibrary();
           }}
@@ -1405,28 +1437,10 @@ export default function Library({
           }}
         >
           <BackupData onBusy={setBackupBusy} onChanged={invalidateLibrary} />
-          <div className="settings-section">
-            <h3>
-              {config.demo ? 'Private demo workspace' : 'Supabase connected'}
-            </h3>
-            <p>
-              {config.demo
-                ? 'Your demo teams save on the server under your signed-in account. Your production Supabase library is separate and will start empty.'
-                : 'Your teams are stored in PostgreSQL. Row Level Security protects each account’s library.'}
-            </p>
-            {config.demo && (
-              <p>
-                The project includes a Supabase migration, an environment
-                template, and setup instructions in the README. Configure
-                SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to activate email
-                sign-in.
-              </p>
-            )}
-            <div className="callout">
-              Share links grant read-only access to the team and its versions.
-              This private Sites preview also requires access to the site
-              itself.
-            </div>
+          <AccountStorageSettings onDeleted={onSignOut} />
+          <div className="settings-section"><h3>Entire library</h3>
+            <button className="button" onClick={async () => { try { setCloudIds((await api('select', { query: '' })).ids); } catch (e) { setError((e as Error).message); } }}>Cloud Sync entire library</button>
+            <button className="button" onClick={() => exportTeams(undefined, false).catch((e) => setError(e.message))}>Export entire library as Showdown text</button>
           </div>
           <div className="settings-section">
             <h3>Search examples</h3>
@@ -1487,15 +1501,7 @@ export default function Library({
             project, not affiliated with Nintendo or The Pokémon Company.
             Parsing does not check format legality.
           </p>
-          {config.demo ? (
-            <a
-              className="text-link"
-              href="/signout-with-chatgpt?return_to=%2F"
-              target="_top"
-            >
-              Sign out
-            </a>
-          ) : (
+          {!config.user ? <button className="button" onClick={onSignIn}>Log in / Create account</button> : (
             <div className="auth-actions">
               <button
                 type="button"
@@ -1510,12 +1516,13 @@ export default function Library({
                 disabled={signingOut}
                 onClick={() => void onSignOut()}
               >
-                {signingOut ? 'Signing out…' : 'Sign out'}
+                {signingOut ? 'Signing out…' : 'Log out and clear cached Cloud data'}
               </button>
             </div>
           )}
         </Modal>
       )}
+      {cloudIds && <CloudDialog ids={cloudIds} onClose={() => setCloudIds(null)} onChanged={invalidateLibrary} />}
     </SidebarProvider>
   );
 }
@@ -1563,9 +1570,8 @@ function DeleteTeamDialog({
             Delete team family “{team.title}”?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently deletes every variant in this family, all their
-            history and notes. All their share links will stop working. This
-            can’t be undone.
+            Delete every variant in this family, including history and notes.
+            You can undo for 10 minutes. Live Shares are revoked immediately after Cloud deletion syncs; Snapshot shares remain available.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
@@ -1583,125 +1589,10 @@ function DeleteTeamDialog({
             onClick={() => void remove()}
           >
             <Trash2 size={15} />
-            {busy ? 'Deleting…' : 'Delete permanently'}
+            {busy ? 'Deleting…' : 'Delete team'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
-}
-function ShareDialog({
-  team,
-  demo,
-  onClose,
-}: {
-  team: TeamRecord;
-  demo: boolean;
-  onClose: () => void;
-}) {
-  const [url, setUrl] = useState(''),
-    [busy, setBusy] = useState(false),
-    [message, setMessage] = useState('');
-  async function action(revoke = false) {
-    setBusy(true);
-    try {
-      const r = await api(revoke ? 'revoke' : 'share', { id: team.id });
-      setUrl(revoke ? '' : window.location.origin + '/share/' + r.token);
-      setMessage(
-        revoke
-          ? 'All previous links have been revoked.'
-          : 'Link created. Previous links have been revoked.',
-      );
-    } catch (e) {
-      setMessage((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal
-      title={'Share variant: ' + (team.variant_name || 'Main')}
-      description="This link shares only this variant and its history. It follows this variant’s current build; siblings stay private."
-      onClose={onClose}
-    >
-      <div className="share-intro">
-        <Share2 size={28} />
-        <h3>{team.title}</h3>
-        <p>
-          Includes tags, source, historical date, team notes, and Pokémon notes.
-        </p>
-      </div>
-      {demo && (
-        <div className="callout">
-          This demo is hosted privately. Recipients also need access to the
-          site.
-        </div>
-      )}
-      {url ? (
-        <>
-          <Field label="Living team link">
-            <input readOnly value={url} onFocus={(e) => e.target.select()} />
-          </Field>
-          <div className="heading-actions">
-            <button
-              className="button primary"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(url);
-                  setMessage('Link copied.');
-                } catch {
-                  setMessage('Select the link above and copy it.');
-                }
-              }}
-            >
-              <Copy size={15} />
-              Copy link
-            </button>
-            <a
-              className="button"
-              target="_blank"
-              rel="noopener noreferrer"
-              href={url}
-            >
-              Open shared team
-            </a>
-          </div>
-          <Field label={'Link displaying v' + team.version.version_number}>
-            <input
-              readOnly
-              value={url + '?version=' + team.version.version_number}
-              onFocus={(e) => e.target.select()}
-            />
-          </Field>
-          <p className="muted small">
-            This link stays on this version, following edits while it is
-            current. Historical versions are fixed. Anyone with either link can
-            view the team’s other versions by changing the version number.
-          </p>
-        </>
-      ) : (
-        <p>
-          Generate a link to share this team. If a link already exists,
-          generating a new one replaces it.
-        </p>
-      )}
-      <div className="modal-actions">
-        <button
-          className="button danger"
-          disabled={busy}
-          onClick={() => action(true)}
-        >
-          Revoke links
-        </button>
-        <button
-          className="button primary"
-          disabled={busy}
-          onClick={() => action()}
-        >
-          {busy ? 'Updating…' : url ? 'Regenerate link' : 'Create share link'}
-        </button>
-      </div>
-      {message && <p role="status">{message}</p>}
-    </Modal>
   );
 }

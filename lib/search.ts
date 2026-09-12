@@ -77,7 +77,7 @@ export function planQuery(q: string): QueryPlan {
 function planClause(q: string): QueryPlan {
   const plan: QueryPlan = { meta: [], set: [], free: [] };
   const explicit =
-    /\b(team|pokemon|move|item|ability|nature|tera|tag|source|from|year|format|note):(?:"([^"]+)"|([^\s]+))/gi;
+    /\b(team|pokemon|move|item|ability|nature|tera|tag|source|from|year|format|note|storage):(?:"([^"]+)"|([^\s]+))/gi;
   const rest = q.replace(explicit, (_, field, quoted, single) => {
     field = field.toLowerCase() === 'from' ? 'source' : field.toLowerCase();
     const value = quoted ?? single;

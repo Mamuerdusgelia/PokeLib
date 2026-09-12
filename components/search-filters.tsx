@@ -63,7 +63,7 @@ export function SearchFilters({
   let items: Suggestion[];
   if (active) {
     const values =
-      active.field === 'from'
+      active.field === 'storage' ? ['local', 'cloud'] : active.field === 'from'
         ? facets.sources
         : active.field === 'tag'
           ? facets.tags

@@ -45,6 +45,8 @@ const configs = new Set([
   'SCHEMA_PLAN.md',
   'PERFORMANCE.md',
   'BACKUP_FORMAT.md',
+  'LOCAL_FIRST.md',
+  'HOSTED_LOCAL_FIRST_VERIFICATION.md',
 ]);
 const allowed = (name) =>
   (directories.test(name) || configs.has(name)) &&

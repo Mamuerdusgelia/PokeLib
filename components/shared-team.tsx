@@ -11,7 +11,7 @@ export default function SharedTeam({
   token: string;
   collectionTeam?: string;
 }) {
-  const [team, setTeam] = useState<PublicTeam | null>(null),
+  const [team, setTeam] = useState<(PublicTeam & { share_mode?: string; versions?: number[] }) | null>(null),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
   useEffect(() => {
@@ -76,6 +76,8 @@ export default function SharedTeam({
             <div>
               <span className="format">{formatLabel(team.format)}</span>
               <h1>{team.title}</h1>
+              <p>{team.share_mode === 'snapshot' ? 'Share Snapshot · immutable copy' : 'Share Live · latest synced updates'}</p>
+              {team.versions && <nav aria-label="Shared version history">{team.versions.map((v) => <a key={v} className="text-link" href={'?version=' + v}>Version {v} </a>)}</nav>}
               <p>Variant: {team.variant_name || 'Main'}</p>
               {team.variant_description && <p>{team.variant_description}</p>}
               {(team.version.version_number > 1 ||
@@ -125,7 +127,7 @@ export default function SharedTeam({
           )}
           <PokemonDetails team={team} />
           <footer className="shared-footer">
-            A living team document, shared with PokéLib.
+            Read-only team shared with PokéLib.
           </footer>
         </div>
       ) : (

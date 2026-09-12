@@ -85,6 +85,7 @@ export function cleanDefinition(input: unknown) {
 }
 export type CollectionDefinition = ReturnType<typeof cleanDefinition>;
 export type CollectionRecord = {
+  cloud_revision?: number;
   id: string;
   name: string;
   description: string;
