@@ -34,7 +34,7 @@ export async function testVariants(store, other, check) {
         ])
       ).ids[0];
       const t = await store.get(id);
-      assert.equal(t.source_type, 'PokéPaste');
+      assert.equal(t.source_type, 'Given by');
       assert.equal(t.source_name, 'Alice');
       assert.equal(t.team_date, null);
       assert.ok(t.imported_at);

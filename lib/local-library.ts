@@ -1,5 +1,8 @@
 import {
   cleanMeta,
+  readableMeta,
+  sourceLabel,
+  words,
   normalize,
   normalizeTags,
   snapshotRevision,
@@ -110,7 +113,7 @@ export function indexed(
 }
 function visible(row: LibraryIndex) {
   return {
-    ...row.team,
+    ...readableMeta(row.team),
     sync_status: row.conflict
       ? 'conflict'
       : row.error
@@ -184,7 +187,15 @@ export class LocalLibrary {
       });
     }
     const result = await this.row(id);
-    return { ...result.payload!, sync_status: visible(result).sync_status };
+    const siblings = (await this.db.indexes(this.namespace)).filter(
+      (row) => !row.deletedAt && familyKey(row.team) === familyKey(result.team),
+    );
+    return {
+      ...readableMeta(result.payload!),
+      sync_status: visible(result).sync_status,
+      variant_count: siblings.length,
+      matching_variant_count: siblings.length,
+    };
   }
   async list(p: Partial<LocalInput> = {}, action = 'list') {
     const all = (await this.db.indexes(this.namespace)).filter(
@@ -193,7 +204,7 @@ export class LocalLibrary {
     const plan = p.plan || planQuery(p.query || '');
     // Preserve the existing format aliases and same-slot/member semantics.
     const matched = all.filter((r) => {
-      const t = r.team;
+      const t = readableMeta(r.team);
       const meta = plan.meta.filter(
         (q) => !['format', 'storage', 'year'].includes(q.field),
       );
@@ -220,7 +231,18 @@ export class LocalLibrary {
                   : t.team_date?.startsWith(q.value)
                 : true,
         ) &&
-        matchesPlan(r.terms, { ...plan, meta })
+        matchesPlan(
+          [
+            ...r.terms,
+            ...words(sourceLabel(t)).map((value) => ({
+              field: 'source',
+              value,
+              slot: -1,
+              version_id: '',
+            })),
+          ],
+          { ...plan, meta },
+        )
       );
     });
     const sort = p.sort || 'modified_desc';
@@ -277,7 +299,7 @@ export class LocalLibrary {
   async facets() {
     const rows = (await this.db.indexes(this.namespace))
       .filter((r) => !r.deletedAt)
-      .map((r) => r.team);
+      .map((r) => readableMeta(r.team));
     const unique = (values: string[]) =>
       [...new Set(values.filter(Boolean))].sort();
     return {

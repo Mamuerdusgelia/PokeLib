@@ -125,10 +125,24 @@
   letter-spacing: 0.7px;
 }
 .compact-toolbar {
-  justify-content: flex-end;
-  margin-top: 11px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
   margin-bottom: 4px;
 }
+.compact-toolbar .button, .compact-toolbar .pick {
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+.compact-toolbar .collection-actions, .compact-toolbar .view-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.page-heading { margin-bottom: 14px; }
 .format-navigator {
   margin-top: 12px;
   font-size: 14px;
@@ -1509,7 +1523,7 @@ textarea::placeholder,
   align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
-  padding: 12px 14px;
+  padding: 6px 10px;
   border: 1px solid #56694c;
   border-radius: 6px;
   background: #222d22;

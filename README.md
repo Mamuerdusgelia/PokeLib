@@ -16,7 +16,7 @@ See [LOCAL_FIRST.md](LOCAL_FIRST.md) for the current architecture, namespace/log
 
 ## Architecture
 
-- **Families, variants, history:** library rows group sibling builds into one conceptual family. Expand to load matching variants, 30 per request. Create/Duplicate variant copies the displayed snapshot into revision 1 of a sibling; Rename/Delete variant are separate from History. The final variant requires the explicit Delete team family action. Legacy teams appear as Main without changing their IDs or snapshots.
+- **Families, variants, history:** library rows group sibling builds into one conceptual family. Expand to load matching variants, 30 per request. Create variant copies the inspected variant's displayed snapshot into revision 1 of a sibling. Click its displayed name to rename it (Enter/blur saves, Escape cancels). The final variant requires the explicit Delete team family action. Legacy teams appear as Main without changing their IDs or snapshots.
 - A family owns its title. Rename the title in the detail heading to update all siblings atomically. Each variant owns its format, tags, source, date, notes and history. Bulk library selection means whole families: metadata expands to all their variants, while family deletion cascades every sibling. Existing share links expose one variant and its numbered history only.
 
 - New Team opens an unsaved blank six-slot builder immediately, inheriting the active format filter. The first nonempty save creates the team; abandoning the draft creates no record.
@@ -39,7 +39,13 @@ See [LOCAL_FIRST.md](LOCAL_FIRST.md) for the current architecture, namespace/log
 
 ## PokéPaste import
 
-Import teams → PokéPaste URL accepts `https://pokepast.es/<16-character hex ID>`. The server reads the official JSON representation without requiring an account, then uses the existing Showdown parser/preview and chunked import. Title, author, original URL and paste notes are retained as provenance/team notes. Team Date starts Unknown; format is not inferred when the paste supplies none. Review the canonical format picker before saving if needed.
+Import teams → PokéPaste URL accepts `https://pokepast.es/<16-character hex ID>`. The server reads the official JSON representation without requiring an account, then uses the existing Showdown parser/preview and chunked import. A supplied author defaults to Given by; absent authors default to Other. Title and actual notes are retained; new imports do not store source links/context. Explicit `format` metadata or `Format:` note lines map through the canonical format registry and aliases. Unknown, missing or conflicting metadata uses the existing fallback picker. Format lines are removed from team notes. Team Date starts Unknown.
+
+All Teams uses a compact toolbar and contextual bulk selection. Export matching exports each matching variant's current Showdown text across every page, using existing `=== [format] Title ===` backup headers. Nonmatching siblings are excluded; Export selected retains whole-family selection semantics.
+
+Historical dating is year-only, with Unknown still available. New manual teams default to the current local year. Old exact/month dates are readable as their associated year and normalize on save; opening a team does not rewrite storage. Sources are Built by, Given by, Found on and Other. Built by uses the current account name when available, with the existing anonymous blank identity otherwise. Legacy source names map in the compatibility layer; hidden source links/notes are retained for older records and backups.
+
+`supabase/migrations/202609130001_source_choices.sql` adds the new names to the legacy vault/backup validator without rewriting data or changing privileges. Apply it before using new-source archives with that legacy PostgreSQL path. The local-first Cloud JSON path requires no schema change. View/Edit Team, local/account isolation and Snapshot/Live-link behavior are unchanged. See [REFINEMENT_VERIFICATION.md](REFINEMENT_VERIFICATION.md) for this pass's validation.
 
 Only the exact HTTPS pokepast.es host is supported, with no credentials, custom ports, queries, fragments or redirects. Responses have a 10-second timeout, 1 MB streaming limit and 150k-character team-text bound. Oversized optional metadata has a visible preview warning. No API key, arbitrary URL proxy, or PokéPaste publishing is introduced. The response contract is verified against [PokéPaste's official server](https://github.com/felixphew/pokepaste/blob/v3/server.go).
 

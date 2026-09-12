@@ -97,8 +97,8 @@ const d1 = {
 };
 const a = new DemoStore(d1, 'owner-a'),
   b = new DemoStore(d1, 'owner-b');
-await check('new-team date defaults to local today', () =>
-  assert.equal(emptyDraft().team_date, localDate()),
+await check('new-team date defaults to local year', () =>
+  assert.equal(emptyDraft().team_date, localDate().slice(0, 4)),
 );
 await check('import date is Unknown', () =>
   assert.equal(emptyDraft(true).team_date, null),

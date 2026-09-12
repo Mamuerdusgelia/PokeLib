@@ -26,7 +26,7 @@ await check(
     assert.equal(builderDraft('gen5ou').format, 'gen5ou');
     assert.equal(builderDraft().format, 'unknown');
     assert.equal(builderDraft().title, 'Untitled team');
-    assert.equal(builderDraft().team_date, localDate());
+    assert.equal(builderDraft().team_date, localDate().slice(0, 4));
     assert.equal(builderDraft().showdown_text, '');
     assert.equal(emptyDraft(true).team_date_precision, 'unknown');
   },

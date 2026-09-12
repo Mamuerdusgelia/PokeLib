@@ -157,25 +157,29 @@ export function VariantActions({
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const cancel = useRef<HTMLButtonElement>(null),
-    operation = useRef('');
+    operation = useRef(''),
+    saving = useRef(false),
+    cancelled = useRef(false);
   useEffect(() => {
     if (busy && mode === 'create') feedbackSaveTrace();
   }, [busy, mode]);
-  function begin(next: 'create' | 'rename' | 'delete', duplicate = false) {
-    setName(
-      next === 'rename'
-        ? team.variant_name || 'Main'
-        : duplicate
-          ? (team.variant_name || 'Main') + ' copy'
-          : '',
-    );
+  function begin(next: 'create' | 'rename' | 'delete') {
+    setName(next === 'rename' ? team.variant_name || 'Main' : '');
     setDescription(next === 'delete' ? '' : team.variant_description || '');
     setError('');
     setMode(next);
     operation.current = crypto.randomUUID();
   }
   async function submit() {
-    if (busy) return;
+    if (busy || saving.current) return;
+    if (
+      mode === 'rename' &&
+      (!name.trim() || name.trim() === (team.variant_name || 'Main'))
+    ) {
+      setMode(null);
+      return;
+    }
+    saving.current = true;
     if (mode === 'create')
       startSaveTrace('variant_create', team.version.parsed_team.length);
     setBusy(true);
@@ -207,13 +211,59 @@ export function VariantActions({
       cancelSaveTrace();
       setError((e as Error).message);
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
   return (
     <section className="variant-actions" aria-label="Variant">
       <div>
-        <strong>Variant: {team.variant_name || 'Main'}</strong>
+        {mode === 'rename' ? (
+          <input
+            aria-label="Variant name"
+            maxLength={80}
+            value={name}
+            disabled={busy}
+            ref={(node) => {
+              if (node && !cancelled.current) node.focus();
+            }}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => {
+              if (!cancelled.current) void submit();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                cancelled.current = true;
+                setMode(null);
+              }
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                void submit();
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="edit-value"
+            title="Click to rename variant"
+            aria-label="Edit variant name"
+            onClick={() => {
+              cancelled.current = false;
+              begin('rename');
+            }}
+          >
+            Variant: {team.variant_name || 'Main'} <small>✎</small>
+          </button>
+        )}
+        {mode === 'rename' && error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
         {team.variant_description && <p>{team.variant_description}</p>}
       </div>
       <FamilyVariants team={team} onOpen={onOpen} />
@@ -221,12 +271,7 @@ export function VariantActions({
         <button className="button" onClick={() => begin('create')}>
           Create variant
         </button>
-        <button className="button" onClick={() => begin('create', true)}>
-          Duplicate variant
-        </button>
-        <button className="button" onClick={() => begin('rename')}>
-          Rename variant
-        </button>
+
         <button
           className="button danger"
           disabled={(team.variant_count || 1) < 2}
@@ -238,14 +283,12 @@ export function VariantActions({
           Delete team family
         </button>
       </div>
-      {mode && (
+      {mode && mode !== 'rename' && (
         <Modal
           title={
             mode === 'delete'
               ? 'Delete variant “' + (team.variant_name || 'Main') + '”?'
-              : mode === 'rename'
-                ? 'Rename variant'
-                : 'Create variant from ' + (team.variant_name || 'Main')
+              : 'Create variant from ' + (team.variant_name || 'Main')
           }
           description={
             mode === 'delete'
@@ -307,9 +350,7 @@ export function VariantActions({
                 ? 'Saving…'
                 : mode === 'delete'
                   ? 'Delete variant'
-                  : mode === 'rename'
-                    ? 'Save variant name'
-                    : 'Create variant'}
+                  : 'Create variant'}
             </button>
           </div>
         </Modal>

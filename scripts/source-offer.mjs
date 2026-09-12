@@ -37,6 +37,7 @@ const configs = new Set([
   '.openai/hosting.json',
   '.openai/wrangler.local.json',
   'README.md',
+  'REFINEMENT_VERIFICATION.md',
   'LICENSE',
   'THIRD_PARTY_NOTICES.md',
   'SHOWDOWN_INTEGRATION.md',

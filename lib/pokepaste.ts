@@ -1,5 +1,5 @@
 import { parseBatch } from './showdown';
-import type { FormatContext } from './formats';
+import { canonicalFormat, knownFormat, type FormatContext } from './formats';
 
 const maximumBytes = 1000000;
 export function pokepasteUrl(input: unknown) {
@@ -108,6 +108,8 @@ export async function readPokepaste(
       title: metadata('title', 160),
       author: metadata('author', 200),
       notes: metadata('notes', 10000),
+      format:
+        typeof data.format === 'string' ? data.format.slice(0, 200).trim() : '',
       warnings,
     };
   } catch (e) {
@@ -132,16 +134,38 @@ export async function previewPokepaste(
   fetcher?: typeof fetch,
 ) {
   const paste = await readPokepaste(input, fetcher);
+  // Official pastes often record format as an explicit metadata line in notes.
+  // Do not infer a tier from prose or an ambiguous title.
+  const noteFormats = [...paste.notes.matchAll(/^\s*Format:\s*(.+)\s*$/gim)];
+  const candidates = [
+    paste.format,
+    ...noteFormats.map((m) => m[1].trim()),
+  ].filter(Boolean);
+  const mapped = [
+    ...new Set(
+      candidates.map((value) =>
+        knownFormat(value) ? canonicalFormat(value) : null,
+      ),
+    ),
+  ];
+  const detected = mapped.length === 1 && mapped[0] ? mapped[0] : null;
+  const notes = paste.notes
+    .replace(/^\s*Format:\s*.+(?:\r?\n|$)/gim, '')
+    .trim();
   const common = {
-    source_type: 'PokéPaste',
+    source_type: paste.author ? 'Given by' : 'Other',
     source_name: paste.author,
-    source_url: paste.url,
-    source_note: paste.title ? 'PokéPaste: ' + paste.title : '',
-    team_notes: paste.notes,
+    source_url: '',
+    source_note: '',
+    team_notes: notes,
     team_date: null,
     team_date_precision: 'unknown' as const,
   };
-  const batch = parseBatch(paste.text, format, context);
+  const batch = parseBatch(
+    paste.text,
+    detected || format,
+    detected ? undefined : context,
+  );
   return {
     text: paste.text,
     common,

@@ -1,5 +1,13 @@
 'use client';
-import { useState, type ReactNode, type ComponentProps } from 'react';
+import {
+  useState,
+  useId,
+  Children,
+  isValidElement,
+  cloneElement,
+  type ReactNode,
+  type ComponentProps,
+} from 'react';
 import { TagPicker } from './tag-picker';
 import { pokemonSprite } from '@/lib/pokemon-sprites';
 import { readVisualTeam } from '@/lib/visual-team';
@@ -27,6 +35,7 @@ import {
   type TeamRecord,
   type TeamMeta,
   dateLabel,
+  sourceLabel,
 } from '@/lib/domain';
 export function Pick({
   value,
@@ -101,11 +110,19 @@ export function Field({
   label: string;
   children: ReactNode;
 }) {
+  const id = useId();
   return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-    </label>
+    <fieldset className="field" aria-labelledby={id}>
+      <span id={id}>{label}</span>
+      {Children.map(children, (child) =>
+        isValidElement<{ 'aria-label'?: string }>(child) &&
+        ['input', 'textarea', 'select'].includes(String(child.type))
+          ? cloneElement(child, {
+              'aria-label': child.props['aria-label'] || label,
+            })
+          : child,
+      )}
+    </fieldset>
   );
 }
 export function TagEditor({
@@ -314,21 +331,7 @@ export function PokemonDetails({
         <section className="provenance-section">
           <div>
             <h2>Source & provenance</h2>
-            <p>
-              {team.source_type}
-              {team.source_name ? ' · ' + team.source_name : ''}
-            </p>
-            {team.source_url && (
-              <a
-                className="text-link"
-                href={team.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {team.source_url}
-              </a>
-            )}
-            <p className="preserve muted">{team.source_note}</p>
+            <p>{sourceLabel(team)}</p>
           </div>
           <div>
             <h2>Team date</h2>

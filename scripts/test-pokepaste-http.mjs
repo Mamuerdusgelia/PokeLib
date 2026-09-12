@@ -34,8 +34,8 @@ try {
   const draft = preview.data.batch[0].draft;
   assert.equal(draft.title, 'Mono Hoenn');
   assert.equal(draft.source_name, 'Moldy');
-  assert.equal(draft.source_url, url);
-  assert.equal(draft.source_type, 'PokéPaste');
+  assert.equal(draft.source_url, '');
+  assert.equal(draft.source_type, draft.source_name ? 'Given by' : 'Other');
   assert.equal(draft.team_date, null);
   const saved = await request('import', {
     drafts: [{ ...draft, title: 'HTTP Pokepaste ' + crypto.randomUUID() }],
@@ -43,7 +43,7 @@ try {
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
   id = saved.data.ids[0];
   const team = (await request('get', { id })).data;
-  assert.equal(team.source_url, url);
+  assert.equal(team.source_url, '');
   assert.equal(team.team_date_precision, 'unknown');
   assert.ok(team.version.parsed_team.length);
   assert.equal(team.version.showdown_text, draft.showdown_text);

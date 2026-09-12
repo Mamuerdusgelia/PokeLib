@@ -69,9 +69,9 @@ await check(
     const d = preview.batch[0].draft;
     assert.equal(d.title, 'Tournament team');
     assert.equal(d.format, 'gen4ubers');
-    assert.equal(d.source_type, 'PokéPaste');
+    assert.equal(d.source_type, 'Given by');
     assert.equal(d.source_name, 'Alice');
-    assert.equal(d.source_url, url);
+    assert.equal(d.source_url, '');
     assert.equal(d.team_notes, 'Lead notes');
     assert.equal(d.team_date, null);
     assert.equal(d.team_date_precision, 'unknown');

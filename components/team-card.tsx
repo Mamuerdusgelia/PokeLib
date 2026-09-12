@@ -1,6 +1,11 @@
 import { Trash2, Star, FolderClosed, Clock3 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatLabel, dateLabel, type TeamRecord } from '@/lib/domain';
+import {
+  formatLabel,
+  dateLabel,
+  sourceLabel,
+  type TeamRecord,
+} from '@/lib/domain';
 import { PokemonLine } from './vault-ui';
 import { FamilyVariants } from './variants';
 import { StorageLabel } from './storage-controls';
@@ -108,8 +113,7 @@ export function TeamCard({
         onClick={() => t.source_name && onFilter('source', t.source_name)}
       >
         <FolderClosed size={13} />
-        {t.source_type}
-        {t.source_name ? ' ' + t.source_name : ''}
+        {sourceLabel(t)}
       </button>
       <footer>
         <span title="Historical team date">

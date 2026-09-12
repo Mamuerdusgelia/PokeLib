@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from 'react';
 import {
   sourceTypes,
+  readableMeta,
   type TeamMeta,
   type TeamRecord,
   type Precision,
@@ -21,7 +22,7 @@ export function InlineTeamMetadata({
   onSave: (patch: Partial<TeamMeta>) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false),
-    [draft, setDraft] = useState<TeamMeta>(team),
+    [draft, setDraft] = useState<TeamMeta>(readableMeta(team)),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const update = <K extends keyof TeamMeta>(key: K, value: TeamMeta[K]) =>
@@ -35,7 +36,7 @@ export function InlineTeamMetadata({
           type="button"
           aria-label={'Edit team ' + field}
           onClick={() => {
-            setDraft(team);
+            setDraft(readableMeta(team));
             setError('');
             setEditing(true);
           }}
@@ -112,29 +113,18 @@ export function InlineTeamMetadata({
                 team_date: v === 'unknown' ? null : '',
               })
             }
-            options={['unknown', 'year', 'month', 'exact'].map((v) => [
-              v,
-              (
-                {
-                  unknown: 'Unknown',
-                  year: 'Year only',
-                  month: 'Month and year',
-                  exact: 'Exact date',
-                } as Record<string, string>
-              )[v],
-            ])}
+            options={[
+              ['unknown', 'Unknown'],
+              ['year', 'Year only'],
+            ]}
           />
           {draft.team_date_precision !== 'unknown' && (
             <Field label="Historical date">
               <input
                 aria-label="Historical date"
-                type={
-                  draft.team_date_precision === 'year'
-                    ? 'text'
-                    : draft.team_date_precision === 'month'
-                      ? 'month'
-                      : 'date'
-                }
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
                 value={draft.team_date || ''}
                 onChange={(e) => update('team_date', e.target.value)}
                 placeholder="2022"
@@ -151,29 +141,17 @@ export function InlineTeamMetadata({
             onChange={(v) => update('source_type', v)}
             options={sourceTypes}
           />
-          <Field label="Source name">
-            <input
-              aria-label="Source name"
-              value={draft.source_name}
-              onChange={(e) => update('source_name', e.target.value)}
-            />
-          </Field>
-          <Field label="Source URL">
-            <input
-              aria-label="Source URL"
-              type="url"
-              value={draft.source_url}
-              onChange={(e) => update('source_url', e.target.value)}
-            />
-          </Field>
-          <Field label="Source note">
-            <textarea
-              aria-label="Source note"
-              rows={2}
-              value={draft.source_note}
-              onChange={(e) => update('source_note', e.target.value)}
-            />
-          </Field>
+          {draft.source_type !== 'Other' && (
+            <Field
+              label={draft.source_type === 'Found on' ? 'Place' : 'Player'}
+            >
+              <input
+                aria-label="Source name"
+                value={draft.source_name}
+                onChange={(e) => update('source_name', e.target.value)}
+              />
+            </Field>
+          )}
         </>
       )}
       <p className="metadata-caption">

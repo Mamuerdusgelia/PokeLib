@@ -1,4 +1,5 @@
 'use client';
+import { sourceLabel } from '@/lib/domain';
 import {
   useState,
   useEffect,
@@ -828,22 +829,9 @@ export default function Library({
                             field="source"
                             onSave={saveMetadata}
                           >
-                            {detail.source_type}
-                            {detail.source_name
-                              ? ' · ' + detail.source_name
-                              : ''}
+                            {sourceLabel(detail)}
                           </InlineTeamMetadata>
-                          {detail.source_url && (
-                            <a
-                              className="text-link"
-                              href={detail.source_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {detail.source_url}
-                            </a>
-                          )}
-                          <p className="preserve muted">{detail.source_note}</p>
+
                         </div>
                         <div>
                           <h2>Team date</h2>
@@ -969,11 +957,9 @@ export default function Library({
             <>
               <div className="page-heading">
                 <div>
-                  <div className="eyebrow">YOUR COMPETITIVE PLAYBOOK</div>
                   <h1>
                     {heading} <span>{total}</span>
                   </h1>
-                  <p>Every team, every iteration. Right where you left it.</p>
                 </div>
                 <div className="heading-actions">
                   <button className="button" onClick={() => setModal('import')}>
@@ -1032,6 +1018,14 @@ export default function Library({
               />
               <div className="toolbar compact-toolbar">
                 <div className="collection-actions">
+                  <button className="button" disabled={!total || selectionBusy || loading} onClick={async () => {
+                    setSelectionBusy(true);
+                    try {
+                      const result = await api("select", { group_families: false, query: queryWithFilters(chips, query), year: chips.some(c => c.field === "year" && c.value === "unknown") ? "unknown" : "", favourite: section === "Favourites", include_archived: true, sort });
+                      await exportTeams(result.ids, false);
+                      setNotice(result.ids.length + " matching variants exported across all pages.");
+                    } catch(e) { setError((e as Error).message); } finally { setSelectionBusy(false); }
+                  }}>Export matching</button>
                   <button
                     className="button"
                     onClick={() => setCollectionMode('save')}
@@ -1161,7 +1155,7 @@ export default function Library({
                   <span>{total.toLocaleString()} teams</span>
                 )}
               </div>
-              {total > 0 && (
+              {total > 0 && selected.length > 0 && (
                 <div className="selection-banner">
                   <span>
                     {selected.length === total

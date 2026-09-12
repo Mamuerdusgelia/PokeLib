@@ -99,17 +99,40 @@ export type QueryPlan = SetClause & {
   meta: Term[];
   clauses?: SetClause[];
 };
-export const sourceTypes = [
-  'Self-built',
-  'Copied from',
-  'Received from',
-  'Adapted from',
-  'Tournament',
-  'Website',
-  'PokéPaste',
-  'Discord',
-  'Other',
-];
+export const sourceTypes = ['Built by', 'Given by', 'Found on', 'Other'];
+/** Interpret legacy metadata without rewriting stored records or dropping context. */
+export function sourceMeta<
+  T extends Pick<TeamMeta, 'source_type' | 'source_name'>,
+>(meta: T): T {
+  const name = meta.source_name || '';
+  const type = meta.source_type;
+  if (sourceTypes.includes(type)) return meta;
+  if (type === 'Self-built') return { ...meta, source_type: 'Built by' };
+  if (
+    ['Copied from', 'Received from', 'Adapted from', 'PokéPaste'].includes(type)
+  )
+    return { ...meta, source_type: name ? 'Given by' : 'Other' };
+  if (['Website', 'Discord', 'Tournament'].includes(type))
+    return { ...meta, source_type: 'Found on', source_name: name || type };
+  return { ...meta, source_type: 'Other' };
+}
+export function readableMeta<T extends TeamMeta>(meta: T): T {
+  return {
+    ...sourceMeta(meta),
+    team_date: meta.team_date?.slice(0, 4) ?? null,
+    team_date_precision:
+      meta.team_date_precision === 'unknown' ? 'unknown' : 'year',
+  };
+}
+export function sourceLabel(
+  meta: Pick<TeamMeta, 'source_type' | 'source_name'>,
+) {
+  const m = sourceMeta(meta);
+  return (
+    m.source_type +
+    (m.source_type !== 'Other' && m.source_name ? ' ' + m.source_name : '')
+  );
+}
 export const normalize = (s: string) =>
   s
     .normalize('NFKC')
@@ -145,12 +168,12 @@ export function emptyDraft(imported = false): Draft {
     title: '',
     format: 'gen9ou',
     tags: [],
-    source_type: imported ? 'Other' : 'Self-built',
+    source_type: imported ? 'Other' : 'Built by',
     source_name: '',
     source_url: '',
     source_note: '',
-    team_date: imported ? null : localDate(),
-    team_date_precision: imported ? 'unknown' : 'exact',
+    team_date: imported ? null : localDate().slice(0, 4),
+    team_date_precision: imported ? 'unknown' : 'year',
     showdown_text: '',
     team_notes: '',
     set_notes: [],
@@ -189,20 +212,8 @@ export function validateDate(value: string | null, precision: Precision) {
 export function cleanMeta(d: TeamMeta): TeamMeta {
   if (!d.title?.trim() || d.title.length > 160)
     throw Error('Give the team a name of 1–160 characters.');
-  if (!sourceTypes.includes(d.source_type))
-    throw Error('Choose a source type.');
   if (!['exact', 'month', 'year', 'unknown'].includes(d.team_date_precision))
     throw Error('Choose date precision.');
-  if (d.source_url) {
-    let u: URL;
-    try {
-      u = new URL(d.source_url);
-    } catch {
-      throw Error('Enter a valid source URL.');
-    }
-    if (!['https:', 'http:'].includes(u.protocol))
-      throw Error('Source links must use https or http.');
-  }
   return {
     title: d.title.trim(),
     format: canonicalFormat(
@@ -213,12 +224,14 @@ export function cleanMeta(d: TeamMeta): TeamMeta {
       ? { format_context: cleanFormatContext(d.format_context) }
       : {}),
     tags: normalizeTags(d.tags ?? []),
-    source_type: d.source_type,
-    source_name: (d.source_name ?? '').slice(0, 200),
+    source_type: sourceMeta(d).source_type,
+    source_name: (sourceMeta(d).source_name ?? '').slice(0, 200),
     source_note: (d.source_note ?? '').slice(0, 10000),
     source_url: (d.source_url ?? '').slice(0, 2000),
-    team_date: validateDate(d.team_date, d.team_date_precision),
-    team_date_precision: d.team_date_precision,
+    team_date:
+      validateDate(d.team_date, d.team_date_precision)?.slice(0, 4) || null,
+    team_date_precision:
+      d.team_date_precision === 'unknown' ? 'unknown' : 'year',
   };
 }
 export function dateLabel(
@@ -226,18 +239,7 @@ export function dateLabel(
 ) {
   return t.team_date_precision === 'unknown' || !t.team_date
     ? 'Unknown'
-    : t.team_date_precision === 'year'
-      ? t.team_date
-      : t.team_date_precision === 'month'
-        ? new Date(t.team_date + '-01T12:00:00').toLocaleDateString('en-AU', {
-            month: 'short',
-            year: 'numeric',
-          })
-        : new Date(t.team_date + 'T12:00:00').toLocaleDateString('en-AU', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          });
+    : t.team_date.slice(0, 4);
 }
 export const formatLabel = (f: string) =>
   knownFormat(f)?.name.replace(/\[|\]/g, '') ||

@@ -1,3 +1,4 @@
+import { sourceLabel } from './domain';
 import { Dex } from '@pkmn/dex';
 import { canonicalFormat } from './formats';
 import {
@@ -169,6 +170,7 @@ export function indexTerms(
     'source',
     [
       meta.source_type,
+      sourceLabel(meta),
       meta.source_name,
       meta.source_note,
       meta.source_url,

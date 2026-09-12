@@ -49,7 +49,10 @@ export function TagPicker({
           <button
             type="button"
             aria-label={'Remove tag ' + tag}
-            onClick={() => onChange(tags.filter((t) => t !== tag))}
+            onClick={(event) => {
+              event.stopPropagation();
+              onChange(tags.filter((t) => t !== tag));
+            }}
           >
             <X size={14} />
           </button>

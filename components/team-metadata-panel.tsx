@@ -1,9 +1,14 @@
 'use client';
-import { sourceTypes, type Draft, type Precision } from '@/lib/domain';
+import {
+  sourceTypes,
+  readableMeta,
+  type Draft,
+  type Precision,
+} from '@/lib/domain';
 import { FormatPicker } from './format-picker';
 import { Field, Pick, TagEditor } from './vault-ui';
 export function MetaFields({
-  draft,
+  draft: inputDraft,
   setDraft,
   tags = [],
   compact = false,
@@ -15,6 +20,7 @@ export function MetaFields({
   compact?: boolean;
   importCommon?: boolean;
 }) {
+  const draft = readableMeta(inputDraft);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft({ ...draft, [key]: value });
   return (
@@ -63,39 +69,19 @@ export function MetaFields({
                 team_date: v === 'unknown' ? null : '',
               })
             }
-            options={['unknown', 'year', 'month', 'exact'].map(
-              (v) =>
-                [
-                  v,
-                  {
-                    unknown: 'Unknown',
-                    year: 'Year only',
-                    month: 'Month and year',
-                    exact: 'Exact date',
-                  }[v]!,
-                ] as [string, string],
-            )}
+            options={[
+              ['unknown', 'Unknown'],
+              ['year', 'Year only'],
+            ]}
           />
         </Field>
         {draft.team_date_precision !== 'unknown' && (
-          <Field
-            label={
-              draft.team_date_precision === 'year'
-                ? 'Year'
-                : draft.team_date_precision === 'month'
-                  ? 'Month'
-                  : 'Date'
-            }
-          >
+          <Field label="Year">
             <input
               aria-label="Historical date"
-              type={
-                draft.team_date_precision === 'exact'
-                  ? 'date'
-                  : draft.team_date_precision === 'month'
-                    ? 'month'
-                    : 'text'
-              }
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
               value={draft.team_date || ''}
               placeholder="2022"
               onChange={(e) => set('team_date', e.target.value)}
@@ -112,32 +98,20 @@ export function MetaFields({
             options={sourceTypes}
           />
         </Field>
-        <Field label="Source name">
-          <input
-            placeholder="Strange Name, Smogon, an event…"
-            value={draft.source_name}
-            onChange={(e) => set('source_name', e.target.value)}
-          />
-        </Field>
+        {draft.source_type !== 'Other' && (
+          <Field label={draft.source_type === 'Found on' ? 'Place' : 'Player'}>
+            <input
+              placeholder={
+                draft.source_type === 'Found on'
+                  ? 'Smogon, Discord…'
+                  : 'Player name'
+              }
+              value={draft.source_name}
+              onChange={(e) => set('source_name', e.target.value)}
+            />
+          </Field>
+        )}
       </div>
-      <details className="metadata-more">
-        <summary>Source link & additional context</summary>
-        <Field label="Source URL">
-          <input
-            type="url"
-            placeholder="https://…"
-            value={draft.source_url}
-            onChange={(e) => set('source_url', e.target.value)}
-          />
-        </Field>
-        <Field label="Source note">
-          <textarea
-            rows={2}
-            value={draft.source_note}
-            onChange={(e) => set('source_note', e.target.value)}
-          />
-        </Field>
-      </details>
     </div>
   );
 }

@@ -237,6 +237,9 @@ function checkMeta(meta: TeamMeta) {
   if (meta.format_context !== undefined)
     keys(meta.format_context, ['generation', 'battle']);
   cleanMeta(meta); // Validate without replacing preserved strings or canonicalizing old data.
+  // Legacy context is hidden but archives must never carry executable links.
+  if (meta.source_url && !/^https?:\/\//i.test(meta.source_url))
+    throw Error('Source links must use https or http.');
   if (meta.source_url) {
     const url = new URL(meta.source_url);
     if (url.username || url.password)
