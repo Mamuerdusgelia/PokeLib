@@ -91,6 +91,7 @@ export function TeamCard({
         <PokemonLine sets={t.version.parsed_team} />
       </button>
       <FamilyVariants
+        omitDisplayed
         team={t}
         query={query}
         year={year}

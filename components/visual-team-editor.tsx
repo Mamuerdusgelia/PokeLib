@@ -13,7 +13,7 @@ import {
 } from '@/lib/builder-performance';
 import { FormatPicker } from './format-picker';
 import { assistanceFormat } from '@/lib/formats';
-import { api, currentAccount } from '@/lib/client';
+import { api } from '@/lib/client';
 import {
   cleanMeta,
   type Draft,
@@ -36,6 +36,7 @@ import {
   readVisualTeam,
   writeVisualTeam,
   moveSlot,
+  reorderSlots,
   type EditorSlot,
   type OrphanNote,
 } from '@/lib/visual-team';
@@ -78,8 +79,29 @@ export function TeamEditor({
           version_comment:
             mode === 'version' ? '' : team.version.version_comment,
         }
-      : { ...builderDraft(initialFormat), title: generatedTeamTitle(), source_name: currentAccount()?.name || '' },
+      : {
+          ...builderDraft(initialFormat),
+          title: generatedTeamTitle(),
+          source_name: '',
+        },
   );
+  const [identityReady, setIdentityReady] = useState(!!team);
+  useEffect(() => {
+    let cancelled = false;
+    if (!team)
+      api('trainer_name')
+        .then((name) => {
+          if (!cancelled)
+            setDraft((d) => ({ ...d, source_name: d.source_name || name }));
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setIdentityReady(true);
+        });
+    return () => {
+      cancelled = true;
+    };
+  }, [team]);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const [renaming, setRenaming] = useState(false);
   const [initial] = useState(() => {
@@ -398,6 +420,13 @@ export function TeamEditor({
                   addButtonRef={addButtonRef}
                   selected={active}
                   onSelect={setActive}
+                  onReorder={(from, to) => {
+                    const next = reorderSlots(slots, from, to);
+                    updateSlots(next);
+                    setActive(
+                      next.findIndex((s) => s.id === slots[active]?.id),
+                    );
+                  }}
                   onAdd={() => {
                     if (slots.length < 24) {
                       startBuilderTiming('add-pokemon');
@@ -584,6 +613,7 @@ export function TeamEditor({
             className="button primary"
             disabled={
               busy ||
+              !identityReady ||
               historical ||
               (mode !== 'metadata' && !draft.showdown_text.trim())
             }

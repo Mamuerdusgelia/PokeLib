@@ -452,7 +452,7 @@ function PasswordForm({
         {mode === 'login'
           ? 'Open your private team library.'
           : mode === 'signup'
-            ? 'Your display name is permanent and may match another person’s. A unique account login code identifies your account. Email is optional and enables password recovery; without it, a lost password cannot be recovered.'
+            ? 'Your account name may match another person’s. You can set a trainer name in Settings for this browser. A unique account login code identifies your account. Email is optional and enables password recovery; without it, a lost password cannot be recovered.'
             : mode === 'forgot'
               ? 'Enter your recovery email. Accounts created without a recovery email cannot recover a lost password.'
               : 'Your library and account stay the same.'}
@@ -477,7 +477,7 @@ function PasswordForm({
         >
           {mode === 'signup' && (
             <label className="field">
-              <span>Display name (cannot be changed later)</span>
+              <span>Account display name</span>
               <input
                 required
                 maxLength={60}

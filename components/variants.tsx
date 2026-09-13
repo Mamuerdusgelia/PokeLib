@@ -15,12 +15,14 @@ export function FamilyVariants({
   query = '',
   year = '',
   favourite = false,
+  omitDisplayed = false,
   onOpen,
 }: {
   team: TeamRecord;
   query?: string;
   year?: string;
   favourite?: boolean;
+  omitDisplayed?: boolean;
   onOpen: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false),
@@ -97,18 +99,25 @@ export function FamilyVariants({
           {busy || loadedKey !== requestKey ? (
             <output>Loading variants…</output>
           ) : (
-            rows.map((t) => (
-              <button
-                type="button"
-                className="variant-row"
-                key={t.id}
-                onClick={() => onOpen(t.id)}
-              >
-                <strong>↳ {t.variant_name || 'Main'}</strong>
-                <PokemonLine sets={t.version.parsed_team} />
-                <small>{t.variant_description}</small>
-              </button>
-            ))
+            rows
+              .filter((t) => !omitDisplayed || t.id !== team.id)
+              .map((t) => (
+                <button
+                  type="button"
+                  className="variant-row"
+                  key={t.id}
+                  onClick={() => onOpen(t.id)}
+                >
+                  <strong>
+                    ↳ {t.variant_name || 'Main'}
+                    {(t.variant_name || 'Main') === 'Main'
+                      ? ' · ' + t.title
+                      : ''}
+                  </strong>
+                  <PokemonLine sets={t.version.parsed_team} />
+                  <small>{t.variant_description}</small>
+                </button>
+              ))
           )}
           {error && (
             <p role="alert" className="error">
@@ -268,6 +277,24 @@ export function VariantActions({
       </div>
       <FamilyVariants team={team} onOpen={onOpen} />
       <div className="variant-toolbar">
+        <button
+          className="button"
+          disabled={busy || (team.variant_count || 1) < 2}
+          onClick={async () => {
+            setBusy(true);
+            setError('');
+            try {
+              onSaved(await api('family_remove', { id: team.id }));
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Remove from family
+        </button>
+        {error && !mode && <p role="alert">{error}</p>}
         <button className="button" onClick={() => begin('create')}>
           Create variant
         </button>
@@ -356,5 +383,93 @@ export function VariantActions({
         </Modal>
       )}
     </section>
+  );
+}
+
+export function MergeFamilyDialog({
+  ids,
+  onClose,
+  onSaved,
+}: {
+  ids: string[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [teams, setTeams] = useState<TeamRecord[]>([]),
+    [main, setMain] = useState(''),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const expanded = await api('family_expand', { ids });
+      const rows = [];
+      for (const id of expanded.ids) rows.push(await api('get', { id }));
+      if (active) setTeams(rows);
+    })().catch((e) => {
+      if (active) setError(e.message);
+    });
+    return () => {
+      active = false;
+    };
+  }, [ids]);
+  return (
+    <Modal
+      wide
+      title="Merge into family"
+      description="The chosen Main team becomes the root. All other listed teams become variants. Pokémon sets are not combined. Existing families are included in full; team content, history, and shares stay attached to their original teams."
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+    >
+      <fieldset disabled={busy} className="merge-choices">
+        <legend>Choose exactly one Main team</legend>
+        {teams.map((t) => (
+          <label key={t.id}>
+            <input
+              type="radio"
+              name="main-team"
+              value={t.id}
+              checked={main === t.id}
+              onChange={() => setMain(t.id)}
+            />
+            <span>
+              <strong>{t.title}</strong> · {t.variant_name || 'Main'} ·{' '}
+              {t.format} · {t.team_date || 'Unknown date'} · {t.source_name}
+              <small>
+                {t.version.parsed_team.map((s) => s.species).join(' / ')} · ID{' '}
+                {t.id.slice(0, 8)}
+              </small>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      {error && <p role="alert">{error}</p>}
+      <div className="modal-actions">
+        <button className="button" disabled={busy} onClick={onClose}>
+          Cancel
+        </button>
+        <button
+          className="button primary"
+          disabled={busy || !main || teams.length < 2}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await api('family_merge', {
+                ids: teams.map((t) => t.id),
+                id: main,
+              });
+              onSaved();
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Merge into family
+        </button>
+      </div>
+    </Modal>
   );
 }

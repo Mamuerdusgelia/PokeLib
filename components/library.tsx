@@ -51,7 +51,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { api } from '@/lib/client';
-import { AccountStorageSettings, CloudDialog, ShareDialog, StorageActions, SyncStatus, NativeBackupButton, exportTeams } from './storage-controls';
+import { TrainerNameSettings, ShowdownExportButton, AccountStorageSettings, CloudDialog, ShareDialog, StorageActions, SyncStatus, NativeBackupButton, exportTeams } from './storage-controls';
 import type { AppConfig } from '@/lib/auth-flow';
 import { searchRequest } from '@/lib/search-request';
 import { BackupData } from '@/components/backup-data';
@@ -62,12 +62,9 @@ import {
   type TeamRecord,
   type Snapshot,
   type TeamMeta,
-  sourceTypes,
 } from '@/lib/domain';
-import { backupText } from '@/lib/showdown';
 import {
   Modal,
-  Field,
   Pick,
   TagEditor,
   PokemonDetails,
@@ -83,7 +80,7 @@ import { FormatNavigator } from './format-navigator';
 import { BulkActionDialog as BulkDialog } from './bulk-actions';
 import { TeamCard } from './team-card';
 import { WorkspaceCleanup } from './workspace-cleanup';
-import { VariantActions } from './variants';
+import { MergeFamilyDialog, VariantActions } from './variants';
 import { familyKey } from '@/lib/variants';
 import { Collections } from './collections';
 import { SaveTimingPanel } from './save-timing';
@@ -185,6 +182,9 @@ export default function Library({
   const [refreshTick, setRefreshTick] = useState(0);
   const [searching, setSearching] = useState(false);
   const facetsReady = useRef(false);
+  const [trainerName, setTrainerName] = useState('');
+  useEffect(() => { const update = () => { api('trainer_name').then(setTrainerName).catch(() => {}); }; update(); window.addEventListener('pokelib-change', update); return () => window.removeEventListener('pokelib-change', update); }, []);
+  const [merging, setMerging] = useState(false);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const selectionRequest = useRef<AbortController | null>(null);
   const selectionScope = JSON.stringify([
@@ -560,6 +560,7 @@ export default function Library({
     <SidebarProvider
       style={{ '--sidebar-width': '232px' } as React.CSSProperties}
     >
+      {merging && <MergeFamilyDialog ids={selected} onClose={() => setMerging(false)} onSaved={() => { setMerging(false); setSelected([]); invalidateLibrary(); setNotice('Teams merged into a family.'); }} />}
       <Sidebar className="vault-sidebar">
         <SidebarHeader>
           <a href="/" className="brand">
@@ -615,15 +616,15 @@ export default function Library({
             <Settings2 size={17} />
             Settings
           </button>
-          <div className="account">
+          <button className="account" onClick={() => setModal('settings')} title="Change trainer name">
             <span className="avatar">P</span>
             <span>
-              {config.user?.name || 'Personal library'}
+              {trainerName || 'Set trainer name'}
               <small>
                 {config.user ? 'Local + Cloud' : 'No account needed'}
               </small>
             </span>
-          </div>
+          </button>
         </SidebarFooter>
       </Sidebar>
       <SaveTimingPanel />
@@ -1018,6 +1019,7 @@ export default function Library({
               />
               <div className="toolbar compact-toolbar">
                 <div className="collection-actions">
+                  <ShowdownExportButton label="Showdown text" resolveIds={async () => (await api('select', { group_families: false, query: queryWithFilters(chips, query), year: chips.some(c => c.field === 'year' && c.value === 'unknown') ? 'unknown' : '', favourite: section === 'Favourites', sort })).ids} />
                   <button className="button" disabled={!total || selectionBusy || loading} onClick={async () => {
                     setSelectionBusy(true);
                     try {
@@ -1126,6 +1128,8 @@ export default function Library({
                       className="text-link"
                       onClick={async () => { try { setCloudIds((await api('family_expand', { ids: selected })).ids); } catch (e) { setError((e as Error).message); } }}
                     >Cloud Sync selected</button>
+                    <button className="text-link" disabled={selectionBusy || (selected.length < 2 && !teams.some(t => selected.includes(familyKey(t)) && (t.variant_count || 1) >= 2))} onClick={() => setMerging(true)}>Merge into family</button>
+                    <ShowdownExportButton ids={selected} families label="Showdown text selected" />
                     <NativeBackupButton key={selected.join(',')} ids={selected} families label="Native backup selected" />
                     <button
                       className="text-link"
@@ -1431,9 +1435,11 @@ export default function Library({
           }}
         >
           <BackupData onBusy={setBackupBusy} onChanged={invalidateLibrary} />
+          <TrainerNameSettings />
           <AccountStorageSettings onDeleted={onSignOut} />
           <div className="settings-section"><h3>Entire library</h3>
             <button className="button" onClick={async () => { try { setCloudIds((await api('select', { query: '' })).ids); } catch (e) { setError((e as Error).message); } }}>Cloud Sync entire library</button>
+            <ShowdownExportButton label="View / Copy entire library Showdown text" />
             <button className="button" onClick={() => exportTeams(undefined, false).catch((e) => setError(e.message))}>Export entire library as Showdown text</button>
           </div>
           <div className="settings-section">

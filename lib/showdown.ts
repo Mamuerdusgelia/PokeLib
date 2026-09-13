@@ -1,4 +1,4 @@
-import { Team, Teams } from '@pkmn/sets';
+import { Team } from '@pkmn/sets';
 import { Dex } from '@pkmn/dex';
 import {
   canonicalFormat,
@@ -128,7 +128,7 @@ export function backupText(
         '] ' +
         t.title.replace(/[\r\n]/g, ' ') +
         ' ===\n\n' +
-        t.version.showdown_text,
+        t.version.showdown_text.replace(/\r\n?/g, '\n'),
     )
     .join('\n\n');
 }

@@ -66,6 +66,7 @@ await fs.cp('lib/showdown-data', '.test-build/showdown-data', {
   recursive: true,
 });
 try {
+  await import('./test-cohesive.mjs');
   await import('./test-refinement.mjs');
   await import('./test-local-first.mjs');
   await import('./test-account-server.mjs');

@@ -34,15 +34,19 @@ export function PokemonSlotBar({
   onSelect,
   onAdd,
   addButtonRef,
+  onReorder,
   format,
 }: {
   slots: EditorSlot[];
   selected: number;
   onSelect: (i: number) => void;
   onAdd: () => void;
+  onReorder: (from: number, to: number) => void;
   addButtonRef?: Ref<HTMLButtonElement>;
   format: string;
 }) {
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [target, setTarget] = useState<number | null>(null);
   return (
     <fieldset
       className="pokemon-slot-bar"
@@ -57,7 +61,39 @@ export function PokemonSlotBar({
         return slot ? (
           <button
             type="button"
-            className={'pokemon-slot ' + (i === selected ? 'active' : '')}
+            className={
+              'pokemon-slot ' +
+              (i === selected ? 'active ' : '') +
+              (target === i ? 'drop-target' : '')
+            }
+            draggable
+            data-drop-side={
+              target === i && dragging !== null && dragging < i
+                ? 'after'
+                : 'before'
+            }
+            title="Drag to reorder; move left/right controls are below"
+            onDragStart={(e) => {
+              setDragging(i);
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', slot.id);
+            }}
+            onDragOver={(e) => {
+              if (dragging !== null) {
+                e.preventDefault();
+                setTarget(i);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragging !== null) onReorder(dragging, i);
+              setDragging(null);
+              setTarget(null);
+            }}
+            onDragEnd={() => {
+              setDragging(null);
+              setTarget(null);
+            }}
             aria-label={
               'Edit Pokémon ' +
               (i + 1) +

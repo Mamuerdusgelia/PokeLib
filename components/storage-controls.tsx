@@ -31,6 +31,138 @@ export function StorageLabel({ team }: { team: TeamRecord }) {
     </span>
   );
 }
+export async function showdownExportText(ids?: string[]) {
+  const targets = ids || (await api('select', { query: '' })).ids;
+  const teams: TeamRecord[] = [];
+  for (const id of targets) teams.push(await api('get', { id }));
+  return backupText(teams);
+}
+export function ShowdownExportButton({
+  ids,
+  families = false,
+  label = 'Showdown text',
+  resolveIds,
+}: {
+  ids?: string[];
+  families?: boolean;
+  label?: string;
+  resolveIds?: () => Promise<string[]>;
+}) {
+  const [text, setText] = useState<string | null>(null),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState('');
+  return (
+    <>
+      <button
+        className="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setMessage('');
+          try {
+            const selected = resolveIds ? await resolveIds() : ids;
+            const targets = families
+              ? (await api('family_expand', { ids: selected })).ids
+              : selected;
+            setText(await showdownExportText(targets));
+          } catch (e) {
+            setMessage((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? 'Preparing…' : label}
+      </button>
+      {text !== null && (
+        <Modal
+          wide
+          title="Showdown text"
+          description="Copy the complete export or download the same text."
+          onClose={() => setText(null)}
+        >
+          <textarea
+            className="code-editor"
+            aria-label="Bulk Showdown text"
+            rows={18}
+            readOnly
+            value={text}
+            spellCheck={false}
+          />
+          <div className="modal-actions">
+            <button
+              className="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(text);
+                  setMessage('Copied.');
+                } catch {
+                  setMessage(
+                    'Select the text and use Ctrl+A / Ctrl+C to copy.',
+                  );
+                }
+              }}
+            >
+              Copy to clipboard
+            </button>
+            <button
+              className="button"
+              onClick={() => downloadText(text, 'pokelib-teams')}
+            >
+              Download .txt
+            </button>
+          </div>
+          <output aria-live="polite">{message}</output>
+        </Modal>
+      )}
+      {text === null && message && <span role="alert">{message}</span>}
+    </>
+  );
+}
+export function TrainerNameSettings() {
+  const [name, setName] = useState(''),
+    [message, setMessage] = useState(''),
+    [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api('trainer_name')
+      .then(setName)
+      .catch((e) => setMessage(e.message));
+  }, []);
+  return (
+    <div>
+      <Field label="Trainer / display name">
+        <input
+          value={name}
+          maxLength={80}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </Field>
+      <p className="muted">
+        Saved in this browser for{' '}
+        {currentAccount() ? 'this account' : 'your local profile'}. Used for
+        future teams; existing sources stay unchanged.
+      </p>
+      <button
+        className="button"
+        disabled={busy || !name.trim()}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            setName(await api('trainer_name_save', { name }));
+            setMessage('Trainer name saved.');
+          } catch (e) {
+            setMessage((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Save trainer name
+      </button>
+      <output aria-live="polite">{message}</output>
+    </div>
+  );
+}
 export async function exportTeams(ids?: string[], native = true) {
   if (native) {
     const blob = await compressedBackup(
@@ -46,10 +178,7 @@ export async function exportTeams(ids?: string[], native = true) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   } else {
-    const targets = ids || (await api('select', { query: '' })).ids;
-    const teams: TeamRecord[] = [];
-    for (const id of targets) teams.push(await api('get', { id }));
-    downloadText(backupText(teams), 'pokelib-teams');
+    downloadText(await showdownExportText(ids), 'pokelib-teams');
   }
 }
 

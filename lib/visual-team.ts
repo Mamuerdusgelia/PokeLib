@@ -194,3 +194,24 @@ export function moveSlot(
   [next[index], next[target]] = [next[target], next[index]];
   return next;
 }
+
+/** Move a complete slot (including its note, raw fields and editing state) to its final position. */
+export function reorderSlots(
+  slots: EditorSlot[],
+  from: number,
+  to: number,
+): EditorSlot[] {
+  const next = [...slots];
+  if (
+    !Number.isInteger(from) ||
+    !Number.isInteger(to) ||
+    from < 0 ||
+    from >= slots.length ||
+    to < 0 ||
+    to >= slots.length
+  )
+    return next;
+  const [slot] = next.splice(from, 1);
+  next.splice(to, 0, slot);
+  return next;
+}

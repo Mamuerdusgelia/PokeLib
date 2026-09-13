@@ -266,15 +266,35 @@ export class LocalLibrary {
         a.team.id.localeCompare(b.team.id)
       );
     });
+    if (action === 'family_variants')
+      matched.sort(
+        (a, b) =>
+          Number(
+            b.team.id === familyKey(b.team) || b.team.variant_name === 'Main',
+          ) -
+          Number(
+            a.team.id === familyKey(a.team) || a.team.variant_name === 'Main',
+          ),
+      );
     const groups = action === 'families' || p.group_families;
+    const mainByFamily = new Map(
+      matched
+        .filter(
+          (r) =>
+            r.team.id === familyKey(r.team) || r.team.variant_name === 'Main',
+        )
+        .map((r) => [familyKey(r.team), r]),
+    );
     const found = new Set<string>();
-    const rows = matched.filter((r) => {
-      const k = familyKey(r.team);
-      if (!groups) return true;
-      if (found.has(k)) return false;
-      found.add(k);
-      return true;
-    });
+    const rows = matched
+      .filter((r) => {
+        const k = familyKey(r.team);
+        if (!groups) return true;
+        if (found.has(k)) return false;
+        found.add(k);
+        return true;
+      })
+      .map((r) => (groups ? mainByFamily.get(familyKey(r.team)) || r : r));
     if (action === 'select')
       return {
         ids: rows.map((r) => (groups ? familyKey(r.team) : r.team.id)),
@@ -323,6 +343,22 @@ export class LocalLibrary {
   async perform(action: string, input: unknown = {}): Promise<unknown> {
     const p = input as LocalInput;
     if (!this.active) throw Error('Account changed. Reopen the library.');
+    if (action === 'trainer_name')
+      return (
+        (await this.db.value<string>(this.namespace, 'trainer_name')) ??
+        (this.account?.name === 'Trainer' ? '' : this.account?.name || '')
+      );
+    if (action === 'trainer_name_save') {
+      const name = String(p.name || '').trim();
+      if (!name || name.length > 80)
+        throw Error('Enter a trainer name of 1–80 characters.');
+      await this.lock(() => this.commit([], [], { trainer_name: name }));
+      return name;
+    }
+    if (action === 'family_merge' || action === 'family_remove') {
+      const ids = p.ids || [p.id];
+      for (const id of ids) await this.full(id);
+    }
     if (action === 'parse')
       return parseBatch(p.text, p.format, p.format_context);
     if (action === 'preview') return parseShowdown(p.text, p.format);
@@ -504,12 +540,101 @@ export class LocalLibrary {
     const rows = (await this.db.indexes(this.namespace)).filter(
       (r) => !r.deletedAt,
     );
-    if (action === 'family_expand')
+    if (action === 'family_merge' || action === 'family_remove') {
+      const ids = [...new Set(p.ids || [p.id])];
+      if (action === 'family_merge' && (ids.length < 2 || !ids.includes(p.id)))
+        throw Error(
+          'Select at least two teams and explicitly choose a Main team.',
+        );
+      const selected = rows.filter((r) => ids.includes(r.team.id));
+      if (selected.length !== ids.length)
+        throw Error('Selection changed. Reopen the merge dialog.');
+      const keys = new Set(selected.map((r) => familyKey(r.team)));
+      if (
+        action === 'family_merge' &&
+        rows.some(
+          (r) => keys.has(familyKey(r.team)) && !ids.includes(r.team.id),
+        )
+      )
+        throw Error(
+          'Include every member of each existing family. No teams have been moved.',
+        );
+      if (
+        action === 'family_remove' &&
+        selected.some(
+          (r) =>
+            (r.team.id === familyKey(r.team) ||
+              r.team.variant_name === 'Main') &&
+            rows.some(
+              (s) =>
+                s.team.id !== r.team.id &&
+                familyKey(s.team) === familyKey(r.team),
+            ),
+        )
+      )
+        throw Error(
+          'The Main team cannot be detached while it has variants. Remove its variants first, or merge the whole family with a different Main.',
+        );
+      const deletedMembers = (await this.db.indexes(this.namespace)).some(
+        (r) => r.deletedAt && keys.has(familyKey(r.team)),
+      );
+      if (deletedMembers)
+        throw Error(
+          'This family has recently deleted members. Undo those deletions or wait for cleanup before reorganising it.',
+        );
+      const changes: StoredTeam[] = [];
+      const names = new Set<string>(['main']);
+      for (const item of selected) {
+        const row = await this.row(item.team.id);
+        if (!row.payload || row.conflict || row.pendingAction)
+          throw Error(
+            'Download all selected teams and resolve pending storage changes or conflicts first.',
+          );
+        let name = row.payload.variant_name || row.payload.title;
+        if (action === 'family_remove' || item.team.id === p.id) name = 'Main';
+        else {
+          if (normalize(name) === 'main') name = row.payload.title.slice(0, 70);
+          const base = name.slice(0, 70);
+          let n = 2;
+          while (names.has(normalize(name))) name = base + ' (' + n++ + ')';
+          names.add(normalize(name));
+        }
+        changes.push(
+          indexed(
+            {
+              ...row.payload,
+              family_id: action === 'family_remove' ? item.team.id : p.id,
+              variant_name: name,
+              updated_at: now(),
+            },
+            { ...row, dirty: row.dirty || row.team.storage === 'cloud' },
+          ),
+        );
+      }
+      await this.commit(changes);
+      return changes.find((r) => r.team.id === p.id)!.payload;
+    }
+    if (action === 'family_expand') {
+      const families = new Map<string, typeof rows>();
+      for (const row of rows) {
+        const key = familyKey(row.team);
+        const members = families.get(key) || [];
+        members.push(row);
+        families.set(key, members);
+      }
       return {
-        ids: rows
-          .filter((r) => p.ids.includes(familyKey(r.team)))
-          .map((r) => r.team.id),
+        ids: [...new Set(p.ids)].flatMap((id) =>
+          (families.get(id) || [])
+            .sort(
+              (a, b) =>
+                Number(b.team.id === id) - Number(a.team.id === id) ||
+                b.team.updated_at.localeCompare(a.team.updated_at) ||
+                a.team.id.localeCompare(b.team.id),
+            )
+            .map((r) => r.team.id),
+        ),
       };
+    }
     if (action === 'trash')
       return (await this.db.indexes(this.namespace))
         .filter((r) => r.deletedAt && r.deletedAt + UNDO_MS > Date.now())

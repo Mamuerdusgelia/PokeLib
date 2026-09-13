@@ -467,11 +467,8 @@ export class BackupValidator {
           throw Error('Duplicate or invalid sibling variant name.');
         this.names.add(details.key);
         checkMeta(r.meta);
-        if (
-          r.meta.title !== this.family.title ||
-          r.meta.tags.some((t) => !this.tags.has(t.toLowerCase()))
-        )
-          throw Error('Broken variant title or tag relationship.');
+        if (r.meta.tags.some((t) => !this.tags.has(t.toLowerCase())))
+          throw Error('Broken variant tag relationship.');
         integer(r.revisions, BACKUP_LIMITS.history);
         if (
           r.current_revision !== r.revisions ||

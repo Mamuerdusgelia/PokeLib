@@ -152,6 +152,7 @@ export function PokemonSprite({
     </span>
   ) : (
     <img
+      draggable={false}
       loading="lazy"
       alt={label}
       title={label}

@@ -648,6 +648,28 @@ await check(
     assert.equal(await resolveCollection(token), null);
   },
 );
+await check('merged cloud families retain order, stable shares, roots, and account isolation across devices', async () => {
+  const x = await create(first, draft('Merge Cloud A')), y = await create(first, draft('Merge Cloud B'));
+  await first.perform('cloud_enable', { ids: [x, y] });
+  await first.sync();
+  const token = (await first.perform('share', { id: x })).token;
+  const original = await first.full(x);
+  const pieces = original.version.showdown_text.split(/\n\s*\n/).reverse().join('\n\n');
+  await edit(first, x, { showdown_text: pieces, set_notes: [...original.version.set_notes].reverse() });
+  await first.perform('family_merge', { ids: [x, y], id: y });
+  await first.sync();
+  const device = new LocalLibrary(new MemoryDatabase(), a, connection(a).call);
+  await device.sync();
+  const copied = await device.full(x);
+  assert.equal(copied.family_id, y);
+  assert.equal(copied.version.parsed_team[0].species, 'Tornadus');
+  assert.equal((await device.perform('family_variants', {family_id:y})).teams[0].id, y);
+  assert.equal((await resolve(token)).version.parsed_team[0].species, 'Tornadus');
+  await assert.rejects(() => connection(b).call('get', {id:x}), /not found/);
+  await device.perform('family_remove', {id:x}); await device.sync(); await first.sync();
+  assert.equal((await first.full(x)).family_id, x);
+  assert.ok(await resolve(token));
+});
 await check(
   'account deletion freezes final Live state before Cloud/auth cascades',
   async () => {

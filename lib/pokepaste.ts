@@ -180,3 +180,47 @@ export async function previewPokepaste(
     })),
   };
 }
+
+/** Extract exact HTTPS PokéPaste links, preserving first appearance. */
+export function extractPokepasteUrls(text: string): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(
+    /https:\/\/[^\s<>"'“”‘’\x60,;()[\]{}]+/gi,
+  )) {
+    const candidate = match[0].replace(/[),.;!\]}]+$/, '');
+    try {
+      found.add(pokepasteUrl(candidate));
+    } catch {
+      /* unrelated or malformed */
+    }
+  }
+  return [...found];
+}
+export async function previewPokepasteBatch<T>(
+  urls: string[],
+  fetchOne: (url: string) => Promise<T>,
+  progress: (done: number, total: number) => void = () => {},
+) {
+  const results: T[] = [],
+    failures: { url: string; reason: string }[] = [];
+  // Serial fetching bounds concurrency and keeps paste order stable.
+  for (const [i, url] of urls.entries()) {
+    try {
+      results.push(await fetchOne(url));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '';
+      failures.push({
+        url,
+        reason: /not found/i.test(message)
+          ? 'Paste not found'
+          : /invalid response/i.test(message)
+            ? 'Invalid response'
+            : /supported team|valid team/i.test(message)
+              ? 'No valid team data'
+              : 'Could not fetch paste',
+      });
+    }
+    progress(i + 1, urls.length);
+  }
+  return { results, failures };
+}
