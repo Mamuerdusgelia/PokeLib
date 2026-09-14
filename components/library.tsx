@@ -1,5 +1,7 @@
 'use client';
 import { sourceLabel } from '@/lib/domain';
+import { Introduction } from './introduction';
+import { dismissIntroduction, introductionDismissed, introductionKey } from '@/lib/introduction';
 import {
   useState,
   useEffect,
@@ -169,12 +171,28 @@ export default function Library({
       | 'version'
       | 'metadata'
       | 'settings'
+      | 'introduction'
       | 'share'
       | 'bulk'
       | 'bulk_delete'
       | 'tags'
       | 'delete_all'
     >(null);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (!introductionDismissed()) setModal((current) => current ?? 'introduction');
+    });
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === introductionKey && event.newValue === 'true') {
+        setModal((current) => current === 'introduction' ? null : current);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
   const searchRef = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
     if (detail) commitSaveTrace();
@@ -1434,6 +1452,9 @@ export default function Library({
             if (!backupBusy) setModal(null);
           }}
         >
+          <button type="button" className="text-link" disabled={backupBusy} onClick={() => setModal('introduction')}>
+            About PokéLib
+          </button>
           <BackupData onBusy={setBackupBusy} onChanged={invalidateLibrary} />
           <TrainerNameSettings />
           <AccountStorageSettings onDeleted={onSignOut} />
@@ -1523,6 +1544,7 @@ export default function Library({
         </Modal>
       )}
       {cloudIds && <CloudDialog ids={cloudIds} onClose={() => setCloudIds(null)} onChanged={invalidateLibrary} />}
+      {modal === 'introduction' && <Introduction onClose={() => { dismissIntroduction(); setModal(null); }} />}
     </SidebarProvider>
   );
 }
