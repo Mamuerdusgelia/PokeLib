@@ -388,10 +388,12 @@ export function VariantActions({
 
 export function MergeFamilyDialog({
   ids,
+  standalone = false,
   onClose,
   onSaved,
 }: {
   ids: string[];
+  standalone?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -402,7 +404,7 @@ export function MergeFamilyDialog({
   useEffect(() => {
     let active = true;
     (async () => {
-      const expanded = await api('family_expand', { ids });
+      const expanded = standalone ? { ids } : await api('family_expand', { ids });
       const rows = [];
       for (const id of expanded.ids) rows.push(await api('get', { id }));
       if (active) setTeams(rows);
@@ -412,7 +414,7 @@ export function MergeFamilyDialog({
     return () => {
       active = false;
     };
-  }, [ids]);
+  }, [ids, standalone]);
   return (
     <Modal
       wide
@@ -456,6 +458,7 @@ export function MergeFamilyDialog({
             setBusy(true);
             try {
               await api('family_merge', {
+                standalone,
                 ids: teams.map((t) => t.id),
                 id: main,
               });

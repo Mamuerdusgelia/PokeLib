@@ -976,3 +976,8 @@
   margin: 6px 0;
   color: var(--muted-foreground);
 }
+.duplicate-groups { max-height: 50vh; overflow-y: auto; }
+.duplicate-group { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.duplicate-team { margin: 10px 0; }
+.duplicate-team label { display: block; overflow-wrap: anywhere; }
+.duplicate-team input { margin-right: 8px; }

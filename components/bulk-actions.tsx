@@ -15,6 +15,7 @@ export function BulkActionDialog({
   onClose,
   onSaved,
   deleting = false,
+  standalone = false,
   deleteAll = false,
   collectionIds = [],
   filterSummary = '',
@@ -25,6 +26,7 @@ export function BulkActionDialog({
   onClose: () => void;
   onSaved: (count: number, revoked: number) => void;
   deleting?: boolean;
+  standalone?: boolean;
   deleteAll?: boolean;
   collectionIds?: string[];
   filterSummary?: string;
@@ -79,7 +81,7 @@ export function BulkActionDialog({
           collectionIds: deleteAll ? collectionIds : [],
         });
         setStarted(true);
-        await runFamilyDeletion(api, deletion.current, (progress) => {
+        await runFamilyDeletion((action, payload) => api(action, { ...payload, standalone }), deletion.current, (progress) => {
           setDone(progress.next);
           setRevoked(progress.nextLink);
         });

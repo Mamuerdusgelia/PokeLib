@@ -82,6 +82,7 @@ import { FormatNavigator } from './format-navigator';
 import { BulkActionDialog as BulkDialog } from './bulk-actions';
 import { TeamCard } from './team-card';
 import { WorkspaceCleanup } from './workspace-cleanup';
+import { DuplicateCleanup } from './duplicate-cleanup';
 import { MergeFamilyDialog, VariantActions } from './variants';
 import { familyKey } from '@/lib/variants';
 import { Collections } from './collections';
@@ -1383,6 +1384,14 @@ export default function Library({
           onClose={() => setModal(null)}
         />
       )}
+      <DuplicateCleanup
+        ready={!loading && !!loadedScope && !modal && !detail && !detailLoading && !deleteTarget && !merging && !cloudIds && !collectionMode && !backupBusy && !signingOut}
+        revision={refreshTick}
+        onSaved={(message) => {
+          setNotice(message);
+          invalidateLibrary();
+        }}
+      />
       {deleteTarget && (
         <DeleteTeamDialog
           team={deleteTarget}

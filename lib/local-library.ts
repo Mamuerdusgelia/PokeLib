@@ -15,6 +15,7 @@ import { makeSnapshot, updateSnapshot } from './snapshot';
 import { indexTerms, matchesPlan, planQuery } from './search';
 import { formatSearchValues } from './formats';
 import { familyKey, variantDetails } from './variants';
+import { duplicateGroups, duplicateSuggestionKey } from './duplicate-teams';
 import {
   cleanCollection,
   type CollectionRecord,
@@ -39,14 +40,20 @@ export type CloudResult = StoredTeam & {
   message?: string;
   autoCloud: boolean;
   acknowledged: boolean;
+  duplicateSuggestionSeen?: boolean;
   show_history?: boolean;
 };
 export type CloudRequest = (
   action: string,
   payload?: unknown,
 ) => Promise<CloudResult>;
-export type Preferences = { autoCloud: boolean; acknowledged: boolean };
+export type Preferences = {
+  autoCloud: boolean;
+  acknowledged: boolean;
+  duplicateSuggestionSeen?: boolean;
+};
 type LocalInput = {
+  standalone?: boolean;
   id: string;
   ids: string[];
   query: string;
@@ -130,6 +137,7 @@ export class LocalLibrary {
   private serial: Promise<unknown> = Promise.resolve();
   private syncing?: Promise<void>;
   private syncRequested = false;
+  private duplicatePreferenceReady = false;
   active = true;
   constructor(
     readonly db: LocalDatabase,
@@ -343,6 +351,29 @@ export class LocalLibrary {
   async perform(action: string, input: unknown = {}): Promise<unknown> {
     const p = input as LocalInput;
     if (!this.active) throw Error('Account changed. Reopen the library.');
+    if (action === 'duplicate_suggestion') {
+      // Wait for an in-flight initial Cloud index scan without triggering sync.
+      await this.syncing;
+      return this.lock(async () => {
+        if (!this.active) throw Error('Account changed.');
+        if (await this.db.value(this.namespace, duplicateSuggestionKey))
+          return [];
+        // A cached false cannot prove another device has not dismissed it.
+        // Defer this optional UI until the current session reads account settings.
+        if (this.account && !this.duplicatePreferenceReady) return [];
+        const rows = await this.db.indexes(this.namespace);
+        return duplicateGroups(
+          rows.filter((r) => !r.deletedAt).map((r) => r.team),
+        );
+      });
+    }
+    if (action === 'duplicate_suggestion_dismiss') {
+      await this.lock(() =>
+        this.commit([], [], { [duplicateSuggestionKey]: true }),
+      );
+      void this.sync();
+      return;
+    }
     if (action === 'trainer_name')
       return (
         (await this.db.value<string>(this.namespace, 'trainer_name')) ??
@@ -540,7 +571,26 @@ export class LocalLibrary {
     const rows = (await this.db.indexes(this.namespace)).filter(
       (r) => !r.deletedAt,
     );
+    const validateStandalone = () => {
+      if (!p.standalone) return;
+      const eligible = duplicateGroups(rows.map((r) => r.team));
+      if (
+        !p.ids?.length ||
+        !eligible.some((group) =>
+          p.ids.every((id) => group.some((t) => t.id === id)),
+        )
+      )
+        throw Error(
+          'These teams have changed. Reopen the library to review them.',
+        );
+      if (
+        action === 'family_bulk_delete' &&
+        eligible.some((group) => group.every((t) => p.ids.includes(t.id)))
+      )
+        throw Error('Keep at least one team from this group.');
+    };
     if (action === 'family_merge' || action === 'family_remove') {
+      validateStandalone();
       const ids = [...new Set(p.ids || [p.id])];
       if (action === 'family_merge' && (ids.length < 2 || !ids.includes(p.id)))
         throw Error(
@@ -605,13 +655,17 @@ export class LocalLibrary {
               ...row.payload,
               family_id: action === 'family_remove' ? item.team.id : p.id,
               variant_name: name,
-              updated_at: now(),
+              updated_at: p.standalone ? row.payload.updated_at : now(),
             },
             { ...row, dirty: row.dirty || row.team.storage === 'cloud' },
           ),
         );
       }
-      await this.commit(changes);
+      await this.commit(
+        changes,
+        [],
+        p.standalone ? { [duplicateSuggestionKey]: true } : {},
+      );
       return changes.find((r) => r.team.id === p.id)!.payload;
     }
     if (action === 'family_expand') {
@@ -677,7 +731,10 @@ export class LocalLibrary {
       await this.commit(
         changes,
         [],
-        receipt ? { [receipt]: { fingerprint, result } } : {},
+        {
+          ...(receipt ? { [receipt]: { fingerprint, result } } : {}),
+          ...(p.standalone ? { [duplicateSuggestionKey]: true } : {}),
+        },
       );
       return result;
     };
@@ -727,6 +784,7 @@ export class LocalLibrary {
         'variant_delete',
       ].includes(action)
     ) {
+      if (action === 'family_bulk_delete') validateStandalone();
       const ids = p.ids || [p.id];
       const targets = rows.filter((r) =>
         ids.includes(
@@ -1030,6 +1088,32 @@ export class LocalLibrary {
   }
   private async synchronize() {
     try {
+      // Use the existing account-preference request and sync retry lifecycle.
+      // The local true bit doubles as a durable, monotonic pending update.
+      let preferences = await this.cloud('preferences');
+      if (!this.active) return;
+      if (
+        await this.db.value(this.namespace, duplicateSuggestionKey) &&
+        preferences.duplicateSuggestionSeen === false
+      ) {
+        preferences = await this.cloud('preferences_save', {
+          duplicateSuggestionSeen: true,
+        });
+      }
+      if (!this.active) return;
+      await this.lock(async () => {
+        const localSeen = await this.db.value(this.namespace, duplicateSuggestionKey);
+        const ready = typeof preferences.duplicateSuggestionSeen === 'boolean';
+        const changed = this.duplicatePreferenceReady !== ready ||
+          (!localSeen && preferences.duplicateSuggestionSeen === true);
+        this.duplicatePreferenceReady = ready;
+        await this.db.commit(this.namespace, [], [], {
+          preferences,
+          ...(localSeen || preferences.duplicateSuggestionSeen
+            ? { [duplicateSuggestionKey]: true } : {}),
+        });
+        if (changed) this.changed();
+      });
       for (const index of await this.db.indexes(this.namespace)) {
         if (!this.active) return;
         if (!index.dirty || index.conflict) continue;
@@ -1041,7 +1125,12 @@ export class LocalLibrary {
             expected: sent.revision,
             mutation: sent.pendingAction
               ? `${sent.pendingAction}/${sent.deletedAt || ''}/${sent.revision}`
-              : `${sent.payload?.version.edit_revision}/${sent.payload?.updated_at}`,
+              : JSON.stringify([
+                  sent.payload?.version.edit_revision,
+                  sent.payload?.updated_at,
+                  sent.payload?.family_id,
+                  sent.payload?.variant_name,
+                ]),
             ...(sent.pendingAction ? {} : { team: currentState }),
           });
           if (!this.active) return;
@@ -1064,6 +1153,8 @@ export class LocalLibrary {
               current.revision = result.revision;
               const unchanged =
                 current.payload?.updated_at === sent.payload?.updated_at &&
+                current.payload?.family_id === sent.payload?.family_id &&
+                current.payload?.variant_name === sent.payload?.variant_name &&
                 current.pendingAction === sent.pendingAction &&
                 current.deletedAt === sent.deletedAt;
               if (unchanged) {
@@ -1165,12 +1256,10 @@ export class LocalLibrary {
         }
         if (changes.length || remove.length) await this.commit(changes, remove);
       });
-      const preferences = await this.cloud('preferences');
       if (this.active)
         await this.lock(async () => {
           const hadError = await this.db.value(this.namespace, 'cloudError');
           await this.db.commit(this.namespace, [], [], {
-            preferences,
             cloudError: '',
           });
           if (hadError) this.changed();
