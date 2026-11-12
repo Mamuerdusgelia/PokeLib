@@ -123,6 +123,12 @@ check(
       searchFormats('doubles ou').some((f) => f.id === 'gen9doublesou'),
     );
     assert.ok(searchFormats('vgc 2026').every((f) => /vgc2026/.test(f.id)));
+    for (const query of ['VGC Regulation MC', 'VGC Reg M-C']) {
+      assert.deepEqual(
+        searchFormats(query).map((format) => format.id).sort(),
+        ['gen9championsvgc2026regmc', 'gen9championsvgc2026regmcbo3'],
+      );
+    }
     assert.deepEqual(searchFormats('not a real format'), []);
   },
 );

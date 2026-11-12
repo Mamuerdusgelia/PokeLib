@@ -1,7 +1,6 @@
 'use client';
 import { sourceLabel } from '@/lib/domain';
 import { Introduction } from './introduction';
-import { dismissIntroduction, introductionDismissed, introductionKey } from '@/lib/introduction';
 import {
   useState,
   useEffect,
@@ -13,19 +12,15 @@ import {
   ArrowLeft,
   BookOpen,
   Check,
-  ChevronDown,
   Copy,
-  Download,
   FolderClosed,
-  Grid2X2,
   History,
-  List,
   LockKeyhole,
   Plus,
-  Search,
   Settings2,
   Share2,
   Sparkles,
+  SquareCheck,
   Star,
   Trash2,
   Upload,
@@ -42,6 +37,13 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -53,7 +55,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { api } from '@/lib/client';
-import { TrainerNameSettings, ShowdownExportButton, AccountStorageSettings, CloudDialog, ShareDialog, StorageActions, SyncStatus, NativeBackupButton, exportTeams } from './storage-controls';
+import { TrainerNameSettings, ShowdownExportButton, AccountStorageSettings, CloudDialog, ShareDialog, StorageActions, SyncStatus, NativeBackupButton } from './storage-controls';
 import type { AppConfig } from '@/lib/auth-flow';
 import { searchRequest } from '@/lib/search-request';
 import { BackupData } from '@/components/backup-data';
@@ -67,7 +69,7 @@ import {
 } from '@/lib/domain';
 import {
   Modal,
-  Pick,
+  PokemonLine,
   TagEditor,
   PokemonDetails,
   downloadText,
@@ -78,7 +80,8 @@ import {
 } from '@/lib/builder-performance';
 import { TeamEditor, ImportTeams } from './team-editor';
 import { SearchFilters } from './search-filters';
-import { FormatNavigator } from './format-navigator';
+import { ArchiveFilters } from './archive-filters';
+import { ExampleLibrary } from './example-library';
 import { BulkActionDialog as BulkDialog } from './bulk-actions';
 import { TeamCard } from './team-card';
 import { WorkspaceCleanup } from './workspace-cleanup';
@@ -160,7 +163,9 @@ export default function Library({
     [page, setPage] = useState(0),
     [view, setView] = useState('list'),
     [chips, setChips] = useState<SearchChip[]>([]),
-    [selected, setSelected] = useState<string[]>([]);
+    [selected, setSelected] = useState<string[]>([]),
+    [selecting, setSelecting] = useState(false),
+    [showExamples, setShowExamples] = useState(false);
   const [detail, setDetail] = useState<TeamRecord | null>(null),
     [deleteTarget, setDeleteTarget] = useState<TeamRecord | null>(null),
     [detailLoading, setDetailLoading] = useState(false),
@@ -176,24 +181,8 @@ export default function Library({
       | 'share'
       | 'bulk'
       | 'bulk_delete'
-      | 'tags'
       | 'delete_all'
     >(null);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      if (!introductionDismissed()) setModal((current) => current ?? 'introduction');
-    });
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === introductionKey && event.newValue === 'true') {
-        setModal((current) => current === 'introduction' ? null : current);
-      }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
   const searchRef = useRef<HTMLInputElement>(null);
   useLayoutEffect(() => {
     if (detail) commitSaveTrace();
@@ -209,6 +198,7 @@ export default function Library({
   const selectionScope = JSON.stringify([
     queryWithFilters(chips, query),
     section,
+
   ]);
   const [loadedScope, setLoadedScope] = useState('');
   const [previousScope, setPreviousScope] = useState(selectionScope);
@@ -216,6 +206,7 @@ export default function Library({
   if (previousScope !== selectionScope) {
     setPreviousScope(selectionScope);
     setSelected([]);
+    setSelecting(false);
     setSelectionBusy(false);
   }
   useLayoutEffect(() => {
@@ -270,6 +261,7 @@ export default function Library({
         const result = await api(
           'families',
           {
+
             query: queryWithFilters(chips, query),
             sort,
             page,
@@ -303,7 +295,7 @@ export default function Library({
     [query, sort, page, chips, section],
   );
   const libraryVisible =
-    !detail && !detailLoading && modal !== 'new' && modal !== 'version';
+    !showExamples && !detail && !detailLoading && modal !== 'new' && modal !== 'version';
   useLayoutEffect(() => {
     if (!libraryVisible) return;
     const request = searchRequest(setSearching);
@@ -471,17 +463,21 @@ export default function Library({
       );
   }
   function chooseSection(s: string) {
+    setShowExamples(false);
+
     setSection(s);
     setPage(0);
     setSelected([]);
+    setSelecting(false);
     closeDetail();
     if (s === 'Recent') setSort('modified_desc');
   }
   function filter(k: string, value: string) {
     const field = (k === 'source' ? 'from' : k) as SearchField;
-    setChips((old) => addSearchChip(old, { field, value }));
+    setChips((old) => value ? addSearchChip(old, { field, value }) : old.filter((chip) => chip.field !== field));
     setPage(0);
     setSelected([]);
+    setSelecting(false);
     closeDetail();
   }
   async function toggleStar(t: TeamRecord) {
@@ -569,14 +565,46 @@ export default function Library({
       setNotice('Copied to clipboard.');
     } catch {
       setError(
-        'Clipboard access was unavailable. Use Download export instead.',
+        'Clipboard access was unavailable. Select the Showdown text to copy it, or open Downloads.',
       );
     }
   }
-  const heading = detail ? detail.title : section;
+  const heading = section === 'All teams' ? 'Team archive' : section;
   const isHistory = detail && detail.version.id !== detail.current_version_id;
+  const firstVisit = !loading && !!loadedScope && facetsReady.current && !facets.all &&
+    section === 'All teams' && !query.trim() && !chips.length && !teams.length;
+  const selectionReady = !selectionBusy && !loading && loadedScope === selectionScope;
+  const allPageSelected = teams.length > 0 && teams.every((team) => selected.includes(familyKey(team)));
+  const refined = !!(query.trim() || chips.length || section === 'Favourites');
+
+  function newTeam() {
+    startBuilderTiming('new-team');
+    setModal('new');
+  }
+  async function selectMatching() {
+    selectionRequest.current?.abort();
+    const controller = new AbortController();
+    selectionRequest.current = controller;
+    setSelectionBusy(true);
+    try {
+      const result = await api('select', {
+
+        group_families: true,
+        query: queryWithFilters(chips, query),
+        year: chips.some((chip) => chip.field === 'year' && chip.value === 'unknown') ? 'unknown' : '',
+        include_archived: true,
+        favourite: section === 'Favourites',
+      }, controller.signal);
+      if (!controller.signal.aborted) setSelected(result.ids);
+    } catch (cause) {
+      if (!controller.signal.aborted) setError((cause as Error).message);
+    } finally {
+      if (!controller.signal.aborted) setSelectionBusy(false);
+    }
+  }
   return (
     <SidebarProvider
+      className="archive-shell"
       style={{ '--sidebar-width': '232px' } as React.CSSProperties}
     >
       {merging && <MergeFamilyDialog ids={selected} onClose={() => setMerging(false)} onSaved={() => { setMerging(false); setSelected([]); invalidateLibrary(); setNotice('Teams merged into a family.'); }} />}
@@ -588,14 +616,6 @@ export default function Library({
             </span>
             PokéLib
           </a>
-          <button className="workspace" onClick={() => setModal('settings')}>
-            <span className="workspace-icon">P</span>
-            <span>
-              Personal workspace
-              <small>{config.user ? 'Your library' : 'Local library'}</small>
-            </span>
-            <ChevronDown size={14} />
-          </button>
         </SidebarHeader>
         <SidebarContent>
           <div className="nav-section">LIBRARY</div>
@@ -606,7 +626,7 @@ export default function Library({
             <button
               key={label}
               className={
-                'nav-item ' + (section === label && !detail ? 'active' : '')
+                'nav-item ' + (section === label && !detail && !showExamples ? 'active' : '')
               }
               onClick={() => chooseSection(label)}
             >
@@ -615,35 +635,22 @@ export default function Library({
               <span>{count}</span>
             </button>
           ))}
-          <FormatNavigator
-            formats={facets.formats}
-            contexts={facets.format_contexts}
-            selected={chips.find((c) => c.field === 'format')?.value}
-            onSelect={(value) => filter('format', value)}
-          />
           <div ref={setCollectionNav} />
-          <div className="sidebar-note">
-            <LockKeyhole size={17} />
-            <p>
-              Your teams. Your space.
-              <small>Everything is private until you share it.</small>
-            </p>
-          </div>
         </SidebarContent>
         <SidebarFooter>
           <button className="nav-item" onClick={() => setModal('settings')}>
             <Settings2 size={17} />
             Settings
           </button>
-          <button className="account" onClick={() => setModal('settings')} title="Change trainer name">
+          <div className="account">
             <span className="avatar">P</span>
             <span>
-              {trainerName || 'Set trainer name'}
+              {trainerName || 'Local library'}
               <small>
                 {config.user ? 'Local + Cloud' : 'No account needed'}
               </small>
             </span>
-          </button>
+          </div>
         </SidebarFooter>
       </Sidebar>
       <SaveTimingPanel />
@@ -651,6 +658,9 @@ export default function Library({
         refreshKey={refreshTick}
         navTarget={collectionNav}
         current={{
+
+
+
           query,
           filters: chips,
           sort,
@@ -661,12 +671,15 @@ export default function Library({
         mode={collectionMode}
         onMode={setCollectionMode}
         onApply={(c) => {
+          setShowExamples(false);
+
           setQuery(c.definition.query);
           setChips(c.definition.filters);
           setSort(c.definition.sort);
           setSection(c.definition.favourite ? 'Favourites' : 'All teams');
           setPage(0);
           setSelected([]);
+          setSelecting(false);
           closeDetail();
           setNotice('Applied collection: ' + c.name);
         }}
@@ -675,11 +688,9 @@ export default function Library({
         <header className="topbar">
           <div>
             <SidebarTrigger />
-            <span>Workspace</span>
-            <span className="slash">/</span>
-            <button onClick={closeDetail}>{section}</button>
             {detail && (
               <>
+                <button onClick={closeDetail}>{section}</button>
                 <span className="slash">/</span>
                 <strong>{detail.title}</strong>
               </>
@@ -688,10 +699,12 @@ export default function Library({
           <span className="private-label">
             <LockKeyhole size={13} />
             {config.user ? 'Your private library' : 'Local library'}
+            {!config.user && (
+              <button type="button" className="text-link" onClick={onSignIn}>Log in / Create account</button>
+            )}
           </span>
         </header>
         <div className="library-body">
-          <p className="local-privacy">Local teams are stored only in this browser and are not sent to PokéLib servers. Export backups to protect against cleared browser data. {!config.user && <button className="text-link" onClick={onSignIn}>Log in / Create account</button>}</p>
           <SyncStatus />
           {notice && (
             <div role="status" className="notice">
@@ -711,7 +724,7 @@ export default function Library({
               <button onClick={invalidateLibrary}>Retry</button>
             </div>
           )}
-          {detailLoading ? (
+          {detailLoading || (!detail && !showExamples && loading && !loadedScope) ? (
             <Skeleton className="h-80 w-full" />
           ) : detail ? (
             <>
@@ -782,35 +795,16 @@ export default function Library({
                     <Share2 size={15} />
                     Share
                   </button>
-                  <button
-                    className="button"
-                    onClick={() =>
-                      downloadText(
-                        detail.version.showdown_text,
-                        detail.title + '-v' + detail.version.version_number,
-                      )
-                    }
-                  >
-                    <Download size={15} />
-                    Export
-                  </button>
-                  <button
+                  {isHistory && <button
                     className="button primary"
                     disabled={metadataBusy}
                     onClick={() => editVersion()}
                   >
                     <Plus size={15} />
-                    {isHistory ? 'Restore as new version' : 'Edit team'}
-                  </button>
+                    Restore as new version
+                  </button>}
                 </div>
               </div>
-              <VariantActions
-                key={detail.id}
-                team={detail}
-                onOpen={(id) => void openTeam(id)}
-                onSaved={(t) => void saved(t.id, t)}
-                onDeleteFamily={() => setDeleteTarget(detail)}
-              />
               {isHistory && (
                 <div className="callout">
                   <History size={16} />
@@ -825,20 +819,44 @@ export default function Library({
                 </div>
               )}
               <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
-                <TabsList variant="line" className="detail-tabs">
-                  <TabsTrigger value="team">Team & notes</TabsTrigger>
-                  <TabsTrigger value="history">
-                    History{' '}
-                    {(detail.history?.length || 0) > 1 && (
-                      <span>{detail.history?.length}</span>
+                <div className="detail-toolbar">
+                  <TabsList
+                    variant="line"
+                    className="detail-tabs"
+                    aria-label="Team details"
+                  >
+                    <TabsTrigger value="team">Team & notes</TabsTrigger>
+                    <TabsTrigger value="history">
+                      History{' '}
+                      {(detail.history?.length || 0) > 1 && (
+                        <span>{detail.history?.length}</span>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="export">Showdown text</TabsTrigger>
+                  </TabsList>
+                  <div className="detail-toolbar-actions">
+                    <VariantActions
+                      key={detail.id}
+                      team={detail}
+                      onOpen={(id) => void openTeam(id)}
+                      onSaved={(t) => void saved(t.id, t)}
+                    />
+                    {tab === 'team' && !isHistory && (
+                      <button
+                        className="button primary"
+                        disabled={metadataBusy}
+                        onClick={() => editVersion()}
+                      >
+                        Edit lineup
+                      </button>
                     )}
-                  </TabsTrigger>
-                  <TabsTrigger value="export">Showdown text</TabsTrigger>
-                </TabsList>
+                  </div>
+                </div>
                 <TabsContent value="team">
                   <PokemonDetails
                     team={detail}
-                    onEditSet={metadataBusy ? undefined : editVersion}
+                    onEditSet={metadataBusy || isHistory ? undefined : editVersion}
+
                     metadata={
                       <section className="provenance-section">
                         <div>
@@ -923,6 +941,7 @@ export default function Library({
                 </TabsContent>
                 <TabsContent value="export">
                   <div className="export-actions">
+
                     <button
                       className="button"
                       onClick={() => copy(detail.version.showdown_text)}
@@ -936,18 +955,35 @@ export default function Library({
                     >
                       Copy team + notes
                     </button>
-                    <button
-                      className="button"
-                      onClick={() =>
-                        downloadText(
-                          detail.version.original_text,
-                          detail.title + '-original',
-                        )
-                      }
-                    >
-                      Download original
-                    </button>
                   </div>
+                  <details className="team-downloads">
+                    <summary>Downloads</summary>
+                    <div className="export-actions">
+                      <button
+                        className="button"
+                        onClick={() =>
+                          downloadText(
+                            detail.version.showdown_text,
+                            detail.title + '-v' + detail.version.version_number,
+                          )
+                        }
+                      >
+                        Download Showdown text
+                      </button>
+                      <button
+                        className="button"
+                        onClick={() =>
+                          downloadText(
+                            detail.version.original_text,
+                            detail.title + '-original',
+                          )
+                        }
+                      >
+                        Download original
+                      </button>
+                      <NativeBackupButton key={detail.id} ids={[detail.id]} />
+                    </div>
+                  </details>
                   <pre className="export-text">
                     {detail.version.showdown_text}
                   </pre>
@@ -973,30 +1009,37 @@ export default function Library({
                 </div>
               </footer>
             </>
+          ) : showExamples ? (
+            <ExampleLibrary onClose={() => setShowExamples(false)} />
+          ) : firstVisit ? (
+            <section className="archive-welcome">
+              <PokemonLine sets={[
+                { species: 'Pelipper', moves: [] },
+                { species: 'Darkrai', moves: [] },
+                { species: 'Kingambit', moves: [] },
+              ]} />
+              <h1>A home for your teams.</h1>
+              <p>Bring in a Showdown export or PokéPaste. Find it again by Pokémon, move, item or format.</p>
+              <div className="heading-actions">
+                <button className="button primary" onClick={() => setModal('import')}>Import a team</button>
+                <button className="button" onClick={() => setShowExamples(true)}>Browse example teams</button>
+                <button className="text-link" onClick={newTeam}>New team</button>
+              </div>
+              <small>Teams stay in this browser by default.</small>
+            </section>
           ) : (
             <>
-              <div className="page-heading">
-                <div>
-                  <h1>
-                    {heading} <span>{total}</span>
-                  </h1>
-                </div>
-                <div className="heading-actions">
-                  <button className="button" onClick={() => setModal('import')}>
-                    <Upload size={16} />
-                    Import teams
-                  </button>
-                  <button
-                    className="button primary"
-                    onClick={() => {
-                      startBuilderTiming('new-team');
-                      setModal('new');
-                    }}
-                  >
-                    <Plus size={17} />
-                    New team
-                  </button>
-                </div>
+              <div className="page-heading archive-heading">
+                <h1>{heading}</h1>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="button primary">
+                    <Plus size={16} aria-hidden="true" /> Add team
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setModal('import')}>Import teams</DropdownMenuItem>
+                    <DropdownMenuItem onClick={newTeam}>New team</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               {config.demo && (
                 <div className="demo-banner">
@@ -1021,6 +1064,25 @@ export default function Library({
                 chips={chips}
                 facets={facets}
                 inputRef={searchRef}
+                controls={
+                  <ArchiveFilters
+                    facets={facets}
+                    chips={chips}
+                    sort={sort}
+                    sortOptions={sortOptions}
+                    view={view}
+                    onFilter={filter}
+                    onSort={(value) => { setSort(value); setPage(0); }}
+                    onView={(value) => {
+                      setView(value);
+                      localStorage.setItem('pokelib-view', value);
+                    }}
+                    onSave={refined && !selecting ? {
+                      label: 'Save search as collection',
+                      run: () => setCollectionMode('save'),
+                    } : undefined}
+                  />
+                }
                 onText={(text) => {
                   setQuery(text);
                   setPage(0);
@@ -1036,203 +1098,82 @@ export default function Library({
                   setPage(0);
                 }}
               />
-              <div className="toolbar compact-toolbar">
-                <div className="collection-actions">
-                  <ShowdownExportButton label="Showdown text" resolveIds={async () => (await api('select', { group_families: false, query: queryWithFilters(chips, query), year: chips.some(c => c.field === 'year' && c.value === 'unknown') ? 'unknown' : '', favourite: section === 'Favourites', sort })).ids} />
-                  <button className="button" disabled={!total || selectionBusy || loading} onClick={async () => {
-                    setSelectionBusy(true);
-                    try {
-                      const result = await api("select", { group_families: false, query: queryWithFilters(chips, query), year: chips.some(c => c.field === "year" && c.value === "unknown") ? "unknown" : "", favourite: section === "Favourites", include_archived: true, sort });
-                      await exportTeams(result.ids, false);
-                      setNotice(result.ids.length + " matching variants exported across all pages.");
-                    } catch(e) { setError((e as Error).message); } finally { setSelectionBusy(false); }
-                  }}>Export matching</button>
-                  <button
-                    className="button"
-                    onClick={() => setCollectionMode('save')}
-                  >
-                    Save as collection
-                  </button>
-                  <button
-                    className="button"
-                    onClick={() => setCollectionMode('manage')}
-                  >
-                    Collections
-                  </button>
-                </div>
-                <div className="view-controls">
-                  <Pick
-                    label="Sort teams"
-                    value={sort}
-                    onChange={(v) => {
-                      setSort(v);
-                      setPage(0);
-                    }}
-                    options={sortOptions}
-                  />
-                  <div className="view-toggle">
-                    {[
-                      ['grid', Grid2X2],
-                      ['list', List],
-                    ].map(([v, Icon]: any) => (
+              <div className="archive-results">
+                <span role="status">
+                  {selecting
+                    ? selected.length.toLocaleString() + ' selected · ' + total.toLocaleString() + ' matching'
+                    : total.toLocaleString() + (total === 1 ? ' team' : ' teams')}
+                </span>
+                <div className="archive-result-actions">
+                  {selecting ? (
+                    <>
+                      <label className="select-page">
+                        <Checkbox
+                          aria-label="Select all team families on this page"
+                          checked={allPageSelected}
+                          disabled={!selectionReady || !teams.length}
+                          onCheckedChange={(checked) => {
+                            const pageIds = teams.map(familyKey);
+                            setSelected((current) => checked
+                              ? [...new Set([...current, ...pageIds])]
+                              : current.filter((id) => !pageIds.includes(id)));
+                          }}
+                        />
+                        Select page
+                      </label>
+                      {selected.length > 0 && (
+                        <button className="button" disabled={!selectionReady} onClick={() => setModal('bulk')}>Edit teams</button>
+                      )}
+                      {(selected.length > 0 || total > teams.length) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className="button" disabled={!selectionReady}>More</DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {total > teams.length && (
+                              <DropdownMenuItem disabled={selected.length >= total} onClick={() => void selectMatching()}>
+                                Select all {total.toLocaleString()} matching teams
+                              </DropdownMenuItem>
+                            )}
+                            {selected.length > 0 && (
+                              <>
+
+                                <DropdownMenuItem onClick={async () => {
+                                  try {
+                                    setCloudIds((await api('family_expand', { ids: selected })).ids);
+                                  } catch (cause) {
+                                    setError((cause as Error).message);
+                                  }
+                                }}>Cloud Sync selected</DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={selected.length < 2 && !teams.some((team) =>
+                                    selected.includes(familyKey(team)) && (team.variant_count ?? 1) > 1)}
+                                  onClick={() => setMerging(true)}
+                                >Merge into family</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem variant="destructive" onClick={() => setModal('bulk_delete')}>Delete selected</DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                       <button
-                        key={v}
-                        aria-label={v + ' view'}
-                        className={view === v ? 'selected' : ''}
+                        className="text-link"
                         onClick={() => {
-                          setView(v);
-                          localStorage.setItem('pokelib-view', v);
+                          selectionRequest.current?.abort();
+                          setSelectionBusy(false);
+                          setSelected([]);
+                          setSelecting(false);
                         }}
-                      >
-                        <Icon size={16} />
-                      </button>
-                    ))}
-                  </div>
+                      >Done</button>
+                    </>
+                  ) : total > 0 && (
+                    <button className="button" disabled={!selectionReady} onClick={() => setSelecting(true)}>
+                      <SquareCheck size={15} aria-hidden="true" /> Select
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="results-heading">
-                <label className="select-page">
-                  <Checkbox
-                    aria-label="Select all team families on this page"
-                    disabled={
-                      selectionBusy || loading || loadedScope !== selectionScope
-                    }
-                    checked={
-                      teams.length > 0 &&
-                      teams.every((t) => selected.includes(familyKey(t)))
-                    }
-                    onCheckedChange={(v) =>
-                      setSelected((s) =>
-                        v
-                          ? [...new Set([...s, ...teams.map(familyKey)])]
-                          : s.filter(
-                              (id) => !teams.some((t) => familyKey(t) === id),
-                            ),
-                      )
-                    }
-                  />
-                  Select current page ({teams.length})
-                </label>
-                {selected.length ? (
-                  <div
-                    className="bulk-controls"
-                    role="toolbar"
-                    aria-label="Selected team actions"
-                  >
-                    <strong aria-live="polite">
-                      {selected.length.toLocaleString()} selected
-                    </strong>
-                    <button
-                      className="text-link"
-                      disabled={selectionBusy}
-                      onClick={() => setModal('tags')}
-                    >
-                      Add tag
-                    </button>
-                    <button
-                      disabled={selectionBusy}
-                      className="text-link danger"
-                      onClick={() => setModal('bulk_delete')}
-                    >
-                      Delete selected
-                    </button>
-                    <button
-                      className="text-link"
-                      onClick={() => setModal('bulk')}
-                      disabled={selectionBusy}
-                    >
-                      Edit metadata
-                    </button>
-                    <button
-                      className="text-link"
-                      onClick={async () => { try { setCloudIds((await api('family_expand', { ids: selected })).ids); } catch (e) { setError((e as Error).message); } }}
-                    >Cloud Sync selected</button>
-                    <button className="text-link" disabled={selectionBusy || (selected.length < 2 && !teams.some(t => selected.includes(familyKey(t)) && (t.variant_count || 1) >= 2))} onClick={() => setMerging(true)}>Merge into family</button>
-                    <ShowdownExportButton ids={selected} families label="Showdown text selected" />
-                    <NativeBackupButton key={selected.join(',')} ids={selected} families label="Native backup selected" />
-                    <button
-                      className="text-link"
-                      onClick={async () => {
-                        try {
-                          const expanded = await api('family_expand', {
-                            ids: selected,
-                          });
-                          await exportTeams(expanded.ids, false);
-                        } catch (e) {
-                          setError((e as Error).message);
-                        }
-                      }}
-                      disabled={selectionBusy}
-                    >
-                      Export selected
-                    </button>
-                    <button
-                      className="text-link"
-                      onClick={() => setSelected([])}
-                      disabled={selectionBusy}
-                    >
-                      Clear selection
-                    </button>
-                  </div>
-                ) : (
-                  <span>{total.toLocaleString()} teams</span>
-                )}
-              </div>
-              {total > 0 && selected.length > 0 && (
-                <div className="selection-banner">
-                  <span>
-                    {selected.length === total
-                      ? `All ${total.toLocaleString()} matching teams selected.`
-                      : `${selected.length.toLocaleString()} selected of ${total.toLocaleString()} matching teams.`}
-                  </span>
-                  <button
-                    disabled={selectionBusy || loading}
-                    type="button"
-                    className="button select-matching"
-                    onClick={async () => {
-                      selectionRequest.current?.abort();
-                      const controller = new AbortController();
-                      selectionRequest.current = controller;
-                      setSelectionBusy(true);
-                      try {
-                        const r = await api(
-                          'select',
-                          {
-                            group_families: true,
-                            query: queryWithFilters(chips, query),
-                            year: chips.some(
-                              (c) =>
-                                c.field === 'year' && c.value === 'unknown',
-                            )
-                              ? 'unknown'
-                              : '',
-                            include_archived: true,
-                            favourite: section === 'Favourites',
-                          },
-                          controller.signal,
-                        );
-                        if (controller.signal.aborted) return;
-                        setSelected(r.ids);
-                        setNotice(
-                          r.total +
-                            ' matching teams selected across all pages.',
-                        );
-                      } catch (e) {
-                        if (!controller.signal.aborted)
-                          setError((e as Error).message);
-                      } finally {
-                        if (!controller.signal.aborted) setSelectionBusy(false);
-                      }
-                    }}
-                  >
-                    {selectionBusy
-                      ? 'Selecting all matching teams…'
-                      : `Select all ${total.toLocaleString()} matching teams`}
-                  </button>
-                </div>
-              )}
               {loading && !loadedScope ? (
-                <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
+                <div className={view === 'grid' ? 'team-grid archive-teams' : 'team-list archive-teams'}>
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <Skeleton
                       key={i}
@@ -1243,70 +1184,41 @@ export default function Library({
                   ))}
                 </div>
               ) : teams.length ? (
-                <div className={view === 'grid' ? 'team-grid' : 'team-list'}>
-                  {teams.map((t, i) => (
+                <div className={view === 'grid' ? 'team-grid archive-teams' : 'team-list archive-teams'}>
+                  {teams.map((t) => (
                     <TeamCard
                       key={familyKey(t)}
                       team={t}
-                      index={i}
-                      selected={selected.includes(familyKey(t))}
+                      selection={selecting ? {
+                        checked: selected.includes(familyKey(t)),
+                        disabled: !selectionReady,
+                        onChange: (checked) => setSelected((current) => checked
+                          ? [...new Set([...current, familyKey(t)])]
+                          : current.filter((id) => id !== familyKey(t))),
+                      } : undefined}
+
                       query={queryWithFilters(chips, query)}
-                      year={
-                        chips.some(
-                          (c) => c.field === 'year' && c.value === 'unknown',
-                        )
-                          ? 'unknown'
-                          : ''
-                      }
+                      year={chips.some((chip) => chip.field === 'year' && chip.value === 'unknown') ? 'unknown' : ''}
                       favourite={section === 'Favourites'}
                       onVariant={(id) => void openTeam(id)}
-                      onSelect={(v) =>
-                        setSelected((s) =>
-                          v
-                            ? [...new Set([...s, familyKey(t)])]
-                            : s.filter((id) => id !== familyKey(t)),
-                        )
-                      }
-                      onDelete={() => setDeleteTarget(t)}
                       onFavourite={() => void toggleStar(t)}
                       onOpen={() => void openTeam(t.id)}
-                      onHistory={() =>
-                        void openTeam(t.id).then(() => setTab('history'))
-                      }
-                      onFilter={filter}
+                      onTourGrade={(tag) => filter('tag', tag)}
                     />
                   ))}
                 </div>
               ) : (
                 <div className="empty-state">
-                  <FolderClosed size={35} />
-                  <h2>
-                    {query || chips.length > 0
-                      ? 'No teams match this search.'
-                      : 'Your team library is empty.'}
-                  </h2>
-                  <p>
-                    {query
-                      ? 'Try a Pokémon, source name, tag, or historical year.'
-                      : 'Import your Showdown teams to search, tag, version and share them.'}
-                  </p>
-                  <div className="heading-actions">
-                    <button
-                      className="button primary"
-                      onClick={() => setModal('import')}
-                    >
-                      Import Pokémon Showdown Teams
-                    </button>
-                    <button
-                      className="button"
-                      onClick={() => {
-                        startBuilderTiming('new-team');
-                        setModal('new');
-                      }}
-                    >
-                      Create New Team
-                    </button>
-                  </div>
+                  <h2>{refined ? 'No teams match this view.' : 'Your team library is empty.'}</h2>
+                  {refined ? (
+                    <button className="button" onClick={() => {
+                      chooseSection('All teams');
+                      setQuery('');
+                      setChips([]);
+                    }}>Show all teams</button>
+                  ) : (
+                    <button className="button primary" onClick={() => setModal('import')}>Import a team</button>
+                  )}
                 </div>
               )}
               {total > 30 && (
@@ -1330,19 +1242,7 @@ export default function Library({
                   </button>
                 </nav>
               )}
-              <p className="search-tip">
-                <Search size={13} />
-                Try{' '}
-                <button
-                  onClick={() => {
-                    setQuery('Darkrai Ice Beam');
-                    setPage(0);
-                  }}
-                >
-                  Darkrai Ice Beam
-                </button>{' '}
-                to find the move on the right Pokémon.
-              </p>
+
             </>
           )}
         </div>
@@ -1409,11 +1309,10 @@ export default function Library({
           }}
         />
       )}
-      {(modal === 'bulk' || modal === 'bulk_delete' || modal === 'tags') && (
+      {(modal === 'bulk' || modal === 'bulk_delete') && (
         <BulkDialog
           ids={selected}
           deleting={modal === 'bulk_delete'}
-          tagsOnly={modal === 'tags'}
           filterSummary={
             [
               section === 'Favourites' ? 'Favourites' : '',
@@ -1426,6 +1325,7 @@ export default function Library({
           onClose={() => setModal(null)}
           onSaved={(count) => {
             setSelected([]);
+            setSelecting(false);
             setModal(null);
             setNotice(
               `${count} ${modal === 'bulk_delete' ? 'team families deleted' : 'variants updated across the selected families'}.`,
@@ -1470,48 +1370,46 @@ export default function Library({
           <div className="settings-section"><h3>Entire library</h3>
             <button className="button" onClick={async () => { try { setCloudIds((await api('select', { query: '' })).ids); } catch (e) { setError((e as Error).message); } }}>Cloud Sync entire library</button>
             <ShowdownExportButton label="View / Copy entire library Showdown text" />
-            <button className="button" onClick={() => exportTeams(undefined, false).catch((e) => setError(e.message))}>Export entire library as Showdown text</button>
           </div>
-          <div className="settings-section">
-            <h3>Search examples</h3>
-            <div className="query-examples">
-              {[
-                'Darkrai Ice Beam',
-                'Mega Gengar + Zygarde',
-                'Kyogre + Tornadus + Incineroar',
-                'Focus Sash Rayquaza',
-                'Tournament Grade Kyogre',
-                'source:"Strange Name"',
-                'year:2022',
-                'format:gen9ou',
-              ].map((q) => (
-                <button
-                  key={q}
-                  onClick={() => {
-                    setQuery(q);
-                    setPage(0);
-                    closeDetail();
-                    setModal(null);
-                  }}
-                >
-                  {q}
-                </button>
-              ))}
+          {selected.length > 0 && (
+            <div className="settings-section">
+              <h3>Selected teams</h3>
+              <ShowdownExportButton ids={selected} families label="View / Copy selected Showdown text" />
+              <NativeBackupButton key={selected.join(',')} ids={selected} families label="Download selected backup" />
             </div>
-          </div>
-          <button
-            className="button"
-            onClick={async () => {
+          )}
+          {refined && (
+            <div className="settings-section">
+              <h3>Matching teams</h3>
+              <ShowdownExportButton
+                label="View / Copy matching Showdown text"
+                resolveIds={async () => (await api('select', {
+
+                  group_families: false,
+                  query: queryWithFilters(chips, query),
+                  year: chips.some((chip) => chip.field === 'year' && chip.value === 'unknown') ? 'unknown' : '',
+                  favourite: section === 'Favourites',
+                  include_archived: true,
+                  sort,
+                })).ids}
+              />
+            </div>
+          )}
+          <div className="settings-section">
+            <h3>Example teams</h3>
+            <button type="button" className="button" onClick={() => {
+              setModal(null);
+              setShowExamples(true);
+            }}>Browse example teams</button>
+            <button type="button" className="text-link" onClick={async () => {
               try {
                 await api('seed');
                 await saved();
-              } catch (e) {
-                setError((e as Error).message);
+              } catch (cause) {
+                setError((cause as Error).message);
               }
-            }}
-          >
-            Add example teams
-          </button>
+            }}>Add example teams</button>
+          </div>
           <section className="danger-zone" aria-label="Danger Zone">
             <h3>Danger Zone</h3>
             <p>
@@ -1553,7 +1451,7 @@ export default function Library({
         </Modal>
       )}
       {cloudIds && <CloudDialog ids={cloudIds} onClose={() => setCloudIds(null)} onChanged={invalidateLibrary} />}
-      {modal === 'introduction' && <Introduction onClose={() => { dismissIntroduction(); setModal(null); }} />}
+      {modal === 'introduction' && <Introduction onClose={() => setModal(null)} />}
     </SidebarProvider>
   );
 }

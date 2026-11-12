@@ -23,10 +23,11 @@ export type SetEditTarget = {
     | 'nature'
     | 'teraType'
     | 'moves'
-    | 'stats';
+    | 'stats'
+    | 'note';
   moveIndex?: number;
 };
-export type SelectorKind = Exclude<SetEditTarget['field'], 'stats'>;
+export type SelectorKind = Exclude<SetEditTarget['field'], 'stats' | 'note'>;
 export const builderDraft = (format = '') => ({
   ...emptyDraft(),
   title: 'Untitled team',

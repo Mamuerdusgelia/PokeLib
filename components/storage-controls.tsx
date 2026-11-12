@@ -369,7 +369,6 @@ export function StorageActions({
         <Cloud size={15} />
         {team.storage === 'cloud' ? 'Disable Cloud Sync' : 'Enable Cloud Sync'}
       </button>
-      <NativeBackupButton ids={[team.id]} />
       {mode === 'enable' && (
         <CloudDialog
           ids={[team.id]}

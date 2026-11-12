@@ -55,17 +55,22 @@ export function isOrdinaryFormat(value: string) {
 export const ordinaryFormats = formatRegistry.filter((f) =>
   isOrdinaryFormat(f.id),
 );
-/** One search across generations; the registry remains the source of selectable IDs. */
-export function searchFormats(query: string) {
-  const normalized = query
+function formatSearchText(value: string) {
+  return value
     .toLowerCase()
     .replace(/\bnat\s*dex\b/g, 'national dex')
-    .replace(/gen\s+(\d+)/g, 'gen$1');
+    .replace(/gen\s+(\d+)/g, 'gen$1')
+    .replace(/\bregulation\b/g, 'reg')
+    .replace(/\b(reg\s+)m[-\s]+([a-z])\b/g, '$1m$2');
+}
+/** One search across generations; the registry remains the source of selectable IDs. */
+export function searchFormats(query: string) {
+  const normalized = formatSearchText(query);
   const tokens = normalized.trim().split(/\s+/).map(idOf).filter(Boolean);
   const exact = canonicalFormat(normalized);
   return ordinaryFormats
     .filter((f) => {
-      const words = (
+      const words = formatSearchText(
         f.name +
         ' ' +
         f.id +
@@ -73,10 +78,7 @@ export function searchFormats(query: string) {
         (f.id.endsWith('nationaldex') ? 'ou nationaldexou' : '') +
         ' ' +
         f.battle
-      )
-        .toLowerCase()
-        .replace(/gen\s+(\d+)/g, 'gen$1')
-        .split(/[^a-z0-9]+/);
+      ).split(/[^a-z0-9]+/);
       return tokens.every((token) =>
         words.some((word) => word.startsWith(token)),
       );

@@ -1,5 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { api } from '@/lib/client';
 import { type TeamRecord, snapshotRevision } from '@/lib/domain';
 import { familyKey } from '@/lib/variants';
@@ -16,6 +23,7 @@ export function FamilyVariants({
   year = '',
   favourite = false,
   omitDisplayed = false,
+  expanded = false,
   onOpen,
 }: {
   team: TeamRecord;
@@ -23,6 +31,7 @@ export function FamilyVariants({
   year?: string;
   favourite?: boolean;
   omitDisplayed?: boolean;
+  expanded?: boolean;
   onOpen: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false),
@@ -32,6 +41,9 @@ export function FamilyVariants({
     [busy, setBusy] = useState(false),
     [loadedKey, setLoadedKey] = useState(''),
     [error, setError] = useState('');
+  const count = team.variant_count || 1,
+    matching = team.matching_variant_count || 1;
+  const showRows = expanded || open;
   const requestKey = JSON.stringify([
     familyKey(team),
     team.updated_at,
@@ -41,7 +53,7 @@ export function FamilyVariants({
     page,
   ]);
   useEffect(() => {
-    if (!open) return;
+    if (!showRows || count < 2) return;
     const controller = new AbortController();
     api(
       'family_variants',
@@ -72,29 +84,29 @@ export function FamilyVariants({
         }
       });
     return () => controller.abort();
-  }, [open, page, team, query, year, favourite, requestKey]);
-  const count = team.variant_count || 1,
-    matching = team.matching_variant_count || 1;
+  }, [showRows, count, page, team, query, year, favourite, requestKey]);
   if (count < 2) return null;
   return (
     <div className="family-variants">
-      <button
-        type="button"
-        className="text-link"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen(!open);
-          setPage(0);
-          setBusy(true);
-          setError('');
-        }}
-      >
-        {open ? '▾' : '▸'} {count} {count === 1 ? 'variant' : 'variants'}
-        {matching < count && (query || year || favourite)
-          ? ' · ' + matching + ' matching'
-          : ''}
-      </button>
-      {open && (
+      {!expanded && (
+        <button
+          type="button"
+          className="text-link"
+          aria-expanded={open}
+          onClick={() => {
+            setOpen(!open);
+            setPage(0);
+            setBusy(true);
+            setError('');
+          }}
+        >
+          {open ? '▾' : '▸'} {count} variants
+          {matching < count && (query || year || favourite)
+            ? ' · ' + matching + ' matching'
+            : ''}
+        </button>
+      )}
+      {showRows && (
         <div className="variant-rows">
           {busy || loadedKey !== requestKey ? (
             <output>Loading variants…</output>
@@ -153,22 +165,24 @@ export function VariantActions({
   team,
   onSaved,
   onOpen,
-  onDeleteFamily,
 }: {
   team: TeamRecord;
   onSaved: (t: TeamRecord) => void;
   onOpen: (id: string) => void;
-  onDeleteFamily: () => void;
 }) {
   const [mode, setMode] = useState<'create' | 'rename' | 'delete' | null>(null),
     [name, setName] = useState(''),
     [description, setDescription] = useState(''),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [pickerOpen, setPickerOpen] = useState(false);
   const cancel = useRef<HTMLButtonElement>(null),
     operation = useRef(''),
     saving = useRef(false),
     cancelled = useRef(false);
+  const variantCount = team.variant_count ?? 1;
+  const hasSiblings = variantCount > 1;
+  const canDetach = team.id !== familyKey(team) && team.variant_name !== 'Main';
   useEffect(() => {
     if (busy && mode === 'create') feedbackSaveTrace();
   }, [busy, mode]);
@@ -226,7 +240,7 @@ export function VariantActions({
   }
   return (
     <section className="variant-actions" aria-label="Variant">
-      <div>
+      <div className="variant-name">
         {mode === 'rename' ? (
           <input
             aria-label="Variant name"
@@ -273,43 +287,78 @@ export function VariantActions({
             {error}
           </p>
         )}
-        {team.variant_description && <p>{team.variant_description}</p>}
+        {!hasSiblings && team.variant_description && (
+          <p className="variant-description">{team.variant_description}</p>
+        )}
       </div>
-      <FamilyVariants team={team} onOpen={onOpen} />
-      <div className="variant-toolbar">
-        <button
-          className="button"
-          disabled={busy || (team.variant_count || 1) < 2}
-          onClick={async () => {
-            setBusy(true);
-            setError('');
-            try {
-              onSaved(await api('family_remove', { id: team.id }));
-            } catch (e) {
-              setError((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          Remove from family
-        </button>
-        {error && !mode && <p role="alert">{error}</p>}
-        <button className="button" onClick={() => begin('create')}>
-          Create variant
-        </button>
-
-        <button
-          className="button danger"
-          disabled={(team.variant_count || 1) < 2}
-          onClick={() => begin('delete')}
-        >
-          Delete variant
-        </button>
-        <button className="text-link danger" onClick={onDeleteFamily}>
-          Delete team family
-        </button>
-      </div>
+      {hasSiblings && (
+        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+          <PopoverTrigger className="button">
+            {variantCount} variants <ChevronDown size={14} aria-hidden="true" />
+          </PopoverTrigger>
+          <PopoverContent align="end" className="variant-picker">
+            <PopoverTitle>Team variants</PopoverTitle>
+            {team.variant_description && (
+              <p className="variant-description">{team.variant_description}</p>
+            )}
+            <FamilyVariants
+              team={team}
+              expanded
+              onOpen={(id) => {
+                setPickerOpen(false);
+                onOpen(id);
+              }}
+            />
+            <div className="variant-picker-actions">
+              {canDetach && (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError('');
+                    try {
+                      const updated = await api('family_remove', { id: team.id });
+                      setPickerOpen(false);
+                      onSaved(updated);
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Remove from family
+                </button>
+              )}
+              <button
+                type="button"
+                className="button danger"
+                disabled={busy}
+                onClick={() => {
+                  setPickerOpen(false);
+                  begin('delete');
+                }}
+              >
+                Delete variant
+              </button>
+            </div>
+            {error && !mode && <p className="error" role="alert">{error}</p>}
+          </PopoverContent>
+        </Popover>
+      )}
+      <button
+        type="button"
+        className="button"
+        disabled={busy}
+        onClick={() => begin('create')}
+      >
+        Create variant
+      </button>
+      {error && !mode && !pickerOpen && (
+        <p className="error" role="alert">{error}</p>
+      )}
       {mode && mode !== 'rename' && (
         <Modal
           title={

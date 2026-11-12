@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type ComponentProps,
 } from 'react';
+import { Download, NotebookPen } from 'lucide-react';
 import { TagPicker } from './tag-picker';
 import { pokemonSprite } from '@/lib/pokemon-sprites';
 import { readVisualTeam } from '@/lib/visual-team';
@@ -186,10 +187,12 @@ const statNames: Record<string, string> = {
 export function PokemonDetails({
   team,
   onEditSet,
+
   metadata,
 }: {
   team: TeamMeta & Pick<TeamRecord, 'version'>;
   onEditSet?: (target: SetEditTarget) => void;
+
   metadata?: ReactNode;
 }) {
   const [exported, setExported] = useState<{
@@ -243,26 +246,50 @@ export function PokemonDetails({
           )
           .map((p, i) => (
             <article className="set-card" key={i}>
-              <div className="set-title">
-                <PokemonSprite
-                  species={p.species}
-                  shiny={p.shiny}
-                  gender={p.gender}
-                />
-                <div>
-                  <h3>
-                    {value(p.species, i, 'species')}{' '}
-                    {p.gender && <small>{p.gender}</small>}
-                  </h3>
-                  {p.name && p.name !== p.species && (
-                    <p className="nickname">{p.name}</p>
-                  )}
-                  {generationFor(
-                    assistanceFormat(team.format, team.format_context),
-                  ) >= 2 && <p>{value(p.item || 'No item', i, 'item')}</p>}
+              <header className="set-header">
+                <div className="set-title">
+                  <PokemonSprite
+                    species={p.species}
+                    shiny={p.shiny}
+                    gender={p.gender}
+                  />
+                  <div className="set-identity">
+                    <h3>
+                      {value(p.species, i, 'species')}{' '}
+                      {p.gender && <small>{p.gender}</small>}
+                      {p.shiny && <span className="tag set-shiny">Shiny</span>}
+                    </h3>
+                    {p.name && p.name !== p.species && (
+                      <p className="nickname">{p.name}</p>
+                    )}
+                    {generationFor(
+                      assistanceFormat(team.format, team.format_context),
+                    ) >= 2 && <p>{value(p.item || 'No item', i, 'item')}</p>}
+                  </div>
                 </div>
-                {p.shiny && <span className="tag">Shiny</span>}
-              </div>
+                <div className="set-actions" role="group" aria-label={p.species + ' set actions'}>
+                  <button
+                    type="button"
+                    className="button set-action"
+                    aria-label="Export set"
+                    title="Export set"
+                    onClick={() => exportSet(i)}
+                  >
+                    <Download size={15} aria-hidden="true" />
+                  </button>
+                  {onEditSet && (
+                    <button
+                      type="button"
+                      className="button set-action"
+                      aria-label={team.version.set_notes[i] ? 'Edit set note' : 'Add set note'}
+                      title={team.version.set_notes[i] ? 'Edit set note' : 'Add set note'}
+                      onClick={() => onEditSet({ slot: i, field: 'note' })}
+                    >
+                      <NotebookPen size={15} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </header>
               <dl>
                 {generationFor(
                   assistanceFormat(team.format, team.format_context),
@@ -308,13 +335,6 @@ export function PokemonDetails({
                   <li key={j}>{value(move, i, 'moves', j)}</li>
                 ))}
               </ul>
-              <button
-                type="button"
-                className="text-link set-export"
-                onClick={() => exportSet(i)}
-              >
-                Export set
-              </button>
               {team.version.set_notes[i] && (
                 <details className="set-note">
                   <summary>Set note · has note</summary>

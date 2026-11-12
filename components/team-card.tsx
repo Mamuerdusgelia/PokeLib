@@ -1,142 +1,195 @@
-import { Trash2, Star, FolderClosed, Clock3 } from 'lucide-react';
+import { Award, ChevronDown, Star } from 'lucide-react';
+import { Icons } from '@pkmn/img';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  formatLabel,
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   dateLabel,
+  formatLabel,
+  normalize,
   sourceLabel,
   type TeamRecord,
 } from '@/lib/domain';
-import { PokemonLine } from './vault-ui';
+import { PokemonSprite } from './vault-ui';
 import { FamilyVariants } from './variants';
 import { StorageLabel } from './storage-controls';
+
 type Props = {
   team: TeamRecord;
-  index: number;
-  selected: boolean;
-  onSelect: (v: boolean) => void;
-  onDelete: () => void;
-  onFavourite: () => void;
+  selection?: {
+    checked: boolean;
+    disabled?: boolean;
+    onChange: (checked: boolean) => void;
+  };
+  onFavourite?: () => void;
   onOpen: () => void;
-  onHistory: () => void;
-  onFilter: (field: string, value: string) => void;
+  onTourGrade?: (tag: string) => void;
+  onVariant?: (id: string) => void;
   query?: string;
   year?: string;
   favourite?: boolean;
-  onVariant: (id: string) => void;
 };
+
 export function TeamCard({
-  team: t,
-  index: i,
-  selected,
-  onSelect,
-  onDelete,
+  team,
+  selection,
   onFavourite,
   onOpen,
-  onHistory,
-  onFilter,
+  onTourGrade,
+  onVariant,
   query,
   year,
   favourite,
-  onVariant,
 }: Props) {
+  const sets = team.version.parsed_team;
+  const variants = team.variant_count ?? 1;
+  const tourGrade = team.tags.find((tag) =>
+    ['tourgrade', 'tourgrades', 'tournamentgrade'].includes(normalize(tag)),
+  );
+  const source = team.source_name
+    ? sourceLabel(team)
+    : ['Self-built', 'Built by'].includes(team.source_type)
+      ? 'Self-built'
+      : '';
+  const caption = [
+    formatLabel(team.format),
+    team.team_date && dateLabel(team),
+    source,
+    variants > 1 && (team.variant_name || 'Main'),
+  ].filter(Boolean);
+
   return (
-    <article className={'team-card' + (selected ? ' selected' : '')} key={t.id}>
-      <div className="card-top">
-        <StorageLabel team={t} />
-        <span
-          className={
-            'format format-' +
-            (t.format.includes('vgc')
-              ? 1
-              : t.format.includes('ubers') || t.format.includes('anythinggoes')
-                ? 2
-                : 0)
-          }
-        >
-          {formatLabel(t.format)}
-        </span>
-        <div className="card-select">
-          <button
-            className="card-delete"
-            aria-label={'Delete team family ' + t.title}
-            onClick={() => onDelete()}
-          >
-            <Trash2 size={14} />
-            Delete family
-          </button>
+    <article
+      className={
+        'team-card archive-team' + (selection?.checked ? ' selected' : '')
+      }
+    >
+      <div className="archive-team-identity">
+        {selection && (
           <Checkbox
-            aria-label={'Select ' + t.title}
-            checked={selected}
-            onCheckedChange={(v) => onSelect(!!v)}
+            aria-label={'Select ' + team.title}
+            checked={selection.checked}
+            disabled={selection.disabled}
+            onCheckedChange={selection.onChange}
           />
-          <button
-            aria-label={'Favourite ' + t.title}
-            className={'star ' + (t.favourite ? 'is-starred' : '')}
-            onClick={() => onFavourite()}
-          >
-            <Star size={16} fill={t.favourite ? 'currentColor' : 'none'} />
+        )}
+        <div className="archive-team-heading">
+          <button type="button" className="card-open" onClick={onOpen}>
+            <h2>{team.title}</h2>
           </button>
+          <p>{caption.join(' · ')}</p>
+          <div className="archive-team-marks">
+            {tourGrade &&
+              (onTourGrade ? (
+                <button
+                  type="button"
+                  className="text-link"
+                  onClick={() => onTourGrade(tourGrade)}
+                >
+                  <Award size={13} aria-hidden="true" /> {tourGrade}
+                </button>
+              ) : (
+                <span>
+                  <Award size={13} aria-hidden="true" /> {tourGrade}
+                </span>
+              ))}
+            {team.sync_status && team.sync_status !== 'synced' && (
+              <StorageLabel team={team} />
+            )}
+          </div>
         </div>
       </div>
-      <button className="card-open" onClick={() => onOpen()}>
-        <h2>{t.title}</h2>
-        {(t.variant_count || 1) > 1 && (
-          <small>
-            ↳ {t.variant_name || 'Main'}
-            {(t.matching_variant_count || 1) < (t.variant_count || 1)
-              ? ' · matching variant'
-              : ''}
-          </small>
+      <div className="archive-team-actions">
+        {sets.length > 0 && (
+          <Popover>
+            <PopoverTrigger
+              openOnHover
+              delay={350}
+              closeDelay={160}
+              className="archive-roster"
+              aria-label={
+                'Preview ' +
+                team.title +
+                (variants > 1 ? ' · ' + (team.variant_name || 'Main') : '')
+              }
+            >
+              <span className="archive-roster-sprites" aria-hidden="true">
+                {sets.map((set, i) => {
+                  const item =
+                    set.item && Icons.data.getItem(set.item)?.spritenum
+                      ? Icons.getItem(set.item)
+                      : null;
+                  return (
+                    <span className="archive-roster-slot" key={i}>
+                      <PokemonSprite {...set} />
+                      {item && (
+                        <span
+                          className="archive-item"
+                          style={{
+                            backgroundImage: 'url(' + item.url + ')',
+                            backgroundPosition:
+                              item.left + 'px ' + item.top + 'px',
+                          }}
+                        />
+                      )}
+                    </span>
+                  );
+                })}
+              </span>
+              <ChevronDown size={14} aria-hidden="true" />
+            </PopoverTrigger>
+            <PopoverContent
+              className="archive-preview"
+              align="end"
+              initialFocus={false}
+            >
+              <PopoverTitle>
+                {team.title}
+                {variants > 1 ? ' · ' + (team.variant_name || 'Main') : ''}
+              </PopoverTitle>
+              <ul className="archive-preview-sets">
+                {sets.map((set, i) => (
+                  <li key={i}>
+                    <strong>{set.species}</strong>
+                    {set.item && (
+                      <span className="archive-preview-item">{set.item}</span>
+                    )}
+                    {set.ability && <span>{set.ability}</span>}
+                    <span>{set.moves.join(' · ')}</span>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
         )}
-        <PokemonLine sets={t.version.parsed_team} />
-      </button>
-      <FamilyVariants
-        omitDisplayed
-        team={t}
-        query={query}
-        year={year}
-        favourite={favourite}
-        onOpen={onVariant}
-      />
-      <div className="tags">
-        {t.tags.map((tag, j) => (
+        {onFavourite && (
           <button
-            onClick={() => onFilter('tag', tag)}
-            className={'tag tag-' + ((i + j) % 4)}
-            key={tag}
+            type="button"
+            aria-label={'Favourite ' + team.title}
+            aria-pressed={team.favourite}
+            className={
+              'star archive-star' + (team.favourite ? ' is-starred' : '')
+            }
+            onClick={onFavourite}
           >
-            {tag}
+            <Star size={16} fill={team.favourite ? 'currentColor' : 'none'} />
           </button>
-        ))}
+        )}
       </div>
-      <button
-        className="card-source"
-        onClick={() => t.source_name && onFilter('source', t.source_name)}
-      >
-        <FolderClosed size={13} />
-        {sourceLabel(t)}
-      </button>
-      <footer>
-        <span title="Historical team date">
-          <Clock3 size={13} />
-          {dateLabel(t)}
-        </span>
-        <span>
-          {t.version.version_number > 1 && (
-            <button className="version-chip" onClick={() => onHistory()}>
-              v{t.version.version_number}
-            </button>
-          )}
-          <span
-            title={'Modified ' + new Date(t.updated_at).toLocaleString('en-AU')}
-          >
-            {new Date(t.updated_at).toLocaleDateString('en-AU', {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </span>
-        </span>
-      </footer>
+      {onVariant && (
+        <FamilyVariants
+          omitDisplayed
+          team={team}
+          query={query}
+          year={year}
+          favourite={favourite}
+          onOpen={onVariant}
+        />
+      )}
     </article>
   );
 }

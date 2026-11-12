@@ -19,7 +19,6 @@ export function BulkActionDialog({
   deleteAll = false,
   collectionIds = [],
   filterSummary = '',
-  tagsOnly = false,
 }: {
   ids: string[];
   tags: string[];
@@ -30,7 +29,6 @@ export function BulkActionDialog({
   deleteAll?: boolean;
   collectionIds?: string[];
   filterSummary?: string;
-  tagsOnly?: boolean;
 }) {
   const [values, setValues] = useState<string[]>([]),
     [source, setSource] = useState(''),
@@ -192,32 +190,21 @@ export function BulkActionDialog({
           <Field label="Add tags">
             <TagEditor tags={values} suggestions={tags} onChange={setValues} />
           </Field>
-          {!tagsOnly && (
-            <>
-              {currentAccount() && <button className="text-link" type="button" onClick={() => { setSource('Self-built'); setName(currentAccount()!.name); }}>Built by me ({currentAccount()!.name})</button>}
-              <div className="field-row">
-                <Pick
-                  label="Replace source type"
-                  value={source}
-                  onChange={setSource}
-                  options={[['', 'Keep existing'], ...sourceTypes]}
-                />
-                <Field label="Source name">
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </Field>
-              </div>
-              <Field label="Set historical year">
-                <input
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  placeholder="Keep existing"
-                />
-              </Field>
-            </>
-          )}
+          {currentAccount() && <button className="text-link" type="button" onClick={() => { setSource('Self-built'); setName(currentAccount()!.name); }}>Built by me ({currentAccount()!.name})</button>}
+          <div className="field-row">
+            <Pick
+              label="Replace source type"
+              value={source}
+              onChange={setSource}
+              options={[['', 'Keep existing'], ...sourceTypes]}
+            />
+            <Field label="Source name">
+              <input value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Set historical year">
+            <input value={year} onChange={(e) => setYear(e.target.value)} placeholder="Keep existing" />
+          </Field>
         </fieldset>
       )}
       {started && (

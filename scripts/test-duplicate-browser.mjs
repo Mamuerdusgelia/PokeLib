@@ -132,7 +132,7 @@ try {
     }
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page
-      .getByRole('button', { name: 'New team', exact: true })
+      .getByRole('button', { name: 'Add team', exact: true })
       .first()
       .waitFor();
     await page.waitForTimeout(1000);

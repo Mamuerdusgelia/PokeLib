@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState, type RefObject } from 'react';
+import { useMemo, useState, type ReactNode, type RefObject } from 'react';
 import { Dex } from '@pkmn/dex';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
 import {
@@ -38,6 +38,7 @@ export function SearchFilters({
   onAdd,
   onRemove,
   onClear,
+  controls,
 }: {
   searching?: boolean;
   text: string;
@@ -48,6 +49,7 @@ export function SearchFilters({
   onAdd: (c: SearchChip) => void;
   onRemove: (i: number) => void;
   onClear: () => void;
+  controls?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const catalogs = useMemo(
@@ -190,7 +192,7 @@ export function SearchFilters({
             placeholder={
               chips.length
                 ? 'Add a Pokémon, move, or another filter…'
-                : 'Search teams, Pokémon, or add a filter…'
+                : 'Search teams, Pokémon, moves or items…'
             }
             onFocus={() => setOpen(true)}
             onKeyDown={(e) => {
@@ -230,7 +232,7 @@ export function SearchFilters({
             )}
           </ComboboxContent>
         </Combobox>
-        <button
+        {controls ?? <button
           type="button"
           className="search-filter-toggle"
           aria-label="Add search filter"
@@ -240,7 +242,7 @@ export function SearchFilters({
           }}
         >
           <SlidersHorizontal size={17} />
-        </button>
+        </button>}
         {(text || chips.length > 0) && (
           <button
             type="button"

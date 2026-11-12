@@ -181,7 +181,7 @@ export function PokemonSetEditor({
     moveIndex?: number;
     initialQuery?: string;
   } | null>(() =>
-    target && target.field !== 'stats'
+    target && target.field !== 'stats' && target.field !== 'note'
       ? { kind: target.field, moveIndex: target.moveIndex }
       : !s.species
         ? { kind: 'species' }
@@ -227,11 +227,12 @@ export function PokemonSetEditor({
     setSelection(null);
   }
   useEffect(() => {
-    if (target?.field === 'stats') {
-      const stats =
-        panel.current?.querySelector<HTMLElement>('[data-edit-stats]');
-      stats?.focus();
-      stats?.scrollIntoView({ block: 'nearest' });
+    if (target?.field === 'stats' || target?.field === 'note') {
+      const field = panel.current?.querySelector<HTMLElement>(
+        target.field === 'stats' ? '[data-edit-stats]' : 'textarea[aria-label="Set note"]',
+      );
+      field?.focus();
+      field?.scrollIntoView({ block: 'nearest' });
     }
   }, [target]);
   function field(
@@ -620,7 +621,7 @@ export function PokemonSetEditor({
           </details>
         </div>
       </div>
-      <details className="set-note-editor">
+      <details className="set-note-editor" open={target?.field === 'note' || undefined}>
         <summary>{slot.note ? 'Set note · has note' : 'Add set note'}</summary>
         <Field label="Set note">
           <textarea

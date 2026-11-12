@@ -484,14 +484,29 @@
   justify-content: flex-end;
   max-width: 420px;
 }
+.detail-toolbar,
+.detail-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.detail-toolbar {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.detail-toolbar-actions {
+  min-width: 0;
+  max-width: 100%;
+}
 .detail-tabs {
-  width: 100% !important;
-  justify-content: flex-start !important;
-  border-bottom: 1px solid #333b41;
-  padding-bottom: 12px !important;
-  margin: 7px 0 26px;
-  gap: 15px !important;
-  height: 47px !important;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 36px;
+  padding: 0;
+  gap: 8px;
 }
 .detail-tabs button {
   flex: none;
@@ -517,16 +532,28 @@
   padding: 18px;
   min-width: 0;
 }
+.set-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 18px;
+}
 .set-title {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 8px;
+  min-width: 0;
+}
+.set-identity {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .set-title img,
 .set-title .sprite-fallback {
-  height: 75px;
-  width: 75px;
+  flex: none;
+  height: 58px;
+  width: 58px;
   object-fit: contain;
   image-rendering: pixelated;
 }
@@ -556,9 +583,26 @@
   color: #9ca6af;
   font-style: italic;
 }
-.set-title > .tag {
-  margin-left: auto;
+.set-title .set-shiny {
+  display: inline-block;
+  margin-left: 5px;
   font-size: 11px;
+}
+.set-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+.set-actions .set-action {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+@media (pointer: coarse) {
+  .set-actions .set-action {
+    width: 44px;
+    height: 44px;
+  }
 }
 .set-card dl {
   display: flex;
@@ -723,6 +767,17 @@
   flex-wrap: wrap;
   margin-bottom: 20px;
 }
+.team-downloads {
+  margin-bottom: 12px;
+}
+.team-downloads summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--muted-foreground);
+}
+.team-downloads .export-actions {
+  margin: 8px 0 0;
+}
 .export-text {
   white-space: pre-wrap;
   background: #171b1f;
@@ -865,7 +920,7 @@
     flex-wrap: wrap;
   }
   .detail-tabs {
-    gap: 2px !important;
+    gap: 2px;
   }
   .detail-tabs button {
     font-size: 12px;
@@ -909,21 +964,39 @@
   }
 }
 .variant-actions {
-  margin: 16px 0 24px;
-  padding: 16px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.variant-actions p {
-  margin: 5px 0;
-  color: var(--muted-foreground);
-}
-.variant-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+.variant-name {
+  min-width: 0;
+  max-width: min(200px, 100%);
+  overflow-wrap: anywhere;
+}
+.variant-name input {
+  max-width: 100%;
+}
+.variant-description {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.variant-picker {
+  width: min(340px, var(--available-width));
+  max-height: var(--available-height);
+  overflow-y: auto;
+}
+.variant-picker .family-variants,
+.variant-picker .variant-rows {
+  margin: 0;
+}
+.variant-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .family-variants {
   margin: 8px 0;
